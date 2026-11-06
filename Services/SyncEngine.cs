@@ -36,7 +36,70 @@ namespace IntegradorFlexForce.Services
             return _syncLock.CurrentCount == 0;
         }
 
-        public async Task<SyncTransaccionDto> EjecutarSincronizacionClientesAsync(string tipoEjecucion = "AUTOMATICO", string usuario = "SYSTEM", CancellationToken ct = default)
+        // =========================================================================
+        // 1. ESCANEO / PREVISUALIZACIÓN DE CAMBIOS SIN EJECUTAR (DIAGNÓSTICO)
+        // =========================================================================
+        public async Task<SyncPreviewDto> AnalizarCambiosPendientesAsync(CancellationToken ct = default)
+        {
+            var sw = Stopwatch.StartNew();
+            var preview = new SyncPreviewDto();
+
+            var hashesLocalesCli = await ObtenerHashesLocalesAsync("CLIENTES", ct);
+            var (hashesRemotosCli, inactivosCount) = await ObtenerHashesRemotosClientesConEstadoAsync(ct);
+
+            preview.TotalClientesOrigen = hashesRemotosCli.Count;
+            preview.TotalClientesSincronizados = hashesLocalesCli.Count;
+            preview.ClientesInactivosOrigen = inactivosCount;
+
+            int nuevosCli = 0;
+            int modCli = 0;
+
+            foreach (var (idOrigen, hashRemoto) in hashesRemotosCli)
+            {
+                if (!hashesLocalesCli.TryGetValue(idOrigen, out var hashLocal))
+                    nuevosCli++;
+                else if (!hashLocal.AsSpan().SequenceEqual(hashRemoto))
+                    modCli++;
+            }
+
+            preview.ClientesNuevosDetectados = nuevosCli;
+            preview.ClientesModificadosDetectados = modCli;
+
+            // Escanear también Zonas y Rutas si la vista existe
+            try
+            {
+                var hashesLocalesZonas = await ObtenerHashesLocalesAsync("CARTERA_RUTAS", ct);
+                var hashesRemotosZonas = await ObtenerHashesRemotosZonasAsync(ct);
+
+                preview.TotalZonasRutasOrigen = hashesRemotosZonas.Count;
+                int nuevasZonas = 0;
+                int modZonas = 0;
+
+                foreach (var (idDir, hashRemoto) in hashesRemotosZonas)
+                {
+                    if (!hashesLocalesZonas.TryGetValue(idDir, out var hashLocal))
+                        nuevasZonas++;
+                    else if (!hashLocal.AsSpan().SequenceEqual(hashRemoto))
+                        modZonas++;
+                }
+
+                preview.ZonasRutasNuevasDetectadas = nuevasZonas;
+                preview.ZonasRutasModificadasDetectadas = modZonas;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Vista vw_Sync_Cartera_Rutas_Zonas aún no disponible o sin acceso.");
+            }
+
+            sw.Stop();
+            preview.TiempoEscaneoSegundos = Math.Round(sw.Elapsed.TotalSeconds, 2);
+            return preview;
+        }
+
+        // =========================================================================
+        // 2. SINCRONIZACIÓN DE CLIENTES Y DIRECCIONES
+        // =========================================================================
+        public async Task<SyncTransaccionDto> EjecutarSincronizacionClientesAsync(string tipoEjecucion = "MANUAL", string usuario = "PORTAL_WEB", bool incluirZonas = false, CancellationToken ct = default)
         {
             if (!await _syncLock.WaitAsync(0, ct))
             {
@@ -48,11 +111,14 @@ namespace IntegradorFlexForce.Services
             var swTotal = Stopwatch.StartNew();
             _currentStatus.IsRunning = true;
             _currentStatus.EstadoActual = "ESCANEANDO_HUELLAS";
+            _currentStatus.FaseDetalle = "Comparando huellas SHA-256 (Clientes y Direcciones)...";
+            _currentStatus.ProgresoActual = 0;
+            _currentStatus.ProgresoTotal = 0;
 
             var transaccion = new SyncTransaccionDto
             {
                 LoteId = loteId,
-                Entidad = "CLIENTES",
+                Entidad = incluirZonas ? "CLIENTES + ZONAS" : "CLIENTES",
                 TipoEjecucion = tipoEjecucion,
                 FechaInicio = DateTime.Now,
                 Estado = "EN_PROCESO",
@@ -63,9 +129,6 @@ namespace IntegradorFlexForce.Services
             {
                 await RegistrarInicioLoteAsync(transaccion, ct);
 
-                // -------------------------------------------------------------
-                // 1. CARGAR CONFIGURACIÓN VIGENTE DE BDForceGVD
-                // -------------------------------------------------------------
                 var config = await CargarConfiguracionAsync(ct);
                 _currentStatus.SincronizacionActiva = config.SincronizacionActiva;
                 _currentStatus.IntervaloMinutos = config.IntervaloMinutos;
@@ -73,24 +136,17 @@ namespace IntegradorFlexForce.Services
 
                 if (tipoEjecucion == "AUTOMATICO" && !config.SincronizacionActiva)
                 {
-                    _logger.LogInformation("Sincronización automática pausada en la configuración.");
                     transaccion.Estado = "PAUSADO";
                     await RegistrarFinLoteAsync(transaccion, ct);
                     return transaccion;
                 }
 
-                // -------------------------------------------------------------
-                // 2. LEER HASHES LOCALES (BDForceGVD) Y REMOTOS (ERP Antiguo)
-                // -------------------------------------------------------------
-                var hashesLocales = await ObtenerHashesLocalesAsync(ct);
-                var hashesRemotos = await ObtenerHashesRemotosAsync(ct);
+                // Leer Hashes Locales y Remotos
+                var hashesLocales = await ObtenerHashesLocalesAsync("CLIENTES", ct);
+                var (hashesRemotos, inactivosTotal) = await ObtenerHashesRemotosClientesConEstadoAsync(ct);
 
                 transaccion.TotalEscaneados = hashesRemotos.Count;
-                _logger.LogInformation("Hashes escaneados: {Total} en ERP Antiguo vs {Locales} en Force.", hashesRemotos.Count, hashesLocales.Count);
 
-                // -------------------------------------------------------------
-                // 3. DETECTAR DELTA (NUEVOS O MODIFICADOS)
-                // -------------------------------------------------------------
                 var idsNuevos = new List<int>();
                 var idsModificados = new List<int>();
 
@@ -110,58 +166,64 @@ namespace IntegradorFlexForce.Services
                 transaccion.TotalModificados = idsModificados.Count;
                 var totalACambiar = idsNuevos.Count + idsModificados.Count;
 
-                _logger.LogInformation("Delta detectado: {Nuevos} Nuevos, {Modificados} Modificados (Total: {Total})", 
+                _currentStatus.UltimoLoteNuevos = idsNuevos.Count;
+                _currentStatus.UltimoLoteModificados = idsModificados.Count;
+                _currentStatus.ProgresoTotal = totalACambiar;
+
+                _logger.LogInformation("Delta Clientes detectado: {Nuevos} Nuevos, {Modificados} Modificados (Total: {Total})", 
                     idsNuevos.Count, idsModificados.Count, totalACambiar);
 
-                if (totalACambiar == 0)
-                {
-                    transaccion.Estado = "EXITOSO";
-                    swTotal.Stop();
-                    transaccion.DuracionSegundos = (decimal)swTotal.Elapsed.TotalSeconds;
-                    await RegistrarFinLoteAsync(transaccion, ct);
-
-                    _currentStatus.EstadoActual = "SIN_CAMBIOS";
-                    _currentStatus.UltimaEjecucion = DateTime.Now;
-                    _currentStatus.UltimaDuracionSegundos = swTotal.Elapsed.TotalSeconds;
-                    return transaccion;
-                }
-
-                // -------------------------------------------------------------
-                // 4. EXTRAER DETALLE EN LOTES CONFIGURABLES (Default: 500)
-                // -------------------------------------------------------------
-                _currentStatus.EstadoActual = "PROCESANDO_LOTES";
-                var idsPendientes = idsNuevos.Concat(idsModificados).ToList();
-                int batchSize = config.TamanoLote > 0 ? config.TamanoLote : 500;
                 int erroresCount = 0;
+                int desactivadosProcesados = 0;
 
-                for (int i = 0; i < idsPendientes.Count; i += batchSize)
+                if (totalACambiar > 0)
                 {
-                    ct.ThrowIfCancellationRequested();
-                    var loteIds = idsPendientes.Skip(i).Take(batchSize).ToList();
+                    _currentStatus.EstadoActual = "PROCESANDO_CLIENTES";
+                    var idsPendientes = idsNuevos.Concat(idsModificados).ToList();
+                    int batchSize = config.TamanoLote > 0 ? config.TamanoLote : 500;
 
-                    var clientesDetalle = await ObtenerDetalleClientesAsync(loteIds, ct);
-
-                    // ---------------------------------------------------------
-                    // 5. UPSERT INDIVIDUAL CON MANEJO DE ERRORES RESILIENTE
-                    // (Un cliente con error NO detiene los otros 229,999)
-                    // ---------------------------------------------------------
-                    foreach (var cliente in clientesDetalle)
+                    for (int i = 0; i < idsPendientes.Count; i += batchSize)
                     {
-                        try
+                        ct.ThrowIfCancellationRequested();
+                        var loteIds = idsPendientes.Skip(i).Take(batchSize).ToList();
+                        _currentStatus.FaseDetalle = $"Sincronizando Clientes y Direcciones: {Math.Min(i + batchSize, idsPendientes.Count):N0} de {idsPendientes.Count:N0}";
+
+                        var clientesDetalle = await ObtenerDetalleClientesAsync(loteIds, ct);
+
+                        foreach (var cliente in clientesDetalle)
                         {
-                            var idGenerado = await EjecutarUpsertClienteAsync(cliente, ct);
-                            await ActualizarControlHashAsync(cliente.ID_Cliente, cliente.CodigoCliente, hashesRemotos[cliente.ID_Cliente], idGenerado, ct);
-                        }
-                        catch (Exception exCliente)
-                        {
-                            erroresCount++;
-                            _logger.LogError(exCliente, "Error procesando cliente ID={ID}, Codigo={Codigo}", cliente.ID_Cliente, cliente.CodigoCliente);
-                            await RegistrarLogAsync(loteId, "CLIENTES", "ERROR", cliente.ID_Cliente, cliente.CodigoCliente, 
-                                $"Fallo al sincronizar cliente: {exCliente.Message}", exCliente.ToString(), ct);
+                            try
+                            {
+                                if (!cliente.EstadoCliente) desactivadosProcesados++;
+                                var idGenerado = await EjecutarUpsertClienteAsync(cliente, ct);
+                                await ActualizarControlHashAsync("CLIENTES", cliente.ID_Cliente, cliente.CodigoCliente, hashesRemotos[cliente.ID_Cliente], idGenerado, ct);
+                            }
+                            catch (Exception exCliente)
+                            {
+                                erroresCount++;
+                                _logger.LogError(exCliente, "Error procesando cliente ID={ID}, Codigo={Codigo}", cliente.ID_Cliente, cliente.CodigoCliente);
+                                await RegistrarLogAsync(loteId, "CLIENTES", "ERROR", cliente.ID_Cliente, cliente.CodigoCliente, 
+                                    $"Fallo al sincronizar cliente: {exCliente.Message}", exCliente.ToString(), ct);
+                            }
+                            finally
+                            {
+                                _currentStatus.ProgresoActual++;
+                            }
                         }
                     }
+                }
 
-                    _logger.LogInformation("Lote completado: {Progreso}/{Total}", Math.Min(i + batchSize, idsPendientes.Count), idsPendientes.Count);
+                _currentStatus.UltimoLoteDesactivados = desactivadosProcesados;
+
+                // -------------------------------------------------------------
+                // OPCIONAL: SINCRONIZAR CARTERA DE ZONAS Y RUTAS EN EL MISMO FLUJO
+                // -------------------------------------------------------------
+                int zonasActualizadas = 0;
+                if (incluirZonas)
+                {
+                    var (zonasCambios, zonasErrores) = await ProcesarZonasInternoAsync(loteId, config.TamanoLote, ct);
+                    zonasActualizadas = zonasCambios;
+                    erroresCount += zonasErrores;
                 }
 
                 swTotal.Stop();
@@ -172,24 +234,25 @@ namespace IntegradorFlexForce.Services
                 await RegistrarFinLoteAsync(transaccion, ct);
 
                 _currentStatus.UltimaEjecucion = DateTime.Now;
-                _currentStatus.UltimoLoteProcesados = totalACambiar;
-                _currentStatus.UltimoLoteNuevos = idsNuevos.Count;
-                _currentStatus.UltimoLoteModificados = idsModificados.Count;
+                _currentStatus.UltimoLoteProcesados = totalACambiar + zonasActualizadas;
+                _currentStatus.UltimoLoteZonasActualizadas = zonasActualizadas;
                 _currentStatus.UltimoLoteErrores = erroresCount;
-                _currentStatus.UltimaDuracionSegundos = swTotal.Elapsed.TotalSeconds;
-                _currentStatus.EstadoActual = "COMPLETADO";
+                _currentStatus.UltimaDuracionSegundos = Math.Round(swTotal.Elapsed.TotalSeconds, 2);
+                _currentStatus.EstadoActual = totalACambiar == 0 && zonasActualizadas == 0 ? "SIN_CAMBIOS" : "COMPLETADO";
+                _currentStatus.FaseDetalle = $"Finalizado en {_currentStatus.UltimaDuracionSegundos}s ({idsNuevos.Count} nuevos, {idsModificados.Count} mod, {zonasActualizadas} zonas)";
 
                 return transaccion;
             }
             catch (Exception ex)
             {
-                _logger.LogCritical(ex, "Error crítico en ciclo de sincronización de clientes");
+                _logger.LogCritical(ex, "Error crítico en ciclo de sincronización");
                 transaccion.Estado = "FALLIDO";
                 swTotal.Stop();
                 transaccion.DuracionSegundos = (decimal)swTotal.Elapsed.TotalSeconds;
                 await RegistrarLogAsync(loteId, "CLIENTES", "FATAL", null, null, "Error crítico en el proceso de sincronización", ex.ToString(), ct);
                 await RegistrarFinLoteAsync(transaccion, ct);
                 _currentStatus.EstadoActual = "ERROR_CRITICO";
+                _currentStatus.FaseDetalle = $"Error crítico: {ex.Message}";
                 throw;
             }
             finally
@@ -200,17 +263,135 @@ namespace IntegradorFlexForce.Services
         }
 
         // =========================================================================
+        // 3. SINCRONIZACIÓN EXCLUSIVA DE ZONAS Y RUTAS (CARTERA)
+        // =========================================================================
+        public async Task<SyncTransaccionDto> EjecutarSincronizacionZonasAsync(string tipoEjecucion = "MANUAL", string usuario = "PORTAL_WEB", CancellationToken ct = default)
+        {
+            if (!await _syncLock.WaitAsync(0, ct))
+            {
+                return new SyncTransaccionDto { Estado = "EN_PROCESO", Usuario = usuario };
+            }
+
+            var loteId = Guid.NewGuid();
+            var swTotal = Stopwatch.StartNew();
+            _currentStatus.IsRunning = true;
+            _currentStatus.EstadoActual = "PROCESANDO_ZONAS";
+            _currentStatus.FaseDetalle = "Escaneando huellas SHA-256 de Zonas y Rutas...";
+
+            var transaccion = new SyncTransaccionDto
+            {
+                LoteId = loteId,
+                Entidad = "CARTERA_RUTAS",
+                TipoEjecucion = tipoEjecucion,
+                FechaInicio = DateTime.Now,
+                Estado = "EN_PROCESO",
+                Usuario = usuario
+            };
+
+            try
+            {
+                await RegistrarInicioLoteAsync(transaccion, ct);
+                var config = await CargarConfiguracionAsync(ct);
+
+                var (cambios, errores) = await ProcesarZonasInternoAsync(loteId, config.TamanoLote, ct);
+
+                swTotal.Stop();
+                transaccion.TotalModificados = cambios;
+                transaccion.TotalErrores = errores;
+                transaccion.DuracionSegundos = (decimal)swTotal.Elapsed.TotalSeconds;
+                transaccion.Estado = errores > 0 ? "CON_ERRORES" : "EXITOSO";
+
+                await RegistrarFinLoteAsync(transaccion, ct);
+
+                _currentStatus.UltimaEjecucion = DateTime.Now;
+                _currentStatus.UltimoLoteZonasActualizadas = cambios;
+                _currentStatus.UltimoLoteErrores = errores;
+                _currentStatus.UltimaDuracionSegundos = Math.Round(swTotal.Elapsed.TotalSeconds, 2);
+                _currentStatus.EstadoActual = "COMPLETADO";
+                _currentStatus.FaseDetalle = $"Zonas y Rutas sincronizadas ({cambios} actualizadas)";
+
+                return transaccion;
+            }
+            finally
+            {
+                _currentStatus.IsRunning = false;
+                _syncLock.Release();
+            }
+        }
+
+        private async Task<(int Procesados, int Errores)> ProcesarZonasInternoAsync(Guid loteId, int batchSize, CancellationToken ct)
+        {
+            _currentStatus.EstadoActual = "PROCESANDO_ZONAS";
+            _currentStatus.FaseDetalle = "Comparando hashes de Cartera de Zonas y Rutas...";
+
+            var hashesLocales = await ObtenerHashesLocalesAsync("CARTERA_RUTAS", ct);
+            var hashesRemotos = await ObtenerHashesRemotosZonasAsync(ct);
+
+            var idsCambiados = new List<int>();
+            foreach (var (idDir, hashRemoto) in hashesRemotos)
+            {
+                if (!hashesLocales.TryGetValue(idDir, out var hashLocal) || !hashLocal.AsSpan().SequenceEqual(hashRemoto))
+                {
+                    idsCambiados.Add(idDir);
+                }
+            }
+
+            if (idsCambiados.Count == 0)
+            {
+                return (0, 0);
+            }
+
+            _currentStatus.ProgresoActual = 0;
+            _currentStatus.ProgresoTotal = idsCambiados.Count;
+            int errores = 0;
+            int procesados = 0;
+            if (batchSize <= 0) batchSize = 500;
+
+            for (int i = 0; i < idsCambiados.Count; i += batchSize)
+            {
+                ct.ThrowIfCancellationRequested();
+                var loteIds = idsCambiados.Skip(i).Take(batchSize).ToList();
+                _currentStatus.FaseDetalle = $"Sincronizando Zonas y Rutas: {Math.Min(i + batchSize, idsCambiados.Count):N0} de {idsCambiados.Count:N0}";
+
+                var carteraDetalle = await ObtenerDetalleCarteraZonasAsync(loteIds, ct);
+
+                foreach (var item in carteraDetalle)
+                {
+                    try
+                    {
+                        await EjecutarVincularCarteraRutaAsync(item, ct);
+                        await ActualizarControlHashAsync("CARTERA_RUTAS", item.ID_Direccion, item.CodigoCliente, hashesRemotos[item.ID_Direccion], item.ID_Cliente, ct);
+                        procesados++;
+                    }
+                    catch (Exception ex)
+                    {
+                        errores++;
+                        await RegistrarLogAsync(loteId, "CARTERA_RUTAS", "ERROR", item.ID_Direccion, item.CodigoCliente,
+                            $"Error vinculando ruta/zona ({item.CodigoZonaVenta}): {ex.Message}", ex.ToString(), ct);
+                    }
+                    finally
+                    {
+                        _currentStatus.ProgresoActual++;
+                    }
+                }
+            }
+
+            return (procesados, errores);
+        }
+
+        // =========================================================================
         // CONSULTAS SQL Y ACCESO A DATOS
         // =========================================================================
 
-        private async Task<Dictionary<int, byte[]>> ObtenerHashesLocalesAsync(CancellationToken ct)
+        private async Task<Dictionary<int, byte[]>> ObtenerHashesLocalesAsync(string entidad, CancellationToken ct)
         {
             var dict = new Dictionary<int, byte[]>(250000);
             using var conn = new SqlConnection(_connectionStringForce);
             await conn.OpenAsync(ct);
 
-            const string sql = "SELECT IDOrigen, LastHash FROM dbo.sync_ControlHashes WITH (NOLOCK) WHERE Entidad = 'CLIENTES';";
+            const string sql = "SELECT IDOrigen, LastHash FROM dbo.sync_ControlHashes WITH (NOLOCK) WHERE Entidad = @Entidad;";
             using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@Entidad", entidad);
             using var reader = await cmd.ExecuteReaderAsync(ct);
 
             while (await reader.ReadAsync(ct))
@@ -220,13 +401,33 @@ namespace IntegradorFlexForce.Services
             return dict;
         }
 
-        private async Task<Dictionary<int, byte[]>> ObtenerHashesRemotosAsync(CancellationToken ct)
+        private async Task<(Dictionary<int, byte[]> Hashes, int InactivosCount)> ObtenerHashesRemotosClientesConEstadoAsync(CancellationToken ct)
         {
             var dict = new Dictionary<int, byte[]>(250000);
+            int inactivos = 0;
             using var conn = new SqlConnection(_connectionStringAntiguo);
             await conn.OpenAsync(ct);
 
-            const string sql = "SELECT ID_Cliente, RowHash FROM dbo.v_Extraccion_Clientes_Force WITH (NOLOCK);";
+            const string sql = "SELECT ID_Cliente, RowHash, EstadoCliente FROM dbo.v_Extraccion_Clientes_Force WITH (NOLOCK);";
+            using var cmd = new SqlCommand(sql, conn);
+            cmd.CommandTimeout = 180;
+            using var reader = await cmd.ExecuteReaderAsync(ct);
+
+            while (await reader.ReadAsync(ct))
+            {
+                dict[reader.GetInt32(0)] = (byte[])reader[1];
+                if (!reader.GetBoolean(2)) inactivos++;
+            }
+            return (dict, inactivos);
+        }
+
+        private async Task<Dictionary<int, byte[]>> ObtenerHashesRemotosZonasAsync(CancellationToken ct)
+        {
+            var dict = new Dictionary<int, byte[]>(100000);
+            using var conn = new SqlConnection(_connectionStringAntiguo);
+            await conn.OpenAsync(ct);
+
+            const string sql = "SELECT ID_Direccion, RowHash FROM dbo.vw_Sync_Cartera_Rutas_Zonas WITH (NOLOCK);";
             using var cmd = new SqlCommand(sql, conn);
             cmd.CommandTimeout = 180;
             using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -294,6 +495,41 @@ namespace IntegradorFlexForce.Services
             return lista;
         }
 
+        private async Task<List<CarteraRutaExtraccionDto>> ObtenerDetalleCarteraZonasAsync(List<int> idsDireccion, CancellationToken ct)
+        {
+            var lista = new List<CarteraRutaExtraccionDto>(idsDireccion.Count);
+            using var conn = new SqlConnection(_connectionStringAntiguo);
+            await conn.OpenAsync(ct);
+
+            var inClause = string.Join(",", idsDireccion);
+            var sql = $"SELECT * FROM dbo.vw_Sync_Cartera_Rutas_Zonas WITH (NOLOCK) WHERE ID_Direccion IN ({inClause});";
+
+            using var cmd = new SqlCommand(sql, conn);
+            cmd.CommandTimeout = 120;
+            using var reader = await cmd.ExecuteReaderAsync(ct);
+
+            while (await reader.ReadAsync(ct))
+            {
+                lista.Add(new CarteraRutaExtraccionDto
+                {
+                    ID_Direccion = reader.GetInt32(reader.GetOrdinal("ID_Direccion")),
+                    ID_Cliente = reader.GetInt32(reader.GetOrdinal("ID_Cliente")),
+                    CodigoCliente = reader.GetString(reader.GetOrdinal("CodigoCliente")),
+                    NombreCliente = reader.GetString(reader.GetOrdinal("NombreCliente")),
+                    CodigoVendedor = reader.IsDBNull(reader.GetOrdinal("CodigoVendedor")) ? "" : reader.GetString(reader.GetOrdinal("CodigoVendedor")),
+                    NombreVendedor = reader.IsDBNull(reader.GetOrdinal("NombreVendedor")) ? "" : reader.GetString(reader.GetOrdinal("NombreVendedor")),
+                    IDZonaVenta = reader.GetInt32(reader.GetOrdinal("IDZonaVenta")),
+                    CodigoZonaVenta = reader.GetString(reader.GetOrdinal("CodigoZonaVenta")),
+                    NombreZonaVenta = reader.IsDBNull(reader.GetOrdinal("NombreZonaVenta")) ? "" : reader.GetString(reader.GetOrdinal("NombreZonaVenta")),
+                    IDZonaReparto = reader.GetInt32(reader.GetOrdinal("IDZonaReparto")),
+                    CodigoZonaReparto = reader.IsDBNull(reader.GetOrdinal("CodigoZonaReparto")) ? "" : reader.GetString(reader.GetOrdinal("CodigoZonaReparto")),
+                    CodigoRuta = reader.IsDBNull(reader.GetOrdinal("CodigoRuta")) ? "" : reader.GetString(reader.GetOrdinal("CodigoRuta")),
+                    DiaDeSemana = reader.GetInt32(reader.GetOrdinal("DiaDeSemana"))
+                });
+            }
+            return lista;
+        }
+
         private async Task<int> EjecutarUpsertClienteAsync(ClienteExtraccionDto c, CancellationToken ct)
         {
             using var conn = new SqlConnection(_connectionStringForce);
@@ -348,22 +584,47 @@ namespace IntegradorFlexForce.Services
             return (int)paramOut.Value;
         }
 
-        private async Task ActualizarControlHashAsync(int idOrigen, string codigo, byte[] newHash, int idDestino, CancellationToken ct)
+        private async Task EjecutarVincularCarteraRutaAsync(CarteraRutaExtraccionDto r, CancellationToken ct)
+        {
+            using var conn = new SqlConnection(_connectionStringForce);
+            await conn.OpenAsync(ct);
+
+            using var cmd = new SqlCommand("dbo.usp_Sync_VincularCarteraRuta", conn);
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandTimeout = 60;
+
+            cmd.Parameters.AddWithValue("@ID_Cliente_Origen", r.ID_Cliente);
+            cmd.Parameters.AddWithValue("@ID_Direccion_Origen", r.ID_Direccion);
+            cmd.Parameters.AddWithValue("@CodigoZonaVenta", r.CodigoZonaVenta);
+            cmd.Parameters.AddWithValue("@NombreZonaVenta", r.NombreZonaVenta);
+            cmd.Parameters.AddWithValue("@CodigoZonaReparto", (object?)r.CodigoZonaReparto ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@CodigoRuta", r.CodigoRuta);
+            cmd.Parameters.AddWithValue("@CodigoVendedor", r.CodigoVendedor);
+            cmd.Parameters.AddWithValue("@NombreVendedor", r.NombreVendedor);
+            cmd.Parameters.AddWithValue("@DiaDeSemana", r.DiaDeSemana);
+            cmd.Parameters.AddWithValue("@OrdenVisita", 1);
+            cmd.Parameters.AddWithValue("@Estado", true);
+
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        private async Task ActualizarControlHashAsync(string entidad, int idOrigen, string codigo, byte[] newHash, int idDestino, CancellationToken ct)
         {
             using var conn = new SqlConnection(_connectionStringForce);
             await conn.OpenAsync(ct);
 
             const string sql = @"
                 MERGE dbo.sync_ControlHashes AS target
-                USING (SELECT 'CLIENTES' AS Entidad, @IDOrigen AS IDOrigen) AS source
+                USING (SELECT @Entidad AS Entidad, @IDOrigen AS IDOrigen) AS source
                 ON (target.Entidad = source.Entidad AND target.IDOrigen = source.IDOrigen)
                 WHEN MATCHED THEN
                     UPDATE SET LastHash = @NewHash, IDDestino = @IDDestino, FechaSincronizacion = GETDATE(), EstadoSync = 'SINCRONIZADO', UltimoError = NULL
                 WHEN NOT MATCHED THEN
                     INSERT (Entidad, IDOrigen, Codigo, LastHash, IDDestino, FechaSincronizacion, EstadoSync)
-                    VALUES ('CLIENTES', @IDOrigen, @Codigo, @NewHash, @IDDestino, GETDATE(), 'SINCRONIZADO');";
+                    VALUES (@Entidad, @IDOrigen, @Codigo, @NewHash, @IDDestino, GETDATE(), 'SINCRONIZADO');";
 
             using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@Entidad", entidad);
             cmd.Parameters.AddWithValue("@IDOrigen", idOrigen);
             cmd.Parameters.AddWithValue("@Codigo", codigo);
             cmd.Parameters.AddWithValue("@NewHash", newHash);

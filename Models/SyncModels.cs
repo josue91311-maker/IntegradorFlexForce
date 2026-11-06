@@ -6,18 +6,39 @@ namespace IntegradorFlexForce.Models
     public class SyncStatusDto
     {
         public bool IsRunning { get; set; }
-        public string EstadoActual { get; set; } = "EN_ESPERA"; // EN_ESPERA, ESCANEANDO, PROCESANDO_LOTES
+        public string EstadoActual { get; set; } = "EN_ESPERA"; // EN_ESPERA, ESCANEANDO, PROCESANDO_CLIENTES, PROCESANDO_ZONAS
+        public string FaseDetalle { get; set; } = "Listo para operar en modo manual";
+        public int ProgresoActual { get; set; }
+        public int ProgresoTotal { get; set; }
+        public double Porcentaje => ProgresoTotal > 0 ? Math.Round((double)ProgresoActual / ProgresoTotal * 100, 1) : 0;
+
         public DateTime? UltimaEjecucion { get; set; }
         public int TotalRegistrosDestino { get; set; }
         public int TotalConError { get; set; }
         public int UltimoLoteProcesados { get; set; }
         public int UltimoLoteNuevos { get; set; }
         public int UltimoLoteModificados { get; set; }
+        public int UltimoLoteDesactivados { get; set; }
+        public int UltimoLoteZonasActualizadas { get; set; }
         public int UltimoLoteErrores { get; set; }
         public double UltimaDuracionSegundos { get; set; }
         public bool SincronizacionActiva { get; set; }
         public int IntervaloMinutos { get; set; }
         public string VentanaHoraria { get; set; } = "05:00 - 23:30";
+    }
+
+    public class SyncPreviewDto
+    {
+        public DateTime FechaAnalisis { get; set; } = DateTime.Now;
+        public double TiempoEscaneoSegundos { get; set; }
+        public int TotalClientesOrigen { get; set; }
+        public int TotalClientesSincronizados { get; set; }
+        public int ClientesNuevosDetectados { get; set; }
+        public int ClientesModificadosDetectados { get; set; }
+        public int ClientesInactivosOrigen { get; set; }
+        public int TotalZonasRutasOrigen { get; set; }
+        public int ZonasRutasNuevasDetectadas { get; set; }
+        public int ZonasRutasModificadasDetectadas { get; set; }
     }
 
     public class SyncConfigDto
@@ -96,5 +117,22 @@ namespace IntegradorFlexForce.Models
         public decimal Latitud { get; set; }
         public decimal Longitud { get; set; }
         public bool EstadoDireccion { get; set; }
+    }
+
+    public class CarteraRutaExtraccionDto
+    {
+        public int ID_Direccion { get; set; }
+        public int ID_Cliente { get; set; }
+        public string CodigoCliente { get; set; } = "";
+        public string NombreCliente { get; set; } = "";
+        public string CodigoVendedor { get; set; } = "";
+        public string NombreVendedor { get; set; } = "";
+        public int IDZonaVenta { get; set; }
+        public string CodigoZonaVenta { get; set; } = "";
+        public string NombreZonaVenta { get; set; } = "";
+        public int IDZonaReparto { get; set; }
+        public string CodigoZonaReparto { get; set; } = "";
+        public string CodigoRuta { get; set; } = "";
+        public int DiaDeSemana { get; set; } = 1;
     }
 }

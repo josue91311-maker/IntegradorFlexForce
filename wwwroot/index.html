@@ -1,435 +1,645 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Portal de Integración — FlexForce</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg: #0f172a;
-      --card: #1e293b;
-      --card-border: #334155;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --primary: #3b82f6;
-      --primary-hover: #2563eb;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --surface: #0b1120;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
-    body { background-color: var(--bg); color: var(--text); min-height: 100vh; padding: 24px; }
-    .container { max-width: 1300px; margin: 0 auto; }
-    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--card-border); }
-    .logo-area { display: flex; align-items: center; gap: 14px; }
-    .logo-badge { background: linear-gradient(135deg, #2563eb, #3b82f6); color: white; padding: 8px 14px; border-radius: 10px; font-weight: 700; font-size: 18px; letter-spacing: 0.5px; }
-    .header-title h1 { font-size: 20px; font-weight: 700; }
-    .header-title p { font-size: 13px; color: var(--text-muted); }
-    .actions { display: flex; gap: 12px; align-items: center; }
-    button { cursor: pointer; border: none; font-weight: 600; border-radius: 8px; padding: 9px 18px; transition: all 0.2s; font-size: 13px; }
-    .btn-primary { background-color: var(--primary); color: white; display: flex; align-items: center; gap: 8px; }
-    .btn-primary:hover { background-color: var(--primary-hover); }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-secondary { background-color: var(--card); color: var(--text); border: 1px solid var(--card-border); }
-    .btn-secondary:hover { background-color: #273549; }
-    .pulse-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-    .dot-green { background-color: var(--success); box-shadow: 0 0 10px var(--success); }
-    .dot-blue { background-color: var(--primary); box-shadow: 0 0 10px var(--primary); animation: pulse 1.5s infinite; }
-    .dot-red { background-color: var(--danger); box-shadow: 0 0 10px var(--danger); }
-    @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
-    .status-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background-color: var(--surface); border: 1px solid var(--card-border); }
-    
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
-    .stat-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 18px; }
-    .stat-card h3 { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }
-    .stat-card .val { font-size: 26px; font-weight: 700; color: var(--text); }
-    .stat-card .sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integrador FlexForce — Portal de Control On-Premise</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --bg-card-hover: #26354d;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --purple: #8b5cf6;
+        }
 
-    .nav-tabs { display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid var(--card-border); padding-bottom: 10px; }
-    .tab-btn { background: transparent; color: var(--text-muted); padding: 8px 16px; border-radius: 8px; }
-    .tab-btn.active { background: var(--card); color: var(--text); border: 1px solid var(--card-border); font-weight: 600; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 20px;
+        }
 
-    .card-panel { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 22px; margin-bottom: 24px; }
-    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .panel-title { font-size: 16px; font-weight: 600; }
+        .container { max-width: 1400px; margin: 0 auto; }
 
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { text-align: left; padding: 12px 14px; background: var(--surface); color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--card-border); }
-    td { padding: 12px 14px; border-bottom: 1px solid var(--card-border); }
-    tr:hover { background-color: rgba(255, 255, 255, 0.02); }
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            background: var(--bg-card);
+            padding: 20px 25px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+        .brand h1 { font-size: 1.4rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 10px; }
+        .brand p { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
 
-    .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; display: inline-block; }
-    .badge-success { background: rgba(16, 185, 129, 0.15); color: #34d399; }
-    .badge-error { background: rgba(239, 68, 68, 0.15); color: #f87171; }
-    .badge-info { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
-    .badge-warn { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+        .action-bar { display: flex; gap: 10px; flex-wrap: wrap; }
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-weight: 600;
+            font-size: 0.88rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            color: #fff;
+        }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-scan { background: #475569; border: 1px solid #64748b; }
+        .btn-scan:hover:not(:disabled) { background: #64748b; }
+        .btn-primary { background: var(--primary); }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+        .btn-purple { background: var(--purple); }
+        .btn-purple:hover:not(:disabled) { background: #7c3aed; }
+        .btn-success { background: var(--success); }
+        .btn-success:hover:not(:disabled) { background: #059669; }
 
-    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-    .form-group { display: flex; flex-direction: column; gap: 8px; }
-    .form-group label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
-    .form-group input, .form-group select { background: var(--surface); border: 1px solid var(--card-border); color: var(--text); padding: 10px 14px; border-radius: 8px; font-size: 14px; }
-    .form-group input:focus, .form-group select:focus { border-color: var(--primary); outline: none; }
+        /* Live Progress Banner */
+        .progress-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px 22px;
+            margin-bottom: 20px;
+        }
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .status-pill {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .status-idle { background: rgba(148,163,184,0.2); color: #cbd5e1; }
+        .status-running { background: rgba(59,130,246,0.25); color: #60a5fa; animation: pulse 1.5s infinite; }
+        .status-ok { background: rgba(16,185,129,0.2); color: #34d399; }
+        .status-err { background: rgba(239,68,68,0.2); color: #f87171; }
 
-    /* Modal */
-    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 100; }
-    .modal { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; width: 90%; max-width: 700px; max-height: 85vh; display: flex; flex-direction: column; }
-    .modal-header { padding: 18px 22px; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; }
-    .modal-body { padding: 22px; overflow-y: auto; font-size: 13px; }
-    .code-box { background: var(--surface); padding: 14px; border-radius: 8px; border: 1px solid var(--card-border); font-family: monospace; white-space: pre-wrap; font-size: 12px; line-height: 1.5; color: #e2e8f0; }
-  </style>
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 12px;
+            background: #0f172a;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #10b981);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Detector / Preview Cards */
+        .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 22px;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 18px;
+        }
+        .stat-card .label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-card .value { font-size: 1.75rem; font-weight: 700; margin-top: 6px; }
+        .stat-card .sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
+
+        .val-blue { color: #60a5fa; }
+        .val-green { color: #34d399; }
+        .val-amber { color: #fbbf24; }
+        .val-red { color: #f87171; }
+        .val-purple { color: #c084fc; }
+
+        /* Layout 2 columns */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 1024px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .panel h2 {
+            font-size: 1.05rem;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 0.83rem; color: var(--text-muted); margin-bottom: 5px; }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 9px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: #0f172a;
+            color: #fff;
+            font-size: 0.9rem;
+        }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: #0f172a;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 14px;
+        }
+
+        /* Tables */
+        .table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th { background: #162032; color: var(--text-muted); position: sticky; top: 0; font-weight: 600; }
+        tr:hover { background: var(--bg-card-hover); }
+
+        .badge {
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .badge-success { background: rgba(16,185,129,0.2); color: #34d399; }
+        .badge-warn { background: rgba(245,158,11,0.2); color: #fbbf24; }
+        .badge-error { background: rgba(239,68,68,0.2); color: #f87171; }
+        .badge-info { background: rgba(59,130,246,0.2); color: #60a5fa; }
+
+        /* Modal */
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 999;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            max-width: 850px;
+            width: 100%;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            font-family: Consolas, monospace;
+            font-size: 0.82rem;
+            white-space: pre-wrap;
+            background: #0b1120;
+            color: #f87171;
+            margin: 15px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
+
+<div class="container">
+    <!-- HEADER -->
     <header>
-      <div class="logo-area">
-        <div class="logo-badge">FF</div>
-        <div class="header-title">
-          <h1>Integrador FlexForce — Módulo Clientes</h1>
-          <p>Sincronizador Incremental ERP Antiguo (digalimenta41) ➔ Force ERP (BDForceGVD)</p>
+        <div class="brand">
+            <h1>⚡ Integrador FlexForce — Módulo Clientes, Direcciones y Zonas</h1>
+            <p>ERP Antiguo (192.168.2.16 / digalimenta41) ➔ Force Distribución ERP (192.168.2.93 / BDForceGVD)</p>
         </div>
-      </div>
-      <div class="actions">
-        <div class="status-badge" id="liveBadge">
-          <span class="pulse-dot dot-green" id="pulseDot"></span>
-          <span id="txtStatus">Conectado (En Espera)</span>
+        <div class="action-bar">
+            <button id="btnScan" class="btn-scan" onclick="escanearCambios()">🔍 Detectar Cambios Pendientes</button>
+            <button id="btnSyncClientes" class="btn-primary" onclick="dispararSync('clientes')">👤 Sincronizar Clientes y Direcciones</button>
+            <button id="btnSyncZonas" class="btn-purple" onclick="dispararSync('zonas')">🗺️ Sincronizar Zonas y Rutas</button>
+            <button id="btnSyncTodo" class="btn-success" onclick="dispararSync('todo')">🚀 Sincronizar Todo</button>
         </div>
-        <button class="btn-secondary" onclick="cargarTodo()">Actualizar</button>
-        <button class="btn-primary" id="btnSyncNow" onclick="sincronizarAhora()">
-          <span id="btnSyncSpinner" style="display:none;">⏳</span>
-          Sincronizar Clientes Ahora
-        </button>
-      </div>
     </header>
 
-    <!-- METRICAS EN TIEMPO REAL -->
+    <!-- BARRA DE PROGRESO EN VIVO -->
+    <div class="progress-panel">
+        <div class="progress-header">
+            <div>
+                <strong id="lblFaseDetalle">Listo para operar en modo manual</strong>
+                <span id="lblUltimaEjecucion" style="color:var(--text-muted); font-size:0.82rem; margin-left:12px;"></span>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <span id="lblProgresoNumeros" style="font-size:0.85rem; color:var(--text-muted);">0 / 0 (0%)</span>
+                <span id="badgeEstado" class="status-pill status-idle">EN ESPERA</span>
+            </div>
+        </div>
+        <div class="progress-bar-bg">
+            <div id="progressBar" class="progress-bar-fill"></div>
+        </div>
+    </div>
+
+    <!-- DETECTOR DE CAMBIOS PENDIENTES (PREVISUALIZACIÓN) -->
+    <div class="section-title">
+        <span>📊 RADAR DE CAMBIOS DETECTADOS EN ERP ANTIGUO (Huella SHA-256)</span>
+        <span id="lblTiempoEscaneo" style="font-size:0.8rem;">Haz clic en "Detectar Cambios Pendientes" para analizar</span>
+    </div>
     <div class="stats-grid">
-      <div class="stat-card">
-        <h3>Escaneo ERP Antiguo</h3>
-        <div class="val" id="statEscaneados">230,000+</div>
-        <div class="sub">Filas analizadas con RowHash</div>
-      </div>
-      <div class="stat-card">
-        <h3>Último Lote Procesado</h3>
-        <div class="val" id="statLoteModificados">0</div>
-        <div class="sub" id="statLoteDetalle">0 Nuevos / 0 Modificados</div>
-      </div>
-      <div class="stat-card">
-        <h3>Duración de Escaneo</h3>
-        <div class="val" id="statDuracion">~1.5s</div>
-        <div class="sub" id="statUltimaHora">Sin ejecuciones recientes</div>
-      </div>
-      <div class="stat-card">
-        <h3>Frecuencia Programada</h3>
-        <div class="val" id="statFrecuencia">Cada 3 min</div>
-        <div class="sub" id="statVentana">Ventana: 05:00 - 23:30</div>
-      </div>
+        <div class="stat-card">
+            <div class="label">Total Clientes ERP Antiguo</div>
+            <div id="stTotalOrigen" class="value val-blue">-</div>
+            <div id="stSincronizados" class="sub">Sincronizados en Force: -</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Clientes Nuevos Detectados</div>
+            <div id="stNuevosDetectados" class="value val-green">-</div>
+            <div class="sub">Pendientes de insertar en Force</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Clientes / Direcciones Modificados</div>
+            <div id="stModificadosDetectados" class="value val-amber">-</div>
+            <div class="sub">Cambio de dirección, nombre o estado</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Clientes Inactivos / Desactivados</div>
+            <div id="stInactivosOrigen" class="value val-red">-</div>
+            <div class="sub">Con Estado Activo = 0 en ERP viejo</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Cambios en Zonas y Rutas</div>
+            <div id="stZonasPendientes" class="value val-purple">-</div>
+            <div id="stZonasTotal" class="sub">Cartera total activa: -</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Resultado Última Corrida</div>
+            <div id="stUltimoResultado" class="value" style="font-size:1.3rem;">0 proc / 0 err</div>
+            <div id="stUltimaDuracion" class="sub">Duración: 0.0s</div>
+        </div>
     </div>
 
-    <!-- PESTAÑAS -->
-    <div class="nav-tabs">
-      <button class="tab-btn active" onclick="switchTab('tabLotes', this)">Historial de Lotes</button>
-      <button class="tab-btn" onclick="switchTab('tabConfig', this)">Configuración & Horarios</button>
-      <button class="tab-btn" onclick="switchTab('tabLogs', this)">Auditoría de Logs</button>
+    <!-- CONFIGURACIÓN Y LOTES -->
+    <div class="main-grid">
+        <!-- Panel Configuración -->
+        <div class="panel">
+            <h2>⚙️ Control de Ejecución</h2>
+            <div class="toggle-row">
+                <div>
+                    <div style="font-weight:600; font-size:0.9rem;">Sincronización Automática</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted);">Desactivado = 100% Manual</div>
+                </div>
+                <input type="checkbox" id="chkActiva" style="width:20px; height:20px; cursor:pointer;">
+            </div>
+            <div class="form-group">
+                <label>Intervalo Automático (Minutos)</label>
+                <input type="number" id="txtIntervalo" min="1" max="1440" value="3">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div class="form-group">
+                    <label>Hora Inicio Ventana</label>
+                    <input type="time" id="txtHoraInicio" value="05:00">
+                </div>
+                <div class="form-group">
+                    <label>Hora Fin Ventana</label>
+                    <input type="time" id="txtHoraFin" value="23:30">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Tamaño de Lote (Registros por bloque)</label>
+                <input type="number" id="txtTamanoLote" min="50" max="5000" value="500">
+            </div>
+            <button class="btn-primary" style="width:100%; justify-content:center; margin-top:6px;" onclick="guardarConfig()">
+                💾 Guardar Configuración
+            </button>
+        </div>
+
+        <!-- Historial de Lotes -->
+        <div class="panel">
+            <h2>
+                <span>📦 Historial de Ejecuciones y Lotes</span>
+                <button class="btn-scan" style="padding:5px 10px; font-size:0.78rem;" onclick="cargarLotes()">🔄 Actualizar</button>
+            </h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Entidad</th>
+                            <th>Modo</th>
+                            <th>Inicio</th>
+                            <th>Duración</th>
+                            <th>Escaneados</th>
+                            <th>Nuevos</th>
+                            <th>Modificados</th>
+                            <th>Errores</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblLotes">
+                        <tr><td colspan="10" style="text-align:center; color:var(--text-muted);">Cargando historial...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
-    <!-- TAB 1: HISTORIAL DE LOTES -->
-    <div id="tabLotes" class="card-panel">
-      <div class="panel-header">
-        <div class="panel-title">Lotes y Transacciones de Sincronización Recientes</div>
-        <span style="font-size:12px; color:var(--text-muted);">Tabla: sync_TransaccionLote</span>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Tipo</th>
-            <th>Fecha Inicio</th>
-            <th>Duración</th>
-            <th>Escaneados</th>
-            <th>Nuevos</th>
-            <th>Modificados</th>
-            <th>Errores</th>
-            <th>Estado</th>
-            <th>Usuario</th>
-          </tr>
-        </thead>
-        <tbody id="tbodyBatches">
-          <tr><td colspan="10" style="text-align:center; color:var(--text-muted);">Cargando registros...</td></tr>
-        </tbody>
-      </table>
+    <!-- AUDITORÍA DE LOGS Y ERRORES DETALLADOS -->
+    <div class="panel">
+        <h2>
+            <span>🛠️ Bitácora de Auditoría y Errores Técnicos (Non-Blocking)</span>
+            <div style="display:flex; gap:10px;">
+                <input type="text" id="txtBuscarLog" placeholder="Buscar código o ID cliente..." oninput="filtrarLogsLocal()" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border-color); background:#0f172a; color:#fff; font-size:0.82rem;">
+                <select id="selNivelLog" onchange="cargarLogs()" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border-color); background:#0f172a; color:#fff; font-size:0.82rem;">
+                    <option value="">Todos los niveles</option>
+                    <option value="ERROR">Solo ERRORES</option>
+                    <option value="FATAL">Solo FATALES</option>
+                    <option value="INFO">INFO</option>
+                </select>
+                <button class="btn-scan" style="padding:6px 12px; font-size:0.8rem;" onclick="cargarLogs()">🔄 Refrescar</button>
+            </div>
+        </h2>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Entidad</th>
+                        <th>Nivel</th>
+                        <th>ID Origen (PKID)</th>
+                        <th>Código Cliente</th>
+                        <th>Mensaje</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="tblLogs">
+                    <tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Sin registros de error recientes.</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
+</div>
 
-    <!-- TAB 2: CONFIGURACIÓN -->
-    <div id="tabConfig" class="card-panel" style="display:none;">
-      <div class="panel-header">
-        <div class="panel-title">Configuración Dinámica de Sincronización</div>
-        <span style="font-size:12px; color:var(--text-muted);">Almacenado en BDForceGVD (sync_Configuracion)</span>
-      </div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Estado del Sincronizador Automático</label>
-          <select id="cfgActiva">
-            <option value="true">Activo (Ejecución en segundo plano)</option>
-            <option value="false">Pausado (Solo ejecución manual)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Intervalo de Escaneo (Minutos)</label>
-          <input type="number" id="cfgIntervalo" min="1" max="1440" value="3">
-        </div>
-        <div class="form-group">
-          <label>Hora Inicio de Ventana</label>
-          <input type="time" id="cfgHoraInicio" value="05:00">
-        </div>
-        <div class="form-group">
-          <label>Hora Fin de Ventana</label>
-          <input type="time" id="cfgHoraFin" value="23:30">
-        </div>
-        <div class="form-group">
-          <label>Tamaño de Lote (Registros por transacción)</label>
-          <input type="number" id="cfgLote" min="50" max="2000" value="500">
-        </div>
-        <div class="form-group">
-          <label>Reintentos Máximos por Error</label>
-          <input type="number" id="cfgReintentos" min="1" max="10" value="3">
-        </div>
-      </div>
-      <div style="margin-top:24px; display:flex; justify-content:flex-end;">
-        <button class="btn-primary" onclick="guardarConfiguracion()">Guardar Cambios en Force ERP</button>
-      </div>
-    </div>
-
-    <!-- TAB 3: AUDITORIA DE LOGS -->
-    <div id="tabLogs" class="card-panel" style="display:none;">
-      <div class="panel-header">
-        <div class="panel-title">Auditoría Detallada de Eventos y Errores</div>
-        <div style="display:flex; gap:10px;">
-          <select id="filtroNivelLog" onchange="cargarLogs()" style="background:var(--surface); color:var(--text); border:1px solid var(--card-border); padding:6px 12px; border-radius:6px; font-size:12px;">
-            <option value="">Todos los niveles</option>
-            <option value="ERROR">Solo Errores</option>
-            <option value="WARN">Advertencias</option>
-            <option value="INFO">Información</option>
-          </select>
-          <button class="btn-secondary" onclick="cargarLogs()">Recargar Logs</button>
-        </div>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Nivel</th>
-            <th>ID Origen</th>
-            <th>Código Cliente</th>
-            <th>Mensaje</th>
-            <th>Acción</th>
-          </tr>
-        </thead>
-        <tbody id="tbodyLogs">
-          <tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Cargando logs...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- MODAL DE DETALLE DE ERROR -->
-  <div class="modal-backdrop" id="modalDetalle">
+<!-- MODAL DETALLE TÉCNICO -->
+<div id="modalDetalle" class="modal-backdrop" onclick="if(event.target===this) cerrarModal()">
     <div class="modal">
-      <div class="modal-header">
-        <div style="font-weight:700; font-size:15px;" id="modalTitle">Detalle Técnico del Error</div>
-        <button onclick="cerrarModal()" class="btn-secondary" style="padding:4px 8px;">✕</button>
-      </div>
-      <div class="modal-body">
-        <div style="margin-bottom:10px; font-weight:600; color:var(--text-muted);" id="modalMeta"></div>
-        <div class="code-box" id="modalContent"></div>
-      </div>
+        <div class="modal-header">
+            <h3 id="modalTitulo" style="font-size:1rem;">Detalle Técnico del Error SQL / StackTrace</h3>
+            <button class="btn-scan" style="padding:4px 10px;" onclick="cerrarModal()">✖ Cerrar</button>
+        </div>
+        <div id="modalContenido" class="modal-body"></div>
     </div>
-  </div>
+</div>
 
-  <script>
+<script>
     let logsCache = [];
 
-    async function cargarStatus() {
-      try {
-        const res = await fetch('/api/sync/status');
-        if (!res.ok) return;
-        const s = await res.json();
-        
-        const badge = document.getElementById('liveBadge');
-        const dot = document.getElementById('pulseDot');
-        const txt = document.getElementById('txtStatus');
-        const btn = document.getElementById('btnSyncNow');
+    async function cargarEstado() {
+        try {
+            const res = await fetch('/api/sync/status');
+            const s = await res.json();
 
-        if (s.isRunning) {
-          dot.className = 'pulse-dot dot-blue';
-          txt.textContent = 'Sincronizando: ' + s.estadoActual;
-          btn.disabled = true;
-          document.getElementById('btnSyncSpinner').style.display = 'inline';
-        } else if (!s.sincronizacionActiva) {
-          dot.className = 'pulse-dot dot-red';
-          txt.textContent = 'Sincronización Pausada';
-          btn.disabled = false;
-          document.getElementById('btnSyncSpinner').style.display = 'none';
-        } else {
-          dot.className = 'pulse-dot dot-green';
-          txt.textContent = 'En Espera (Automático Activo)';
-          btn.disabled = false;
-          document.getElementById('btnSyncSpinner').style.display = 'none';
-        }
+            document.getElementById('lblFaseDetalle').textContent = s.faseDetalle || s.estadoActual;
+            if (s.ultimaEjecucion) {
+                document.getElementById('lblUltimaEjecucion').textContent = 'Última corrida: ' + new Date(s.ultimaEjecucion).toLocaleTimeString();
+            }
 
-        document.getElementById('statLoteModificados').textContent = (s.ultimoLoteNuevos + s.ultimoLoteModificados).toLocaleString();
-        document.getElementById('statLoteDetalle').textContent = `${s.ultimoLoteNuevos} Nuevos / ${s.ultimoLoteModificados} Modif. / ${s.ultimoLoteErrores} Err.`;
-        document.getElementById('statDuracion').textContent = (s.ultimaDuracionSegundos > 0 ? s.ultimaDuracionSegundos.toFixed(1) + 's' : '~1.5s');
-        document.getElementById('statFrecuencia').textContent = 'Cada ' + s.intervaloMinutos + ' min';
-        document.getElementById('statVentana').textContent = 'Ventana: ' + s.ventanaHoraria;
-        if (s.ultimaEjecucion) {
-          document.getElementById('statUltimaHora').textContent = 'Última: ' + new Date(s.ultimaEjecucion).toLocaleTimeString();
+            const pct = s.porcentaje || 0;
+            document.getElementById('progressBar').style.width = (s.isRunning ? Math.max(pct, 5) : (s.estadoActual === 'COMPLETADO' ? 100 : 0)) + '%';
+            document.getElementById('lblProgresoNumeros').textContent = `${(s.progresoActual || 0).toLocaleString()} / ${(s.progresoTotal || 0).toLocaleString()} (${pct}%)`;
+
+            const badge = document.getElementById('badgeEstado');
+            badge.textContent = s.estadoActual;
+            badge.className = 'status-pill ' + (s.isRunning ? 'status-running' : (s.estadoActual === 'ERROR_CRITICO' ? 'status-err' : 'status-ok'));
+
+            document.getElementById('btnSyncClientes').disabled = s.isRunning;
+            document.getElementById('btnSyncZonas').disabled = s.isRunning;
+            document.getElementById('btnSyncTodo').disabled = s.isRunning;
+
+            document.getElementById('stUltimoResultado').textContent = `${(s.ultimoLoteProcesados || 0).toLocaleString()} proc / ${s.ultimoLoteErrores || 0} err`;
+            document.getElementById('stUltimaDuracion').textContent = `Duración: ${s.ultimaDuracionSegundos || 0}s | Nuevos: ${s.ultimoLoteNuevos || 0} | Mod: ${s.ultimoLoteModificados || 0}`;
+        } catch (e) {
+            console.error('Error cargando estado:', e);
         }
-      } catch (e) {
-        console.error(e);
-      }
     }
 
-    async function cargarBatches() {
-      try {
-        const res = await fetch('/api/sync/batches?cantidad=20');
-        if (!res.ok) return;
-        const list = await res.json();
-        const tbody = document.getElementById('tbodyBatches');
-        if (list.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--text-muted);">No hay lotes registrados aún. Haz clic en "Sincronizar Clientes Ahora".</td></tr>';
-          return;
+    async function escanearCambios() {
+        const btn = document.getElementById('btnScan');
+        btn.disabled = true;
+        btn.textContent = '⏳ Escaneando 230k huellas...';
+        try {
+            const res = await fetch('/api/sync/preview');
+            const p = await res.json();
+
+            document.getElementById('stTotalOrigen').textContent = (p.totalClientesOrigen || 0).toLocaleString();
+            document.getElementById('stSincronizados').textContent = `Sincronizados en Force: ${(p.totalClientesSincronizados || 0).toLocaleString()}`;
+            document.getElementById('stNuevosDetectados').textContent = (p.clientesNuevosDetectados || 0).toLocaleString();
+            document.getElementById('stModificadosDetectados').textContent = (p.clientesModificadosDetectados || 0).toLocaleString();
+            document.getElementById('stInactivosOrigen').textContent = (p.clientesInactivosOrigen || 0).toLocaleString();
+
+            const totalZonasCambios = (p.zonasRutasNuevasDetectadas || 0) + (p.zonasRutasModificadasDetectadas || 0);
+            document.getElementById('stZonasPendientes').textContent = totalZonasCambios.toLocaleString();
+            document.getElementById('stZonasTotal').textContent = `Cartera total en ERP: ${(p.totalZonasRutasOrigen || 0).toLocaleString()} (${p.zonasRutasNuevasDetectadas || 0} nuevas, ${p.zonasRutasModificadasDetectadas || 0} mod)`;
+
+            document.getElementById('lblTiempoEscaneo').textContent = `✅ Escaneo completado en ${p.tiempoEscaneoSegundos} seg (${new Date().toLocaleTimeString()})`;
+        } catch (e) {
+            alert('Error al escanear cambios: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🔍 Detectar Cambios Pendientes';
         }
-        tbody.innerHTML = list.map(b => `
-          <tr>
-            <td><strong>#${b.id}</strong></td>
-            <td><span class="badge ${b.tipoEjecucion === 'MANUAL' ? 'badge-info' : 'badge-warn'}">${b.tipoEjecucion}</span></td>
-            <td>${new Date(b.fechaInicio).toLocaleString()}</td>
-            <td>${b.duracionSegundos ? b.duracionSegundos.toFixed(1) + 's' : '-'}</td>
-            <td>${b.totalEscaneados.toLocaleString()}</td>
-            <td style="color:#34d399; font-weight:600;">+${b.totalNuevos}</td>
-            <td style="color:#60a5fa; font-weight:600;">${b.totalModificados}</td>
-            <td style="color:${b.totalErrores > 0 ? '#f87171' : 'var(--text-muted)'}; font-weight:600;">${b.totalErrores}</td>
-            <td><span class="badge ${b.estado === 'EXITOSO' ? 'badge-success' : (b.estado === 'CON_ERRORES' ? 'badge-warn' : 'badge-error')}">${b.estado}</span></td>
-            <td>${b.usuario || 'SYSTEM'}</td>
-          </tr>
-        `).join('');
-      } catch (e) { console.error(e); }
+    }
+
+    async function dispararSync(modo) {
+        try {
+            const res = await fetch(`/api/sync/trigger?modo=${modo}`, { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.message || 'No se pudo iniciar');
+                return;
+            }
+            cargarEstado();
+            setTimeout(cargarLotes, 1500);
+        } catch (e) {
+            alert('Error al iniciar sincronización: ' + e.message);
+        }
+    }
+
+    async function cargarConfig() {
+        try {
+            const res = await fetch('/api/sync/config');
+            const c = await res.json();
+            document.getElementById('chkActiva').checked = c.sincronizacionActiva;
+            document.getElementById('txtIntervalo').value = c.intervaloMinutos;
+            document.getElementById('txtHoraInicio').value = c.horaInicioVentana;
+            document.getElementById('txtHoraFin').value = c.horaFinVentana;
+            document.getElementById('txtTamanoLote').value = c.tamanoLote;
+        } catch (e) { console.error(e); }
+    }
+
+    async function guardarConfig() {
+        const body = {
+            sincronizacionActiva: document.getElementById('chkActiva').checked,
+            intervaloMinutos: parseInt(document.getElementById('txtIntervalo').value) || 3,
+            horaInicioVentana: document.getElementById('txtHoraInicio').value || '05:00',
+            horaFinVentana: document.getElementById('txtHoraFin').value || '23:30',
+            tamanoLote: parseInt(document.getElementById('txtTamanoLote').value) || 500,
+            reintentosMaximos: 3
+        };
+        const res = await fetch('/api/sync/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (res.ok) alert('✅ Configuración guardada en BDForceGVD.');
+    }
+
+    async function cargarLotes() {
+        try {
+            const res = await fetch('/api/sync/batches?top=15');
+            const list = await res.json();
+            const tbody = document.getElementById('tblLotes');
+            if (!list.length) {
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--text-muted);">Sin ejecuciones registradas aún.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = list.map(b => {
+                let badgeClass = b.estado === 'EXITOSO' ? 'badge-success' : (b.estado === 'CON_ERRORES' ? 'badge-warn' : (b.estado === 'EN_PROCESO' ? 'badge-info' : 'badge-error'));
+                return `<tr>
+                    <td>#${b.id}</td>
+                    <td><strong>${b.entidad}</strong></td>
+                    <td>${b.tipoEjecucion}</td>
+                    <td>${new Date(b.fechaInicio).toLocaleString()}</td>
+                    <td>${b.duracionSegundos != null ? b.duracionSegundos + 's' : '...'}</td>
+                    <td>${(b.totalEscaneados || 0).toLocaleString()}</td>
+                    <td style="color:#34d399; font-weight:600;">+${(b.totalNuevos || 0).toLocaleString()}</td>
+                    <td style="color:#fbbf24; font-weight:600;">~${(b.totalModificados || 0).toLocaleString()}</td>
+                    <td style="color:${b.totalErrores > 0 ? '#f87171' : 'inherit'}; font-weight:700;">${b.totalErrores || 0}</td>
+                    <td><span class="badge ${badgeClass}">${b.estado}</span></td>
+                </tr>`;
+            }).join('');
+        } catch (e) { console.error(e); }
     }
 
     async function cargarLogs() {
-      try {
-        const nivel = document.getElementById('filtroNivelLog').value;
-        const res = await fetch('/api/sync/logs?cantidad=100' + (nivel ? '&nivel=' + nivel : ''));
-        if (!res.ok) return;
-        logsCache = await res.json();
-        const tbody = document.getElementById('tbodyLogs');
-        if (logsCache.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">No se encontraron logs con el filtro seleccionado.</td></tr>';
-          return;
-        }
-        tbody.innerHTML = logsCache.map((l, idx) => `
-          <tr>
-            <td>${new Date(l.fecha).toLocaleTimeString()}</td>
-            <td><span class="badge ${l.nivel === 'ERROR' || l.nivel === 'FATAL' ? 'badge-error' : (l.nivel === 'WARN' ? 'badge-warn' : 'badge-info')}">${l.nivel}</span></td>
-            <td>${l.idOrigen || '-'}</td>
-            <td><strong>${l.codigo || '-'}</strong></td>
-            <td>${l.mensaje}</td>
-            <td>
-              ${l.detalleTecnico ? `<button class="btn-secondary" style="padding:3px 8px; font-size:11px;" onclick="verDetalleLog(${idx})">Ver Detalle</button>` : '-'}
-            </td>
-          </tr>
-        `).join('');
-      } catch (e) { console.error(e); }
+        try {
+            const nivel = document.getElementById('selNivelLog').value;
+            const res = await fetch(`/api/sync/logs?top=100&nivel=${encodeURIComponent(nivel)}`);
+            logsCache = await res.json();
+            filtrarLogsLocal();
+        } catch (e) { console.error(e); }
     }
 
-    function verDetalleLog(idx) {
-      const l = logsCache[idx];
-      if (!l) return;
-      document.getElementById('modalTitle').textContent = `Log #${l.id} — ${l.nivel} (${l.codigo || 'General'})`;
-      document.getElementById('modalMeta').textContent = `${new Date(l.fecha).toLocaleString()} | ID Origen: ${l.idOrigen || 'N/A'}`;
-      document.getElementById('modalContent').textContent = l.detalleTecnico || l.mensaje;
-      document.getElementById('modalDetalle').style.display = 'flex';
+    function filtrarLogsLocal() {
+        const q = (document.getElementById('txtBuscarLog').value || '').toLowerCase();
+        const filtrados = logsCache.filter(l =>
+            !q ||
+            (l.codigo && l.codigo.toLowerCase().includes(q)) ||
+            (l.idOrigen && l.idOrigen.toString().includes(q)) ||
+            (l.mensaje && l.mensaje.toLowerCase().includes(q))
+        );
+        const tbody = document.getElementById('tblLogs');
+        if (!filtrados.length) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No hay registros que coincidan.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = filtrados.map((l, idx) => {
+            const badgeClass = l.nivel === 'ERROR' || l.nivel === 'FATAL' ? 'badge-error' : 'badge-info';
+            return `<tr>
+                <td>${new Date(l.fecha).toLocaleTimeString()}</td>
+                <td>${l.entidad}</td>
+                <td><span class="badge ${badgeClass}">${l.nivel}</span></td>
+                <td>${l.idOrigen ?? '-'}</td>
+                <td><strong>${l.codigo ?? '-'}</strong></td>
+                <td>${l.mensaje}</td>
+                <td><button class="btn-scan" style="padding:4px 10px; font-size:0.75rem;" onclick="verDetalle(${idx})">🔍 Ver StackTrace</button></td>
+            </tr>`;
+        }).join('');
+    }
+
+    function verDetalle(idx) {
+        const q = (document.getElementById('txtBuscarLog').value || '').toLowerCase();
+        const filtrados = logsCache.filter(l =>
+            !q ||
+            (l.codigo && l.codigo.toLowerCase().includes(q)) ||
+            (l.idOrigen && l.idOrigen.toString().includes(q)) ||
+            (l.mensaje && l.mensaje.toLowerCase().includes(q))
+        );
+        const item = filtrados[idx];
+        if (!item) return;
+        document.getElementById('modalTitulo').textContent = `Cliente Código: ${item.codigo || 'N/A'} (ID Origen: ${item.idOrigen || 'N/A'})`;
+        document.getElementById('modalContenido').textContent = item.detalleTecnico || item.mensaje;
+        document.getElementById('modalDetalle').style.display = 'flex';
     }
 
     function cerrarModal() {
-      document.getElementById('modalDetalle').style.display = 'none';
+        document.getElementById('modalDetalle').style.display = 'none';
     }
 
-    async function cargarConfiguracion() {
-      try {
-        const res = await fetch('/api/sync/config');
-        if (!res.ok) return;
-        const c = await res.json();
-        document.getElementById('cfgActiva').value = c.sincronizacionActiva ? 'true' : 'false';
-        document.getElementById('cfgIntervalo').value = c.intervaloMinutos;
-        document.getElementById('cfgHoraInicio').value = c.horaInicioVentana;
-        document.getElementById('cfgHoraFin').value = c.horaFinVentana;
-        document.getElementById('cfgLote').value = c.tamanoLote;
-        document.getElementById('cfgReintentos').value = c.reintentosMaximos;
-      } catch (e) { console.error(e); }
-    }
+    // Inicialización
+    cargarConfig();
+    cargarEstado();
+    cargarLotes();
+    cargarLogs();
+    escanearCambios();
 
-    async function guardarConfiguracion() {
-      const payload = {
-        sincronizacionActiva: document.getElementById('cfgActiva').value === 'true',
-        intervaloMinutos: parseInt(document.getElementById('cfgIntervalo').value),
-        horaInicioVentana: document.getElementById('cfgHoraInicio').value,
-        horaFinVentana: document.getElementById('cfgHoraFin').value,
-        tamanoLote: parseInt(document.getElementById('cfgLote').value),
-        reintentosMaximos: parseInt(document.getElementById('cfgReintentos').value)
-      };
-      try {
-        const res = await fetch('/api/sync/config', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (res.ok) {
-          alert('Configuración guardada exitosamente en BDForceGVD.');
-          cargarStatus();
-        } else {
-          alert('Error al guardar configuración.');
-        }
-      } catch (e) { alert('Error: ' + e); }
-    }
+    // Polling en vivo cada 2 segundos
+    setInterval(() => {
+        cargarEstado();
+    }, 2000);
 
-    async function sincronizarAhora() {
-      if (!confirm('¿Deseas iniciar una sincronización manual de clientes ahora?')) return;
-      try {
-        const res = await fetch('/api/sync/trigger?usuario=PORTAL_WEB', { method: 'POST' });
-        if (res.ok) {
-          cargarStatus();
-          setTimeout(cargarBatches, 2000);
-        } else {
-          const err = await res.json();
-          alert(err.message || 'Error al iniciar.');
-        }
-      } catch (e) { alert('Error: ' + e); }
-    }
-
-    function switchTab(tabId, btn) {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.card-panel').forEach(p => p.style.display = 'none');
-      btn.classList.add('active');
-      document.getElementById(tabId).style.display = 'block';
-
-      if (tabId === 'tabLogs') cargarLogs();
-      if (tabId === 'tabConfig') cargarConfiguracion();
-      if (tabId === 'tabLotes') cargarBatches();
-    }
-
-    function cargarTodo() {
-      cargarStatus();
-      cargarBatches();
-    }
-
-    cargarTodo();
-    cargarConfiguracion();
-    setInterval(cargarStatus, 3500);
-  </script>
+    setInterval(() => {
+        cargarLotes();
+        cargarLogs();
+    }, 6000);
+</script>
 </body>
 </html>

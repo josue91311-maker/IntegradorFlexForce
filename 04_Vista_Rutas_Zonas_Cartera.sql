@@ -1,66 +1,92 @@
 -- ==========================================================================================
 -- ARCHIVO: 04_Vista_Rutas_Zonas_Cartera.sql
 -- PROYECTO: IntegradorFlexForce
--- BASE DE DATOS ORIGEN: ERP Antiguo (Solo Lectura)
--- OBJETIVO: Vista de asignación de cliente a su zona, ruta, vendedor y día de semana (Cartera Radar)
--- TABLAS DESTINO EN FORCE: dir_DireccionZona, cat_Zona, rut_Ruta, rut_RutaZonaDia
+-- BASE DE DATOS ORIGEN: digalimenta41 (ERP Antiguo - Solo Lectura)
+-- TABLAS REALES USADAS: DireccionZona, Persona, DireccionCliente, Direccion, Zona,
+--                       ZonaRutaVendedor, RutaVendedor, AsignacionRutaZonaVendedor,
+--                       Vendedor, GrupoVentas, FuerzaVentas
+-- OBJETIVO: Extraer la cartera de zonas, rutas y vendedores asignados a cada dirección
+--           de cliente con huella digital SHA-256 (RowHash) para detectar cambios.
 -- ==========================================================================================
 
-CREATE OR ALTER VIEW dbo.v_Extraccion_Cartera_Rutas_Force
+CREATE OR ALTER VIEW dbo.vw_Sync_Cartera_Rutas_Zonas
 AS
+WITH CTE_Cartera AS (
+    SELECT 
+        dc.PKID                                 AS ID_Direccion,
+        p.PKID                                  AS ID_Cliente,
+        LTRIM(RTRIM(p.Codigo))                  AS CodigoCliente,
+        LTRIM(RTRIM(p.Nombre))                  AS NombreCliente,
+        MAX(LTRIM(RTRIM(pv.Codigo)))            AS CodigoVendedor,
+        MAX(LTRIM(RTRIM(pv.Nombre)))            AS NombreVendedor,
+        z.PKID                                  AS IDZonaVenta,
+        LTRIM(RTRIM(z.Codigo))                  AS CodigoZonaVenta,
+        LTRIM(RTRIM(z.Descripcion))             AS NombreZonaVenta,
+        zr.PKID                                 AS IDZonaReparto,
+        LTRIM(RTRIM(zr.Codigo))                 AS CodigoZonaReparto,
+        MAX(LTRIM(RTRIM(rr.Codigo)))            AS CodigoRuta,
+        MAX(
+            CASE LOWER(LTRIM(RTRIM(rr.DiaDeSemana)))
+                WHEN 'lunes'     THEN 1
+                WHEN 'martes'    THEN 2
+                WHEN 'miercoles' THEN 3
+                WHEN 'miércoles' THEN 3
+                WHEN 'jueves'    THEN 4
+                WHEN 'viernes'   THEN 5
+                WHEN 'sabado'    THEN 6
+                WHEN 'sábado'    THEN 6
+                WHEN 'domingo'   THEN 7
+                ELSE 1
+            END
+        )                                       AS DiaDeSemana
+    FROM dbo.DireccionZona dz WITH (NOLOCK)
+    INNER JOIN dbo.Persona p WITH (NOLOCK) ON dz.IDCliente = p.PKID
+    INNER JOIN dbo.DireccionCliente dc WITH (NOLOCK) ON dc.PKID = dz.IDDireccion
+    INNER JOIN dbo.Direccion dd WITH (NOLOCK) ON dd.PKID = dc.PKID
+    INNER JOIN dbo.Zona z WITH (NOLOCK) ON z.PKID = dz.IDZona
+    INNER JOIN dbo.Zona zr WITH (NOLOCK) ON zr.PKID = dc.IDZonaReparto
+    INNER JOIN dbo.ZonaRutaVendedor zrv WITH (NOLOCK) ON zrv.IDZona = z.PKID
+    INNER JOIN dbo.RutaVendedor rr WITH (NOLOCK) ON rr.PKID = zrv.IDRutaVendedor
+    INNER JOIN dbo.AsignacionRutaZonaVendedor ass WITH (NOLOCK) ON ass.PKID = rr.IDAsignacionRutaZonaVendedor
+    INNER JOIN dbo.Persona pv WITH (NOLOCK) ON pv.PKID = ass.IDVendedor
+    INNER JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = pv.PKID
+    INNER JOIN dbo.GrupoVentas gv WITH (NOLOCK) ON gv.PKID = v.IDGrupoVentas
+    INNER JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
+    WHERE dd.DireccionPrincipal = 1 
+      AND dd.Activo = 1 
+      AND p.Activo = 1 
+      AND fv.Nombre IN ('Ruta Ex P&G', 'Ruta Ex P&G M', 'MDOS P&G')
+      AND RTRIM(pv.Codigo) NOT LIKE '%ep%'
+    GROUP BY 
+        dc.PKID, p.PKID, p.Codigo, p.Nombre,
+        z.PKID, z.Codigo, z.Descripcion, zr.PKID, zr.Codigo
+)
 SELECT 
-    -- -------------------------------------------------------------
-    -- 1. IDENTIFICADORES Y VÍNCULOS
-    -- -------------------------------------------------------------
-    rz.ID                               AS ID_Asignacion,       -- Clave primaria de asignación en ERP viejo (va a dir_DireccionZona.IDExtra)
-    c.ID                                AS ID_Cliente,          -- Clave primaria del cliente (cli_Cliente.IDExtra)
-    LTRIM(RTRIM(c.Codigo))              AS CodigoCliente,
-    ISNULL(d.ID, c.ID)                  AS ID_Direccion,        -- Clave primaria de la dirección (dir_Direccion.IDExtra)
-    
-    -- -------------------------------------------------------------
-    -- 2. ZONA Y RUTA
-    -- -------------------------------------------------------------
-    LTRIM(RTRIM(z.Codigo))              AS CodigoZona,          -- cat_Zona.Codigo
-    LTRIM(RTRIM(z.Nombre))              AS NombreZona,          -- cat_Zona.Nombre
-    LTRIM(RTRIM(r.Codigo))              AS CodigoRuta,          -- rut_Ruta.Codigo
-    LTRIM(RTRIM(r.Nombre))              AS NombreRuta,          -- rut_Ruta.Nombre
-    
-    -- -------------------------------------------------------------
-    -- 3. VENDEDOR / PREVENTISTA
-    -- -------------------------------------------------------------
-    LTRIM(RTRIM(v.Codigo))              AS CodigoVendedor,      -- vnd_Vendedor.Codigo (ej: 605)
-    LTRIM(RTRIM(v.NombreCompleto))      AS NombreVendedor,
-    
-    -- -------------------------------------------------------------
-    -- 4. CALENDARIO DE VISITA (CARTERA RADAR)
-    -- -------------------------------------------------------------
-    -- 1 = Lunes, 2 = Martes, 3 = Miércoles, 4 = Jueves, 5 = Viernes, 6 = Sábado, 7 = Domingo
-    ISNULL(rz.IDDia, 1)                 AS DiaDeSemana,         -- rut_RutaZonaDia.IDDia
-    ISNULL(rz.Secuencia, 0)             AS SecuenciaVisita,     -- Orden de parada en la ruta
-    ISNULL(rz.Estado, 1)                AS Estado,              -- 1 = Asignación Activa, 0 = Quitado de la ruta
-    
-    -- -------------------------------------------------------------
-    -- 5. HUELLA DIGITAL SHA-256 (RowHash)
-    -- Se altera si se cambia el vendedor, la ruta, el día de visita o se inactiva la asignación
-    -- -------------------------------------------------------------
-    HASHBYTES('SHA2_256', 
+    ID_Direccion,
+    ID_Cliente,
+    CodigoCliente,
+    NombreCliente,
+    CodigoVendedor,
+    NombreVendedor,
+    IDZonaVenta,
+    CodigoZonaVenta,
+    NombreZonaVenta,
+    IDZonaReparto,
+    CodigoZonaReparto,
+    CodigoRuta,
+    DiaDeSemana,
+    HASHBYTES('SHA2_256',
         CONCAT_WS('|',
-            rz.ID,
-            c.ID,
-            ISNULL(d.ID, c.ID),
-            LTRIM(RTRIM(z.Codigo)),
-            LTRIM(RTRIM(r.Codigo)),
-            LTRIM(RTRIM(v.Codigo)),
-            ISNULL(rz.IDDia, 1),
-            ISNULL(rz.Secuencia, 0),
-            ISNULL(rz.Estado, 1)
+            ID_Direccion,
+            ID_Cliente,
+            CodigoVendedor,
+            IDZonaVenta,
+            CodigoZonaVenta,
+            IDZonaReparto,
+            CodigoZonaReparto,
+            CodigoRuta,
+            DiaDeSemana
         )
     ) AS RowHash
-
-FROM dbo.RutasZonasClienteAntiguo rz WITH (NOLOCK)
-INNER JOIN dbo.ClientesAntiguo c WITH (NOLOCK) ON c.ID = rz.IDCliente
-LEFT JOIN dbo.DireccionesAntiguo d WITH (NOLOCK) ON d.ID = rz.IDDireccion
-LEFT JOIN dbo.ZonasAntiguo z WITH (NOLOCK) ON z.ID = rz.IDZona
-LEFT JOIN dbo.RutasAntiguo r WITH (NOLOCK) ON r.ID = rz.IDRuta
-LEFT JOIN dbo.VendedoresAntiguo v WITH (NOLOCK) ON v.ID = r.IDVendedor;
+FROM CTE_Cartera;
 GO

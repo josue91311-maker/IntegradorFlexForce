@@ -1,4 +1,4 @@
-using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using IntegradorFlexForce.Models;
@@ -18,55 +18,73 @@ namespace IntegradorFlexForce.Controllers
         }
 
         [HttpGet("status")]
-        public async Task<IActionResult> GetStatus()
+        public async Task<IActionResult> GetStatus(CancellationToken ct)
         {
             var status = _syncEngine.GetStatus();
-            status.IsRunning = await _syncEngine.IsRunningAsync();
+            var config = await _syncEngine.CargarConfiguracionAsync(ct);
+            status.SincronizacionActiva = config.SincronizacionActiva;
+            status.IntervaloMinutos = config.IntervaloMinutos;
+            status.VentanaHoraria = $"{config.HoraInicioVentana} - {config.HoraFinVentana}";
             return Ok(status);
         }
 
+        [HttpGet("preview")]
+        public async Task<IActionResult> PreviewCambios(CancellationToken ct)
+        {
+            var preview = await _syncEngine.AnalizarCambiosPendientesAsync(ct);
+            return Ok(preview);
+        }
+
         [HttpPost("trigger")]
-        public async Task<IActionResult> TriggerManualSync([FromQuery] string usuario = "PORTAL_WEB")
+        public async Task<IActionResult> TriggerManual([FromQuery] string modo = "clientes", CancellationToken ct = default)
         {
             if (await _syncEngine.IsRunningAsync())
             {
-                return Conflict(new { message = "Ya existe una sincronización en curso. Por favor espere a que finalice." });
+                return Conflict(new { message = "Ya hay un proceso de sincronización en ejecución." });
             }
 
-            // Iniciar en segundo plano para no congelar la petición web
-            _ = Task.Run(async () =>
+            if (modo == "zonas")
             {
-                await _syncEngine.EjecutarSincronizacionClientesAsync("MANUAL", usuario);
-            });
-
-            return Accepted(new { message = "Sincronización manual iniciada exitosamente." });
+                _ = Task.Run(() => _syncEngine.EjecutarSincronizacionZonasAsync("MANUAL", "PORTAL_WEB", CancellationToken.None));
+                return Accepted(new { message = "Sincronización manual de Zonas y Rutas iniciada." });
+            }
+            else if (modo == "todo")
+            {
+                _ = Task.Run(() => _syncEngine.EjecutarSincronizacionClientesAsync("MANUAL", "PORTAL_WEB", incluirZonas: true, CancellationToken.None));
+                return Accepted(new { message = "Sincronización completa (Clientes + Direcciones + Zonas) iniciada." });
+            }
+            else
+            {
+                _ = Task.Run(() => _syncEngine.EjecutarSincronizacionClientesAsync("MANUAL", "PORTAL_WEB", incluirZonas: false, CancellationToken.None));
+                return Accepted(new { message = "Sincronización manual de Clientes y Direcciones iniciada." });
+            }
         }
 
         [HttpGet("config")]
-        public async Task<IActionResult> GetConfig()
+        public async Task<IActionResult> GetConfig(CancellationToken ct)
         {
-            var config = await _syncEngine.CargarConfiguracionAsync();
+            var config = await _syncEngine.CargarConfiguracionAsync(ct);
             return Ok(config);
         }
 
         [HttpPost("config")]
-        public async Task<IActionResult> SaveConfig([FromBody] SyncConfigDto config)
+        public async Task<IActionResult> SaveConfig([FromBody] SyncConfigDto config, CancellationToken ct)
         {
-            await _syncEngine.GuardarConfiguracionAsync(config);
-            return Ok(new { message = "Configuración actualizada correctamente en BDForceGVD.", config });
+            await _syncEngine.GuardarConfiguracionAsync(config, ct);
+            return Ok(new { message = "Configuración actualizada exitosamente." });
         }
 
         [HttpGet("logs")]
-        public async Task<IActionResult> GetLogs([FromQuery] int cantidad = 100, [FromQuery] string? nivel = null)
+        public async Task<IActionResult> GetLogs([FromQuery] int top = 100, [FromQuery] string? nivel = null, CancellationToken ct = default)
         {
-            var logs = await _syncEngine.ObtenerUltimosLogsAsync(cantidad, nivel);
+            var logs = await _syncEngine.ObtenerUltimosLogsAsync(top, string.IsNullOrWhiteSpace(nivel) ? null : nivel, ct);
             return Ok(logs);
         }
 
         [HttpGet("batches")]
-        public async Task<IActionResult> GetBatches([FromQuery] int cantidad = 20)
+        public async Task<IActionResult> GetBatches([FromQuery] int top = 20, CancellationToken ct = default)
         {
-            var batches = await _syncEngine.ObtenerUltimasTransaccionesAsync(cantidad);
+            var batches = await _syncEngine.ObtenerUltimasTransaccionesAsync(top, ct);
             return Ok(batches);
         }
     }
