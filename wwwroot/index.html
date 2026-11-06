@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal de Integración — FlexForce</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --card-border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --surface: #0b1120;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; padding: 24px; }
+    .container { max-width: 1300px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--card-border); }
+    .logo-area { display: flex; align-items: center; gap: 14px; }
+    .logo-badge { background: linear-gradient(135deg, #2563eb, #3b82f6); color: white; padding: 8px 14px; border-radius: 10px; font-weight: 700; font-size: 18px; letter-spacing: 0.5px; }
+    .header-title h1 { font-size: 20px; font-weight: 700; }
+    .header-title p { font-size: 13px; color: var(--text-muted); }
+    .actions { display: flex; gap: 12px; align-items: center; }
+    button { cursor: pointer; border: none; font-weight: 600; border-radius: 8px; padding: 9px 18px; transition: all 0.2s; font-size: 13px; }
+    .btn-primary { background-color: var(--primary); color: white; display: flex; align-items: center; gap: 8px; }
+    .btn-primary:hover { background-color: var(--primary-hover); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background-color: var(--card); color: var(--text); border: 1px solid var(--card-border); }
+    .btn-secondary:hover { background-color: #273549; }
+    .pulse-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+    .dot-green { background-color: var(--success); box-shadow: 0 0 10px var(--success); }
+    .dot-blue { background-color: var(--primary); box-shadow: 0 0 10px var(--primary); animation: pulse 1.5s infinite; }
+    .dot-red { background-color: var(--danger); box-shadow: 0 0 10px var(--danger); }
+    @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+    .status-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background-color: var(--surface); border: 1px solid var(--card-border); }
+    
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 18px; }
+    .stat-card h3 { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }
+    .stat-card .val { font-size: 26px; font-weight: 700; color: var(--text); }
+    .stat-card .sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+    .nav-tabs { display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid var(--card-border); padding-bottom: 10px; }
+    .tab-btn { background: transparent; color: var(--text-muted); padding: 8px 16px; border-radius: 8px; }
+    .tab-btn.active { background: var(--card); color: var(--text); border: 1px solid var(--card-border); font-weight: 600; }
+
+    .card-panel { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 22px; margin-bottom: 24px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .panel-title { font-size: 16px; font-weight: 600; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 12px 14px; background: var(--surface); color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--card-border); }
+    td { padding: 12px 14px; border-bottom: 1px solid var(--card-border); }
+    tr:hover { background-color: rgba(255, 255, 255, 0.02); }
+
+    .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; display: inline-block; }
+    .badge-success { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .badge-error { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .badge-info { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+    .badge-warn { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+    .form-group { display: flex; flex-direction: column; gap: 8px; }
+    .form-group label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+    .form-group input, .form-group select { background: var(--surface); border: 1px solid var(--card-border); color: var(--text); padding: 10px 14px; border-radius: 8px; font-size: 14px; }
+    .form-group input:focus, .form-group select:focus { border-color: var(--primary); outline: none; }
+
+    /* Modal */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .modal { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; width: 90%; max-width: 700px; max-height: 85vh; display: flex; flex-direction: column; }
+    .modal-header { padding: 18px 22px; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; }
+    .modal-body { padding: 22px; overflow-y: auto; font-size: 13px; }
+    .code-box { background: var(--surface); padding: 14px; border-radius: 8px; border: 1px solid var(--card-border); font-family: monospace; white-space: pre-wrap; font-size: 12px; line-height: 1.5; color: #e2e8f0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo-area">
+        <div class="logo-badge">FF</div>
+        <div class="header-title">
+          <h1>Integrador FlexForce — Módulo Clientes</h1>
+          <p>Sincronizador Incremental ERP Antiguo (digalimenta41) ➔ Force ERP (BDForceGVD)</p>
+        </div>
+      </div>
+      <div class="actions">
+        <div class="status-badge" id="liveBadge">
+          <span class="pulse-dot dot-green" id="pulseDot"></span>
+          <span id="txtStatus">Conectado (En Espera)</span>
+        </div>
+        <button class="btn-secondary" onclick="cargarTodo()">Actualizar</button>
+        <button class="btn-primary" id="btnSyncNow" onclick="sincronizarAhora()">
+          <span id="btnSyncSpinner" style="display:none;">⏳</span>
+          Sincronizar Clientes Ahora
+        </button>
+      </div>
+    </header>
+
+    <!-- METRICAS EN TIEMPO REAL -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h3>Escaneo ERP Antiguo</h3>
+        <div class="val" id="statEscaneados">230,000+</div>
+        <div class="sub">Filas analizadas con RowHash</div>
+      </div>
+      <div class="stat-card">
+        <h3>Último Lote Procesado</h3>
+        <div class="val" id="statLoteModificados">0</div>
+        <div class="sub" id="statLoteDetalle">0 Nuevos / 0 Modificados</div>
+      </div>
+      <div class="stat-card">
+        <h3>Duración de Escaneo</h3>
+        <div class="val" id="statDuracion">~1.5s</div>
+        <div class="sub" id="statUltimaHora">Sin ejecuciones recientes</div>
+      </div>
+      <div class="stat-card">
+        <h3>Frecuencia Programada</h3>
+        <div class="val" id="statFrecuencia">Cada 3 min</div>
+        <div class="sub" id="statVentana">Ventana: 05:00 - 23:30</div>
+      </div>
+    </div>
+
+    <!-- PESTAÑAS -->
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('tabLotes', this)">Historial de Lotes</button>
+      <button class="tab-btn" onclick="switchTab('tabConfig', this)">Configuración & Horarios</button>
+      <button class="tab-btn" onclick="switchTab('tabLogs', this)">Auditoría de Logs</button>
+    </div>
+
+    <!-- TAB 1: HISTORIAL DE LOTES -->
+    <div id="tabLotes" class="card-panel">
+      <div class="panel-header">
+        <div class="panel-title">Lotes y Transacciones de Sincronización Recientes</div>
+        <span style="font-size:12px; color:var(--text-muted);">Tabla: sync_TransaccionLote</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Tipo</th>
+            <th>Fecha Inicio</th>
+            <th>Duración</th>
+            <th>Escaneados</th>
+            <th>Nuevos</th>
+            <th>Modificados</th>
+            <th>Errores</th>
+            <th>Estado</th>
+            <th>Usuario</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyBatches">
+          <tr><td colspan="10" style="text-align:center; color:var(--text-muted);">Cargando registros...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- TAB 2: CONFIGURACIÓN -->
+    <div id="tabConfig" class="card-panel" style="display:none;">
+      <div class="panel-header">
+        <div class="panel-title">Configuración Dinámica de Sincronización</div>
+        <span style="font-size:12px; color:var(--text-muted);">Almacenado en BDForceGVD (sync_Configuracion)</span>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Estado del Sincronizador Automático</label>
+          <select id="cfgActiva">
+            <option value="true">Activo (Ejecución en segundo plano)</option>
+            <option value="false">Pausado (Solo ejecución manual)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Intervalo de Escaneo (Minutos)</label>
+          <input type="number" id="cfgIntervalo" min="1" max="1440" value="3">
+        </div>
+        <div class="form-group">
+          <label>Hora Inicio de Ventana</label>
+          <input type="time" id="cfgHoraInicio" value="05:00">
+        </div>
+        <div class="form-group">
+          <label>Hora Fin de Ventana</label>
+          <input type="time" id="cfgHoraFin" value="23:30">
+        </div>
+        <div class="form-group">
+          <label>Tamaño de Lote (Registros por transacción)</label>
+          <input type="number" id="cfgLote" min="50" max="2000" value="500">
+        </div>
+        <div class="form-group">
+          <label>Reintentos Máximos por Error</label>
+          <input type="number" id="cfgReintentos" min="1" max="10" value="3">
+        </div>
+      </div>
+      <div style="margin-top:24px; display:flex; justify-content:flex-end;">
+        <button class="btn-primary" onclick="guardarConfiguracion()">Guardar Cambios en Force ERP</button>
+      </div>
+    </div>
+
+    <!-- TAB 3: AUDITORIA DE LOGS -->
+    <div id="tabLogs" class="card-panel" style="display:none;">
+      <div class="panel-header">
+        <div class="panel-title">Auditoría Detallada de Eventos y Errores</div>
+        <div style="display:flex; gap:10px;">
+          <select id="filtroNivelLog" onchange="cargarLogs()" style="background:var(--surface); color:var(--text); border:1px solid var(--card-border); padding:6px 12px; border-radius:6px; font-size:12px;">
+            <option value="">Todos los niveles</option>
+            <option value="ERROR">Solo Errores</option>
+            <option value="WARN">Advertencias</option>
+            <option value="INFO">Información</option>
+          </select>
+          <button class="btn-secondary" onclick="cargarLogs()">Recargar Logs</button>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Nivel</th>
+            <th>ID Origen</th>
+            <th>Código Cliente</th>
+            <th>Mensaje</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyLogs">
+          <tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Cargando logs...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODAL DE DETALLE DE ERROR -->
+  <div class="modal-backdrop" id="modalDetalle">
+    <div class="modal">
+      <div class="modal-header">
+        <div style="font-weight:700; font-size:15px;" id="modalTitle">Detalle Técnico del Error</div>
+        <button onclick="cerrarModal()" class="btn-secondary" style="padding:4px 8px;">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:10px; font-weight:600; color:var(--text-muted);" id="modalMeta"></div>
+        <div class="code-box" id="modalContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let logsCache = [];
+
+    async function cargarStatus() {
+      try {
+        const res = await fetch('/api/sync/status');
+        if (!res.ok) return;
+        const s = await res.json();
+        
+        const badge = document.getElementById('liveBadge');
+        const dot = document.getElementById('pulseDot');
+        const txt = document.getElementById('txtStatus');
+        const btn = document.getElementById('btnSyncNow');
+
+        if (s.isRunning) {
+          dot.className = 'pulse-dot dot-blue';
+          txt.textContent = 'Sincronizando: ' + s.estadoActual;
+          btn.disabled = true;
+          document.getElementById('btnSyncSpinner').style.display = 'inline';
+        } else if (!s.sincronizacionActiva) {
+          dot.className = 'pulse-dot dot-red';
+          txt.textContent = 'Sincronización Pausada';
+          btn.disabled = false;
+          document.getElementById('btnSyncSpinner').style.display = 'none';
+        } else {
+          dot.className = 'pulse-dot dot-green';
+          txt.textContent = 'En Espera (Automático Activo)';
+          btn.disabled = false;
+          document.getElementById('btnSyncSpinner').style.display = 'none';
+        }
+
+        document.getElementById('statLoteModificados').textContent = (s.ultimoLoteNuevos + s.ultimoLoteModificados).toLocaleString();
+        document.getElementById('statLoteDetalle').textContent = `${s.ultimoLoteNuevos} Nuevos / ${s.ultimoLoteModificados} Modif. / ${s.ultimoLoteErrores} Err.`;
+        document.getElementById('statDuracion').textContent = (s.ultimaDuracionSegundos > 0 ? s.ultimaDuracionSegundos.toFixed(1) + 's' : '~1.5s');
+        document.getElementById('statFrecuencia').textContent = 'Cada ' + s.intervaloMinutos + ' min';
+        document.getElementById('statVentana').textContent = 'Ventana: ' + s.ventanaHoraria;
+        if (s.ultimaEjecucion) {
+          document.getElementById('statUltimaHora').textContent = 'Última: ' + new Date(s.ultimaEjecucion).toLocaleTimeString();
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function cargarBatches() {
+      try {
+        const res = await fetch('/api/sync/batches?cantidad=20');
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('tbodyBatches');
+        if (list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--text-muted);">No hay lotes registrados aún. Haz clic en "Sincronizar Clientes Ahora".</td></tr>';
+          return;
+        }
+        tbody.innerHTML = list.map(b => `
+          <tr>
+            <td><strong>#${b.id}</strong></td>
+            <td><span class="badge ${b.tipoEjecucion === 'MANUAL' ? 'badge-info' : 'badge-warn'}">${b.tipoEjecucion}</span></td>
+            <td>${new Date(b.fechaInicio).toLocaleString()}</td>
+            <td>${b.duracionSegundos ? b.duracionSegundos.toFixed(1) + 's' : '-'}</td>
+            <td>${b.totalEscaneados.toLocaleString()}</td>
+            <td style="color:#34d399; font-weight:600;">+${b.totalNuevos}</td>
+            <td style="color:#60a5fa; font-weight:600;">${b.totalModificados}</td>
+            <td style="color:${b.totalErrores > 0 ? '#f87171' : 'var(--text-muted)'}; font-weight:600;">${b.totalErrores}</td>
+            <td><span class="badge ${b.estado === 'EXITOSO' ? 'badge-success' : (b.estado === 'CON_ERRORES' ? 'badge-warn' : 'badge-error')}">${b.estado}</span></td>
+            <td>${b.usuario || 'SYSTEM'}</td>
+          </tr>
+        `).join('');
+      } catch (e) { console.error(e); }
+    }
+
+    async function cargarLogs() {
+      try {
+        const nivel = document.getElementById('filtroNivelLog').value;
+        const res = await fetch('/api/sync/logs?cantidad=100' + (nivel ? '&nivel=' + nivel : ''));
+        if (!res.ok) return;
+        logsCache = await res.json();
+        const tbody = document.getElementById('tbodyLogs');
+        if (logsCache.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">No se encontraron logs con el filtro seleccionado.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = logsCache.map((l, idx) => `
+          <tr>
+            <td>${new Date(l.fecha).toLocaleTimeString()}</td>
+            <td><span class="badge ${l.nivel === 'ERROR' || l.nivel === 'FATAL' ? 'badge-error' : (l.nivel === 'WARN' ? 'badge-warn' : 'badge-info')}">${l.nivel}</span></td>
+            <td>${l.idOrigen || '-'}</td>
+            <td><strong>${l.codigo || '-'}</strong></td>
+            <td>${l.mensaje}</td>
+            <td>
+              ${l.detalleTecnico ? `<button class="btn-secondary" style="padding:3px 8px; font-size:11px;" onclick="verDetalleLog(${idx})">Ver Detalle</button>` : '-'}
+            </td>
+          </tr>
+        `).join('');
+      } catch (e) { console.error(e); }
+    }
+
+    function verDetalleLog(idx) {
+      const l = logsCache[idx];
+      if (!l) return;
+      document.getElementById('modalTitle').textContent = `Log #${l.id} — ${l.nivel} (${l.codigo || 'General'})`;
+      document.getElementById('modalMeta').textContent = `${new Date(l.fecha).toLocaleString()} | ID Origen: ${l.idOrigen || 'N/A'}`;
+      document.getElementById('modalContent').textContent = l.detalleTecnico || l.mensaje;
+      document.getElementById('modalDetalle').style.display = 'flex';
+    }
+
+    function cerrarModal() {
+      document.getElementById('modalDetalle').style.display = 'none';
+    }
+
+    async function cargarConfiguracion() {
+      try {
+        const res = await fetch('/api/sync/config');
+        if (!res.ok) return;
+        const c = await res.json();
+        document.getElementById('cfgActiva').value = c.sincronizacionActiva ? 'true' : 'false';
+        document.getElementById('cfgIntervalo').value = c.intervaloMinutos;
+        document.getElementById('cfgHoraInicio').value = c.horaInicioVentana;
+        document.getElementById('cfgHoraFin').value = c.horaFinVentana;
+        document.getElementById('cfgLote').value = c.tamanoLote;
+        document.getElementById('cfgReintentos').value = c.reintentosMaximos;
+      } catch (e) { console.error(e); }
+    }
+
+    async function guardarConfiguracion() {
+      const payload = {
+        sincronizacionActiva: document.getElementById('cfgActiva').value === 'true',
+        intervaloMinutos: parseInt(document.getElementById('cfgIntervalo').value),
+        horaInicioVentana: document.getElementById('cfgHoraInicio').value,
+        horaFinVentana: document.getElementById('cfgHoraFin').value,
+        tamanoLote: parseInt(document.getElementById('cfgLote').value),
+        reintentosMaximos: parseInt(document.getElementById('cfgReintentos').value)
+      };
+      try {
+        const res = await fetch('/api/sync/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          alert('Configuración guardada exitosamente en BDForceGVD.');
+          cargarStatus();
+        } else {
+          alert('Error al guardar configuración.');
+        }
+      } catch (e) { alert('Error: ' + e); }
+    }
+
+    async function sincronizarAhora() {
+      if (!confirm('¿Deseas iniciar una sincronización manual de clientes ahora?')) return;
+      try {
+        const res = await fetch('/api/sync/trigger?usuario=PORTAL_WEB', { method: 'POST' });
+        if (res.ok) {
+          cargarStatus();
+          setTimeout(cargarBatches, 2000);
+        } else {
+          const err = await res.json();
+          alert(err.message || 'Error al iniciar.');
+        }
+      } catch (e) { alert('Error: ' + e); }
+    }
+
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.card-panel').forEach(p => p.style.display = 'none');
+      btn.classList.add('active');
+      document.getElementById(tabId).style.display = 'block';
+
+      if (tabId === 'tabLogs') cargarLogs();
+      if (tabId === 'tabConfig') cargarConfiguracion();
+      if (tabId === 'tabLotes') cargarBatches();
+    }
+
+    function cargarTodo() {
+      cargarStatus();
+      cargarBatches();
+    }
+
+    cargarTodo();
+    cargarConfiguracion();
+    setInterval(cargarStatus, 3500);
+  </script>
+</body>
+</html>

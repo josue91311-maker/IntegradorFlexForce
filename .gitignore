@@ -1,0 +1,11 @@
+# Build results
+bin/
+obj/
+publish/
+*.user
+*.suo
+.vs/
+.vscode/
+
+# Logs & temp
+*.log
