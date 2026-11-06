@@ -45,7 +45,7 @@ namespace IntegradorFlexForce.Services
                     else
                     {
                         _logger.LogInformation("Iniciando ciclo automático de sincronización...");
-                        await _syncEngine.EjecutarSincronizacionClientesAsync("AUTOMATICO", "WORKER_SERVICE", stoppingToken);
+                        await _syncEngine.EjecutarSincronizacionClientesAsync("AUTOMATICO", "WORKER_SERVICE", incluirZonas: true, stoppingToken);
                     }
                 }
                 catch (OperationCanceledException)

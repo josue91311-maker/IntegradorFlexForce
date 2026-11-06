@@ -31,10 +31,7 @@ namespace IntegradorFlexForce.Services
 
         public SyncStatusDto GetStatus() => _currentStatus;
 
-        public async Task<bool> IsRunningAsync()
-        {
-            return _syncLock.CurrentCount == 0;
-        }
+        public Task<bool> IsRunningAsync() => Task.FromResult(_syncLock.CurrentCount == 0);
 
         // =========================================================================
         // 1. ESCANEO / PREVISUALIZACIÓN DE CAMBIOS SIN EJECUTAR (DIAGNÓSTICO)
