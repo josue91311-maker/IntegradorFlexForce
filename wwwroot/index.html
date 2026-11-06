@@ -6,31 +6,35 @@
     <title>Consola de Integración ERP — Módulo de Clientes</title>
     <style>
         :root {
-            --bg-body: #0b0f19;
-            --bg-panel: #111827;
-            --bg-header: #1f2937;
-            --bg-row-hover: #1e293b;
-            --border: #374151;
-            --text-primary: #f9fafb;
-            --text-secondary: #9ca3af;
-            --accent-blue: #2563eb;
-            --accent-blue-hover: #1d4ed8;
-            --accent-green: #059669;
-            --accent-amber: #d97706;
-            --accent-red: #dc2626;
+            --bg-body: #0d1117;
+            --bg-panel: #161b22;
+            --bg-card: #21262d;
+            --bg-header: #1f242c;
+            --bg-hover: #262c36;
+            --border: #30363d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --accent-blue: #1f6feb;
+            --accent-blue-hover: #388bfd;
+            --accent-green: #238636;
+            --accent-green-hover: #2ea043;
+            --color-insert: #3fb950;
+            --color-update: #d29922;
+            --color-delete: #f85149;
+            --color-info: #58a6ff;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             background-color: var(--bg-body);
             color: var(--text-primary);
             font-size: 13px;
-            line-height: 1.45;
-            padding: 18px 24px;
+            line-height: 1.5;
+            padding: 20px 28px;
         }
 
-        .wrapper { max-width: 1500px; margin: 0 auto; }
+        .container { max-width: 1560px; margin: 0 auto; }
 
         /* Top Bar */
         .topbar {
@@ -39,18 +43,17 @@
             align-items: center;
             background: var(--bg-panel);
             border: 1px solid var(--border);
-            padding: 16px 22px;
-            border-radius: 6px;
-            margin-bottom: 16px;
+            padding: 18px 24px;
+            border-radius: 8px;
+            margin-bottom: 18px;
         }
-        .topbar-title h1 {
-            font-size: 16px;
+        .topbar-info h1 {
+            font-size: 17px;
             font-weight: 600;
-            letter-spacing: 0.2px;
             color: #ffffff;
-            text-transform: uppercase;
+            letter-spacing: -0.2px;
         }
-        .topbar-title p {
+        .topbar-info p {
             color: var(--text-secondary);
             font-size: 12px;
             margin-top: 3px;
@@ -63,45 +66,43 @@
 
         button {
             cursor: pointer;
-            border: 1px solid transparent;
-            border-radius: 4px;
-            padding: 8px 15px;
-            font-size: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 12.5px;
             font-weight: 600;
             color: #ffffff;
-            transition: background 0.15s;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
+            transition: all 0.15s ease;
         }
-        button:disabled { opacity: 0.45; cursor: not-allowed; }
-        .btn-neutral { background: #374151; border-color: #4b5563; }
-        .btn-neutral:hover:not(:disabled) { background: #4b5563; }
-        .btn-blue { background: var(--accent-blue); }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-neutral { background: var(--bg-card); color: var(--text-primary); }
+        .btn-neutral:hover:not(:disabled) { background: #30363d; border-color: #8b949e; }
+        .btn-blue { background: var(--accent-blue); border-color: rgba(240,246,252,0.1); }
         .btn-blue:hover:not(:disabled) { background: var(--accent-blue-hover); }
-        .btn-green { background: var(--accent-green); }
-        .btn-green:hover:not(:disabled) { background: #047857; }
+        .btn-green { background: var(--accent-green); border-color: rgba(240,246,252,0.1); }
+        .btn-green:hover:not(:disabled) { background: var(--accent-green-hover); }
 
-        /* Status Bar */
+        /* Status & Progress */
         .status-strip {
             background: var(--bg-panel);
             border: 1px solid var(--border);
-            padding: 12px 20px;
-            border-radius: 6px;
-            margin-bottom: 16px;
+            padding: 14px 22px;
+            border-radius: 8px;
+            margin-bottom: 18px;
         }
         .status-top {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 9px;
         }
         .progress-track {
             width: 100%;
-            height: 8px;
-            background: #0b0f19;
-            border: 1px solid var(--border);
+            height: 7px;
+            background: #0d1117;
             border-radius: 4px;
             overflow: hidden;
+            border: 1px solid var(--border);
         }
         .progress-fill {
             height: 100%;
@@ -110,137 +111,135 @@
             transition: width 0.25s ease;
         }
 
-        .tag {
+        .badge {
             display: inline-block;
-            padding: 2px 8px;
-            border-radius: 3px;
+            padding: 3px 9px;
+            border-radius: 12px;
             font-size: 11px;
-            font-weight: 700;
+            font-weight: 600;
             text-transform: uppercase;
         }
-        .tag-idle { background: #374151; color: #d1d5db; }
-        .tag-run { background: #1e3a8a; color: #93c5fd; }
-        .tag-ok { background: #064e3b; color: #6ee7b7; }
-        .tag-warn { background: #78350f; color: #fcd34d; }
-        .tag-err { background: #7f1d1d; color: #fca5a5; }
+        .badge-idle { background: #21262d; color: var(--text-secondary); border: 1px solid var(--border); }
+        .badge-running { background: rgba(56,139,253,0.15); color: #58a6ff; border: 1px solid rgba(56,139,253,0.4); }
+        .badge-ok { background: rgba(63,185,80,0.15); color: #3fb950; border: 1px solid rgba(63,185,80,0.4); }
+        .badge-warn { background: rgba(210,153,34,0.15); color: #d29922; border: 1px solid rgba(210,153,34,0.4); }
+        .badge-err { background: rgba(248,81,73,0.15); color: #f85149; border: 1px solid rgba(248,81,73,0.4); }
 
         /* Panels */
         .panel {
             background: var(--bg-panel);
             border: 1px solid var(--border);
-            border-radius: 6px;
-            margin-bottom: 16px;
+            border-radius: 8px;
+            margin-bottom: 18px;
             overflow: hidden;
         }
         .panel-header {
             background: var(--bg-header);
-            padding: 10px 18px;
+            padding: 12px 20px;
             border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         .panel-header h2 {
-            font-size: 13px;
+            font-size: 13.5px;
             font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-            color: #e5e7eb;
+            color: #ffffff;
         }
-        .panel-body { padding: 0; }
 
         /* Tables */
-        .table-container { overflow-x: auto; max-height: 360px; overflow-y: auto; }
+        .table-wrap { overflow-x: auto; max-height: 400px; overflow-y: auto; }
         table { width: 100%; border-collapse: collapse; }
         th, td {
-            padding: 9px 14px;
+            padding: 10px 16px;
             text-align: left;
             border-bottom: 1px solid var(--border);
             font-size: 12.5px;
         }
         th {
-            background: #182232;
+            background: #1c2128;
             color: var(--text-secondary);
             font-weight: 600;
+            font-size: 11.5px;
             text-transform: uppercase;
-            font-size: 11px;
-            letter-spacing: 0.4px;
+            letter-spacing: 0.3px;
             position: sticky;
             top: 0;
             z-index: 1;
         }
-        tr:hover { background: var(--bg-row-hover); }
+        tr:hover { background: var(--bg-hover); }
         .num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
-        .num-insert { color: #34d399; }
-        .num-update { color: #fbbf24; }
-        .num-delete { color: #f87171; }
+        .num-ins { color: var(--color-insert); }
+        .num-upd { color: var(--color-update); }
+        .num-del { color: var(--color-delete); }
 
         /* Grid 2 Cols */
-        .grid-2 {
+        .grid-layout {
             display: grid;
-            grid-template-columns: 340px 1fr;
-            gap: 16px;
-            margin-bottom: 16px;
+            grid-template-columns: 360px 1fr;
+            gap: 18px;
+            margin-bottom: 18px;
         }
-        @media (max-width: 1024px) {
-            .grid-2 { grid-template-columns: 1fr; }
+        @media (max-width: 1100px) {
+            .grid-layout { grid-template-columns: 1fr; }
         }
 
-        .form-box { padding: 16px; }
-        .form-row { margin-bottom: 12px; }
-        .form-row label { display: block; color: var(--text-secondary); font-size: 11.5px; margin-bottom: 4px; }
-        .form-row input, .form-row select {
+        .form-content { padding: 18px; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; color: var(--text-secondary); font-size: 12px; margin-bottom: 5px; }
+        .form-group input, .form-group select {
             width: 100%;
-            padding: 7px 10px;
-            background: #0b0f19;
+            padding: 8px 12px;
+            background: var(--bg-body);
             border: 1px solid var(--border);
-            border-radius: 4px;
-            color: #fff;
+            border-radius: 6px;
+            color: #ffffff;
             font-size: 12.5px;
         }
 
-        .filter-bar {
+        .filter-controls {
             display: flex;
             gap: 10px;
             align-items: center;
         }
-        .filter-bar input, .filter-bar select {
-            padding: 5px 10px;
-            background: #0b0f19;
+        .filter-controls input, .filter-controls select {
+            padding: 6px 12px;
+            background: var(--bg-body);
             border: 1px solid var(--border);
-            border-radius: 4px;
-            color: #fff;
+            border-radius: 6px;
+            color: #ffffff;
             font-size: 12px;
         }
 
         /* Modal */
-        .modal-overlay {
+        .modal-bg {
             display: none;
             position: fixed;
             inset: 0;
             background: rgba(0, 0, 0, 0.75);
-            z-index: 1000;
+            z-index: 9999;
             justify-content: center;
             align-items: center;
-            padding: 20px;
+            padding: 24px;
         }
-        .modal-card {
+        .modal-box {
             background: var(--bg-panel);
             border: 1px solid var(--border);
-            border-radius: 6px;
-            max-width: 850px;
+            border-radius: 8px;
+            max-width: 900px;
             width: 100%;
-            max-height: 80vh;
+            max-height: 82vh;
             display: flex;
             flex-direction: column;
         }
-        .modal-pre {
-            padding: 16px;
-            margin: 14px;
-            background: #070a10;
+        .modal-body {
+            padding: 16px 20px;
+            margin: 16px;
+            background: #0a0d12;
             border: 1px solid var(--border);
+            border-radius: 6px;
             color: #fca5a5;
-            font-family: Consolas, monospace;
+            font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
             font-size: 12px;
             white-space: pre-wrap;
             overflow-y: auto;
@@ -249,31 +248,31 @@
 </head>
 <body>
 
-<div class="wrapper">
-    <!-- CABECERA CORPORATIVA -->
+<div class="container">
+    <!-- BARRA SUPERIOR -->
     <div class="topbar">
-        <div class="topbar-title">
-            <h1>Middleware de Sincronización ERP — Módulo 1: Clientes, Direcciones, Zonas y Créditos</h1>
-            <p>Origen: SQL Server 192.168.2.16 (digalimenta41) | Destino: SQL Server 192.168.2.93 (BDForceGVD)</p>
+        <div class="topbar-info">
+            <h1>Integrador FlexForce — Módulo de Clientes, Direcciones y Cartera de Rutas</h1>
+            <p>Origen: SQL Server 192.168.2.16 (digalimenta41) ➔ Destino: SQL Server 192.168.2.93 (BDForceGVD)</p>
         </div>
         <div class="topbar-actions">
-            <button id="btnValidar" class="btn-neutral" onclick="validarDiferencias()">1. Consultar y Validar Diferencias</button>
-            <button id="btnSyncClientes" class="btn-blue" onclick="ejecutarSync('clientes')">2. Aplicar Cambios Clientes / Direcciones</button>
-            <button id="btnSyncZonas" class="btn-blue" onclick="ejecutarSync('zonas')">3. Aplicar Cambios Zonas / Rutas</button>
-            <button id="btnSyncTodo" class="btn-green" onclick="ejecutarSync('todo')">Aplicar Todos los Cambios</button>
+            <button id="btnValidar" class="btn-neutral" onclick="validarDiferencias()">1. Consultar Diferencias</button>
+            <button id="btnSyncClientes" class="btn-blue" onclick="ejecutarSincronizacion('clientes')">2. Sincronizar Clientes y Direcciones</button>
+            <button id="btnSyncZonas" class="btn-blue" onclick="ejecutarSincronizacion('zonas')">3. Sincronizar Cartera de Rutas</button>
+            <button id="btnSyncTodo" class="btn-green" onclick="ejecutarSincronizacion('todo')">Sincronizar Todo</button>
         </div>
     </div>
 
-    <!-- BARRA DE ESTADO Y PROGRESO -->
+    <!-- ESTADO EN VIVO Y BARRA DE PROGRESO -->
     <div class="status-strip">
         <div class="status-top">
             <div>
-                <strong id="lblFaseDetalle">Sistema listo en modo manual. Presione "Consultar y Validar Diferencias" para analizar las tablas.</strong>
-                <span id="lblUltimaEjecucion" style="color:var(--text-secondary); margin-left:15px;"></span>
+                <strong id="lblFaseDetalle">Sistema en espera. Presione "Consultar Diferencias" para analizar las tablas.</strong>
+                <span id="lblUltimaEjecucion" style="color:var(--text-secondary); margin-left:14px;"></span>
             </div>
-            <div style="display:flex; align-items:center; gap:14px;">
+            <div style="display:flex; align-items:center; gap:12px;">
                 <span id="lblProgresoTexto" style="color:var(--text-secondary); font-variant-numeric:tabular-nums;">0 / 0 (0%)</span>
-                <span id="badgeEstado" class="tag tag-idle">EN ESPERA</span>
+                <span id="badgeEstado" class="badge badge-idle">EN ESPERA</span>
             </div>
         </div>
         <div class="progress-track">
@@ -281,20 +280,20 @@
         </div>
     </div>
 
-    <!-- SECCIÓN 1: MATRIZ DE VALIDACIÓN POR TABLA DEL MÓDULO CLIENTES -->
+    <!-- 1. RESUMEN TABLA POR TABLA DEL MÓDULO -->
     <div class="panel">
         <div class="panel-header">
-            <h2>Matriz de Validación de Tablas — Comparación Directa ERP Antiguo vs Force Distribución</h2>
+            <h2>1. Matriz de Validación de Tablas (Comparación Directa ERP Antiguo vs Force)</h2>
             <span id="lblTiempoAnalisis" style="color:var(--text-secondary); font-size:12px;">Pendiente de consulta</span>
         </div>
-        <div class="panel-body">
+        <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
                         <th>Sub-Módulo / Entidad</th>
-                        <th>Tablas Físicas en BDForceGVD</th>
-                        <th class="num">Registros ERP Antiguo</th>
-                        <th class="num">Registros en Force</th>
+                        <th>Tablas en BDForceGVD</th>
+                        <th class="num">ERP Antiguo</th>
+                        <th class="num">Force ERP</th>
                         <th class="num">Nuevos (INSERT)</th>
                         <th class="num">Modificados (UPDATE)</th>
                         <th class="num">Bajas / Quitados (DELETE)</th>
@@ -304,8 +303,8 @@
                 </thead>
                 <tbody id="tblResumenTablas">
                     <tr>
-                        <td colspan="9" style="text-align:center; color:var(--text-secondary); padding:18px;">
-                            Realizando validación inicial contra las tablas de BDForceGVD...
+                        <td colspan="9" style="text-align:center; color:var(--text-secondary); padding:20px;">
+                            Cargando validación inicial contra las tablas de BDForceGVD...
                         </td>
                     </tr>
                 </tbody>
@@ -313,17 +312,17 @@
         </div>
     </div>
 
-    <!-- SECCIÓN 2: DETALLE DE CAMBIOS DETECTADOS ANTES DE EJECUTAR -->
+    <!-- 2. DETALLE DE REGISTROS CON CAMBIOS DETECTADOS -->
     <div class="panel">
         <div class="panel-header">
-            <h2>Detalle de Registros con Cambios Detectados (Pre-Ejecución)</h2>
-            <div class="filter-bar">
-                <input type="text" id="txtFiltroCambio" placeholder="Filtrar por código, nombre o dirección..." oninput="renderizarDetalleCambios()">
+            <h2>2. Detalle de Registros con Cambios Detectados (Pre-Visualización)</h2>
+            <div class="filter-controls">
+                <input type="text" id="txtFiltroCambio" placeholder="Buscar código, cliente o dirección..." oninput="renderizarDetalleCambios()">
                 <select id="selFiltroTabla" onchange="renderizarDetalleCambios()">
                     <option value="">Todas las tablas</option>
                     <option value="CLIENTES">Clientes y Personas</option>
                     <option value="DIRECCIONES">Direcciones</option>
-                    <option value="ZONAS">Zonas y Rutas</option>
+                    <option value="ZONAS">Cartera de Rutas</option>
                 </select>
                 <select id="selFiltroOp" onchange="renderizarDetalleCambios()">
                     <option value="">Todas las operaciones</option>
@@ -333,15 +332,15 @@
                 </select>
             </div>
         </div>
-        <div class="table-container">
+        <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
-                        <th>Tabla Afectada</th>
+                        <th>Sub-Módulo</th>
                         <th>Operación</th>
-                        <th>ID Origen (PKID)</th>
+                        <th>ID Origen</th>
                         <th>Código Cliente</th>
-                        <th>Nombre / Razón Social</th>
+                        <th>Cliente / Razón Social</th>
                         <th>Campo Detectado</th>
                         <th>Valor Actual en Force</th>
                         <th>Valor Nuevo en ERP Antiguo</th>
@@ -349,7 +348,7 @@
                 </thead>
                 <tbody id="tblDetalleCambios">
                     <tr>
-                        <td colspan="8" style="text-align:center; color:var(--text-secondary); padding:18px;">
+                        <td colspan="8" style="text-align:center; color:var(--text-secondary); padding:20px;">
                             Sin diferencias pendientes de aplicar.
                         </td>
                     </tr>
@@ -358,53 +357,53 @@
         </div>
     </div>
 
-    <!-- SECCIÓN 3: CONFIGURACIÓN Y LOTES -->
-    <div class="grid-2">
+    <!-- 3. CONFIGURACIÓN Y LOTES -->
+    <div class="grid-layout">
         <div class="panel" style="margin-bottom:0;">
             <div class="panel-header">
-                <h2>Parámetros de Operación</h2>
+                <h2>Control de Ejecución</h2>
             </div>
-            <div class="form-box">
-                <div class="form-row" style="display:flex; justify-content:space-between; align-items:center; background:#0b0f19; padding:10px; border:1px solid var(--border); border-radius:4px;">
+            <div class="form-content">
+                <div class="form-group" style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-body); padding:10px 14px; border:1px solid var(--border); border-radius:6px;">
                     <div>
-                        <div style="font-weight:600; color:#fff;">Ejecución Automática Programada</div>
-                        <div style="font-size:11px; color:var(--text-secondary);">Desmarcado = Operación 100% Manual</div>
+                        <div style="font-weight:600;">Sincronización Automática</div>
+                        <div style="font-size:11px; color:var(--text-secondary);">Desmarcado = 100% Manual</div>
                     </div>
                     <input type="checkbox" id="chkActiva" style="width:18px; height:18px;">
                 </div>
-                <div class="form-row">
-                    <label>Frecuencia de Revisión (Minutos)</label>
+                <div class="form-group">
+                    <label>Frecuencia de Ejecución (Minutos)</label>
                     <input type="number" id="txtIntervalo" min="1" max="1440" value="3">
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    <div class="form-row">
+                    <div class="form-group">
                         <label>Hora Inicio Ventana</label>
                         <input type="time" id="txtHoraInicio" value="05:00">
                     </div>
-                    <div class="form-row">
+                    <div class="form-group">
                         <label>Hora Fin Ventana</label>
                         <input type="time" id="txtHoraFin" value="23:30">
                     </div>
                 </div>
-                <div class="form-row">
-                    <label>Tamaño de Lote por Transacción</label>
+                <div class="form-group">
+                    <label>Tamaño de Lote (Registros)</label>
                     <input type="number" id="txtTamanoLote" min="50" max="5000" value="500">
                 </div>
-                <button class="btn-blue" style="width:100%; margin-top:4px;" onclick="guardarConfiguracion()">Guardar Parámetros</button>
+                <button class="btn-blue" style="width:100%; margin-top:6px;" onclick="guardarConfiguracion()">Guardar Configuración</button>
             </div>
         </div>
 
         <div class="panel" style="margin-bottom:0;">
             <div class="panel-header">
-                <h2>Historial de Transacciones Ejecutadas</h2>
-                <button class="btn-neutral" style="padding:4px 10px; font-size:11px;" onclick="cargarLotes()">Actualizar</button>
+                <h2>Historial de Ejecuciones y Lotes</h2>
+                <button class="btn-neutral" style="padding:4px 10px; font-size:11.5px;" onclick="cargarLotes()">Actualizar</button>
             </div>
-            <div class="table-container" style="max-height:290px;">
+            <div class="table-wrap" style="max-height:300px;">
                 <table>
                     <thead>
                         <tr>
                             <th>Lote</th>
-                            <th>Alcance</th>
+                            <th>Entidad</th>
                             <th>Modo</th>
                             <th>Fecha Inicio</th>
                             <th>Duración</th>
@@ -422,22 +421,22 @@
         </div>
     </div>
 
-    <!-- SECCIÓN 4: BITÁCORA DE AUDITORÍA Y ERRORES -->
+    <!-- 4. LOGS Y AUDITORÍA SQL -->
     <div class="panel">
         <div class="panel-header">
-            <h2>Registro de Excepciones y Auditoría SQL</h2>
-            <div class="filter-bar">
+            <h2>Bitácora de Auditoría y Excepciones SQL</h2>
+            <div class="filter-controls">
                 <input type="text" id="txtBuscarLog" placeholder="Buscar por código o ID..." oninput="renderizarLogs()">
                 <select id="selNivelLog" onchange="cargarLogs()">
                     <option value="">Todos los niveles</option>
-                    <option value="ERROR">ERROR</option>
-                    <option value="FATAL">FATAL</option>
+                    <option value="ERROR">Solo ERRORES</option>
+                    <option value="FATAL">Solo FATALES</option>
                     <option value="INFO">INFO</option>
                 </select>
-                <button class="btn-neutral" style="padding:4px 10px; font-size:11px;" onclick="cargarLogs()">Refrescar</button>
+                <button class="btn-neutral" style="padding:4px 10px; font-size:11.5px;" onclick="cargarLogs()">Refrescar</button>
             </div>
         </div>
-        <div class="table-container" style="max-height:260px;">
+        <div class="table-wrap" style="max-height:260px;">
             <table>
                 <thead>
                     <tr>
@@ -446,8 +445,8 @@
                         <th>Nivel</th>
                         <th>ID Origen</th>
                         <th>Código Cliente</th>
-                        <th>Descripción del Evento</th>
-                        <th>Diagnóstico Técnico</th>
+                        <th>Mensaje</th>
+                        <th>Detalle Técnico</th>
                     </tr>
                 </thead>
                 <tbody id="tblLogs">
@@ -458,14 +457,14 @@
     </div>
 </div>
 
-<!-- MODAL DE TRAZA TÉCNICA -->
-<div id="modalDetalle" class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
-    <div class="modal-card">
+<!-- MODAL TRAZA TÉCNICA -->
+<div id="modalDetalle" class="modal-bg" onclick="if(event.target===this) cerrarModal()">
+    <div class="modal-box">
         <div class="panel-header">
             <h2 id="modalTitulo">Detalle Técnico de Excepción SQL</h2>
-            <button class="btn-neutral" style="padding:3px 10px;" onclick="cerrarModal()">Cerrar</button>
+            <button class="btn-neutral" style="padding:4px 10px;" onclick="cerrarModal()">Cerrar</button>
         </div>
-        <div id="modalContenido" class="modal-pre"></div>
+        <div id="modalContenido" class="modal-body"></div>
     </div>
 </div>
 
@@ -476,31 +475,30 @@
     async function validarDiferencias() {
         const btn = document.getElementById('btnValidar');
         btn.disabled = true;
-        btn.textContent = 'Analizando Tablas...';
-        document.getElementById('lblTiempoAnalisis').textContent = 'Comparando registros entre digalimenta41 y BDForceGVD...';
+        btn.textContent = 'Consultando...';
+        document.getElementById('lblTiempoAnalisis').textContent = 'Consultando tablas directas...';
 
         try {
             const res = await fetch('/api/sync/preview');
             const data = await res.json();
 
             document.getElementById('lblTiempoAnalisis').textContent = 
-                `Última validación: ${new Date(data.fechaAnalisis).toLocaleTimeString()} (Tiempo de comparación: ${data.tiempoEscaneoSegundos} seg)`;
+                `Última consulta: ${new Date(data.fechaAnalisis).toLocaleTimeString()} (${data.tiempoEscaneoSegundos} s)`;
 
-            // Renderizar Matriz de Tablas
             const tbodyResumen = document.getElementById('tblResumenTablas');
             tbodyResumen.innerHTML = (data.resumenPorTabla || []).map(r => {
                 const totalDiff = r.insertsDetectados + r.updatesDetectados + r.deletesBajasDetectados;
-                const tagClass = totalDiff === 0 ? 'tag-ok' : 'tag-warn';
+                const badgeClass = totalDiff === 0 ? 'badge-ok' : 'badge-warn';
                 return `<tr>
                     <td><strong>${r.nombreTabla}</strong></td>
-                    <td style="color:var(--text-secondary); font-family:Consolas, monospace; font-size:11.5px;">${r.tablasForce}</td>
+                    <td style="color:var(--text-secondary); font-family:ui-monospace, monospace; font-size:11.5px;">${r.tablasForce}</td>
                     <td class="num">${(r.totalOrigen || 0).toLocaleString()}</td>
                     <td class="num">${(r.totalDestino || 0).toLocaleString()}</td>
-                    <td class="num ${r.insertsDetectados > 0 ? 'num-insert' : ''}">${(r.insertsDetectados || 0).toLocaleString()}</td>
-                    <td class="num ${r.updatesDetectados > 0 ? 'num-update' : ''}">${(r.updatesDetectados || 0).toLocaleString()}</td>
-                    <td class="num ${r.deletesBajasDetectados > 0 ? 'num-delete' : ''}">${(r.deletesBajasDetectados || 0).toLocaleString()}</td>
+                    <td class="num ${r.insertsDetectados > 0 ? 'num-ins' : ''}">${(r.insertsDetectados || 0).toLocaleString()}</td>
+                    <td class="num ${r.updatesDetectados > 0 ? 'num-upd' : ''}">${(r.updatesDetectados || 0).toLocaleString()}</td>
+                    <td class="num ${r.deletesBajasDetectados > 0 ? 'num-del' : ''}">${(r.deletesBajasDetectados || 0).toLocaleString()}</td>
                     <td class="num" style="font-weight:700;">${totalDiff.toLocaleString()}</td>
-                    <td><span class="tag ${tagClass}">${r.observacion}</span></td>
+                    <td><span class="badge ${badgeClass}">${r.observacion}</span></td>
                 </tr>`;
             }).join('');
 
@@ -511,7 +509,7 @@
             alert('Error al validar diferencias: ' + e.message);
         } finally {
             btn.disabled = false;
-            btn.textContent = '1. Consultar y Validar Diferencias';
+            btn.textContent = '1. Consultar Diferencias';
         }
     }
 
@@ -536,30 +534,30 @@
 
         const tbody = document.getElementById('tblDetalleCambios');
         if (!filtrados.length) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-secondary); padding:16px;">No se encontraron diferencias pendientes con los filtros actuales.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-secondary); padding:20px;">No se encontraron registros pendientes con los filtros seleccionados.</td></tr>';
             return;
         }
 
         tbody.innerHTML = filtrados.map(c => {
-            let tagOp = 'tag-run';
-            if (c.tipoOperacion.includes('INSERT')) tagOp = 'tag-ok';
-            else if (c.tipoOperacion.includes('UPDATE')) tagOp = 'tag-warn';
-            else if (c.tipoOperacion.includes('BAJA') || c.tipoOperacion.includes('DELETE')) tagOp = 'tag-err';
+            let badgeOp = 'badge-running';
+            if (c.tipoOperacion.includes('INSERT')) badgeOp = 'badge-ok';
+            else if (c.tipoOperacion.includes('UPDATE')) badgeOp = 'badge-warn';
+            else if (c.tipoOperacion.includes('BAJA') || c.tipoOperacion.includes('DELETE')) badgeOp = 'badge-err';
 
             return `<tr>
                 <td><strong>${c.tabla}</strong></td>
-                <td><span class="tag ${tagOp}">${c.tipoOperacion}</span></td>
-                <td style="font-family:Consolas, monospace;">${c.idOrigen}</td>
+                <td><span class="badge ${badgeOp}">${c.tipoOperacion}</span></td>
+                <td style="font-family:ui-monospace, monospace;">${c.idOrigen}</td>
                 <td><strong>${c.codigoCliente}</strong></td>
                 <td>${c.nombreCliente}</td>
                 <td>${c.campoModificado}</td>
-                <td style="color:#9ca3af;">${c.valorActualForce}</td>
-                <td style="color:#f9fafb; font-weight:600;">${c.valorNuevoERP}</td>
+                <td style="color:var(--text-secondary);">${c.valorActualForce}</td>
+                <td style="color:#ffffff; font-weight:600;">${c.valorNuevoERP}</td>
             </tr>`;
         }).join('');
     }
 
-    async function ejecutarSync(modo) {
+    async function ejecutarSincronizacion(modo) {
         try {
             const res = await fetch(`/api/sync/trigger?modo=${modo}`, { method: 'POST' });
             const data = await res.json();
@@ -589,7 +587,7 @@
 
             const badge = document.getElementById('badgeEstado');
             badge.textContent = s.estadoActual;
-            badge.className = 'tag ' + (s.isRunning ? 'tag-run' : (s.estadoActual === 'ERROR_CRITICO' ? 'tag-err' : 'tag-ok'));
+            badge.className = 'badge ' + (s.isRunning ? 'badge-running' : (s.estadoActual === 'ERROR_CRITICO' ? 'badge-err' : 'badge-ok'));
 
             document.getElementById('btnSyncClientes').disabled = s.isRunning;
             document.getElementById('btnSyncZonas').disabled = s.isRunning;
@@ -636,17 +634,17 @@
                 return;
             }
             tbody.innerHTML = list.map(b => {
-                let tagClass = b.estado === 'EXITOSO' ? 'tag-ok' : (b.estado === 'CON_ERRORES' ? 'tag-warn' : (b.estado === 'EN_PROCESO' ? 'tag-run' : 'tag-err'));
+                let tagClass = b.estado === 'EXITOSO' ? 'badge-ok' : (b.estado === 'CON_ERRORES' ? 'badge-warn' : (b.estado === 'EN_PROCESO' ? 'badge-running' : 'badge-err'));
                 return `<tr>
                     <td>#${b.id}</td>
                     <td><strong>${b.entidad}</strong></td>
                     <td>${b.tipoEjecucion}</td>
                     <td>${new Date(b.fechaInicio).toLocaleString()}</td>
                     <td>${b.duracionSegundos != null ? b.duracionSegundos + ' s' : 'En curso'}</td>
-                    <td class="num num-insert">${(b.totalNuevos || 0).toLocaleString()}</td>
-                    <td class="num num-update">${(b.totalModificados || 0).toLocaleString()}</td>
-                    <td class="num ${b.totalErrores > 0 ? 'num-delete' : ''}">${b.totalErrores || 0}</td>
-                    <td><span class="tag ${tagClass}">${b.estado}</span></td>
+                    <td class="num num-ins">${(b.totalNuevos || 0).toLocaleString()}</td>
+                    <td class="num num-upd">${(b.totalModificados || 0).toLocaleString()}</td>
+                    <td class="num ${b.totalErrores > 0 ? 'num-del' : ''}">${b.totalErrores || 0}</td>
+                    <td><span class="badge ${tagClass}">${b.estado}</span></td>
                 </tr>`;
             }).join('');
         } catch (e) { console.error(e); }
@@ -675,15 +673,15 @@
             return;
         }
         tbody.innerHTML = filtrados.map((l, idx) => {
-            const tagClass = l.nivel === 'ERROR' || l.nivel === 'FATAL' ? 'tag-err' : 'tag-run';
+            const tagClass = l.nivel === 'ERROR' || l.nivel === 'FATAL' ? 'badge-err' : 'badge-running';
             return `<tr>
                 <td>${new Date(l.fecha).toLocaleString()}</td>
                 <td>${l.entidad}</td>
-                <td><span class="tag ${tagClass}">${l.nivel}</span></td>
-                <td style="font-family:Consolas, monospace;">${l.idOrigen ?? '-'}</td>
+                <td><span class="badge ${tagClass}">${l.nivel}</span></td>
+                <td style="font-family:ui-monospace, monospace;">${l.idOrigen ?? '-'}</td>
                 <td><strong>${l.codigo ?? '-'}</strong></td>
                 <td>${l.mensaje}</td>
-                <td><button class="btn-neutral" style="padding:3px 9px; font-size:11px;" onclick="verDetalle(${idx})">Ver Traza SQL</button></td>
+                <td><button class="btn-neutral" style="padding:3px 9px; font-size:11.5px;" onclick="verDetalle(${idx})">Ver Traza</button></td>
             </tr>`;
         }).join('');
     }
@@ -707,7 +705,7 @@
         document.getElementById('modalDetalle').style.display = 'none';
     }
 
-    // Inicializar
+    // Inicialización
     cargarConfiguracion();
     cargarEstado();
     cargarLotes();
