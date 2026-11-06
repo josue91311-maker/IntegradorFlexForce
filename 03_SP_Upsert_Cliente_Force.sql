@@ -1,46 +1,44 @@
 -- ==========================================================================================
 -- ARCHIVO: 03_SP_Upsert_Cliente_Force.sql
 -- PROYECTO: IntegradorFlexForce
--- BASE DE DATOS: BDForceGVD
--- OBJETIVO: Procedimiento almacenado que inserta o actualiza el cliente en BDForceGVD
---           respetando:
---           1. IDExtra = ID del ERP Antiguo
---           2. Orden estricto de tablas: cli_Cliente -> dir_Direccion -> dir_EntidadDireccion -> dir_ContactoEntidad
---           3. Triggers existentes (trg_ValidarEntidadContacto)
---           4. Check constraints (CHK_Cliente_Email)
+-- BASE DE DATOS DESTINO: BDForceGVD
+-- OBJETIVO: Insertar o actualizar en cascada un Cliente (cli_Cliente + per_Persona)
+--           y su Dirección Principal (dir_Direccion + dir_EntidadDireccion)
+--           respetando todas las restricciones CHECK y UNIQUE de BDForceGVD.
 -- ==========================================================================================
 
 USE [BDForceGVD]
 GO
 
 CREATE OR ALTER PROCEDURE dbo.usp_Sync_UpsertCliente
+    -- Parámetros del Cliente
     @ID_Cliente_Origen          int,
     @CodigoCliente              nvarchar(50),
-    @TipoPersona                nvarchar(10),     -- 'JUR' o 'NAT'
-    @TipoDocIdentidad           nvarchar(10),     -- '6' (RUC), '1' (DNI)
-    @DocIdentidad               nvarchar(20),
+    @TipoPersona                nvarchar(20)  = '3',
+    @TipoDocIdentidad           nvarchar(20)  = '1',
+    @DocIdentidad               nvarchar(20)  = '',
     @NombreCompleto             nvarchar(255),
-    @NombreComercial            nvarchar(255) = '',
+    @NombreComercial            nvarchar(255) = NULL,
     @PrimerNombre               nvarchar(100) = '',
     @SegundoNombre              nvarchar(100) = '',
     @ApellidoPaterno            nvarchar(100) = '',
     @ApellidoMaterno            nvarchar(100) = '',
     @CodigoTipoCliente          nvarchar(50)  = 'GENERAL',
     @CodigoCategoriaCliente     nvarchar(50)  = 'CAT_A',
-    @CodigoTipoNegocio          nvarchar(50)  = 'VARIOS',
+    @CodigoTipoNegocio          nvarchar(50)  = '0',
     @Email                      nvarchar(150) = NULL,
     @Telefono                   nvarchar(50)  = '',
     @Contacto                   nvarchar(150) = '',
     @PuestoContacto             nvarchar(100) = '',
     @ExceptuadoPercepcion       bit           = 0,
-    @Observacion                nvarchar(500) = '',
+    @Observacion                nvarchar(max) = '',
     @EstadoCliente              bit           = 1,
     
-    -- Dirección
+    -- Parámetros de la Dirección Principal
     @ID_Direccion_Origen        int,
     @EsPrincipal                bit           = 1,
-    @CodigoTipoDireccion        nvarchar(50)  = 'FIS',
-    @Direccion                  nvarchar(250),
+    @CodigoTipoDireccion        nvarchar(20)  = 'FIS',
+    @Direccion                  nvarchar(250) = 'SIN DIRECCION',
     @Referencia                 nvarchar(255) = '',
     @Ubigeo                     nvarchar(10)  = '150101',
     @CodigoDepartamento         nvarchar(10)  = '15',
@@ -120,15 +118,18 @@ BEGIN
         SELECT TOP 1 @IDTipoDireccion = ID FROM cat_TipoDireccion WHERE Codigo = @CodigoTipoDireccion;
         IF @IDTipoDireccion IS NULL SELECT TOP 1 @IDTipoDireccion = ID FROM cat_TipoDireccion WHERE Estado = 1;
 
-        -- Regla Email: Si es cadena vacía convertir a NULL
-        IF LTRIM(RTRIM(@Email)) = '' SET @Email = NULL;
+        -- -------------------------------------------------------------
+        -- REGLA EMAIL (Cumplir estrictamente CHK_Cliente_Email: '%_@__%.__%')
+        -- -------------------------------------------------------------
+        SET @Email = LTRIM(RTRIM(@Email));
+        IF @Email = '' OR @Email NOT LIKE '%_@__%.__%' OR @Email LIKE '% %'
+        BEGIN
+            SET @Email = NULL;
+        END
 
         -- -------------------------------------------------------------
         -- REGLA DOCIDENTIDAD: Manejo de vacíos y unicidad (UQ_Cliente_DocIdentidad)
         -- -------------------------------------------------------------
-        -- En el ERP Antiguo miles de clientes minoristas no tienen documento ('', '0', etc.)
-        -- Como cli_Cliente tiene el índice único UQ_Cliente_DocIdentidad, no se permiten
-        -- valores repetidos ni cadenas vacías. A los clientes sin doc se les asigna 'SD-' + ID_Cliente_Origen.
         SET @DocIdentidad = LTRIM(RTRIM(ISNULL(@DocIdentidad, '')));
         IF @DocIdentidad IN ('', '0', '00', '00000000', '-', '.', 'SD')
         BEGIN
@@ -153,7 +154,6 @@ BEGIN
 
         IF @IDCliente IS NULL
         BEGIN
-            -- INSERT NUEVO CLIENTE
             INSERT INTO cli_Cliente (
                 IDTipoPersona, IDTipoDocIdentidad, DocIdentidad,
                 ApellidoPaterno, ApellidoMaterno, PrimerNombre, SegundoNombre,
@@ -175,21 +175,28 @@ BEGIN
         END
         ELSE
         BEGIN
-            -- UPDATE CLIENTE EXISTENTE (Sin pisar claves si se unificó por DocIdentidad)
+            -- Si el nuevo DocIdentidad ya le pertenece a OTRO IDCliente distinto en Force,
+            -- mantenemos el DocIdentidad actual de este registro para no violar UQ_Cliente_DocIdentidad
+            DECLARE @DocIdentidadSeguro nvarchar(20) = @DocIdentidad;
+            IF EXISTS (SELECT 1 FROM cli_Cliente WHERE DocIdentidad = @DocIdentidad AND ID <> @IDCliente)
+            BEGIN
+                SELECT @DocIdentidadSeguro = DocIdentidad FROM cli_Cliente WHERE ID = @IDCliente;
+            END
+
             UPDATE cli_Cliente
             SET 
                 IDTipoPersona        = ISNULL(@IDTipoPersona, IDTipoPersona),
                 IDTipoDocIdentidad   = ISNULL(@IDTipoDocIdentidad, IDTipoDocIdentidad),
-                DocIdentidad         = @DocIdentidad,
-                ApellidoPaterno      = CASE WHEN ISNULL(ApellidoPaterno, '') = '' THEN @ApellidoPaterno ELSE ApellidoPaterno END,
-                ApellidoMaterno      = CASE WHEN ISNULL(ApellidoMaterno, '') = '' THEN @ApellidoMaterno ELSE ApellidoMaterno END,
-                PrimerNombre         = CASE WHEN ISNULL(PrimerNombre, '') = '' THEN @PrimerNombre ELSE PrimerNombre END,
-                NombreCompleto       = CASE WHEN ISNULL(NombreCompleto, '') = '' THEN @NombreCompleto ELSE NombreCompleto END,
-                NombreComercial      = ISNULL(NombreComercial, @NombreComercial),
+                DocIdentidad         = @DocIdentidadSeguro,
+                ApellidoPaterno      = CASE WHEN @ApellidoPaterno <> '' THEN @ApellidoPaterno ELSE ApellidoPaterno END,
+                ApellidoMaterno      = CASE WHEN @ApellidoMaterno <> '' THEN @ApellidoMaterno ELSE ApellidoMaterno END,
+                PrimerNombre         = CASE WHEN @PrimerNombre <> '' THEN @PrimerNombre ELSE PrimerNombre END,
+                NombreCompleto       = @NombreCompleto,
+                NombreComercial      = ISNULL(@NombreComercial, NombreComercial),
                 IDTipoCliente        = ISNULL(@IDTipoCliente, IDTipoCliente),
                 IDCategoriaCliente   = ISNULL(@IDCategoriaCliente, IDCategoriaCliente),
                 IDTipoNegocio        = ISNULL(@IDTipoNegocio, IDTipoNegocio),
-                Email                = ISNULL(Email, @Email),
+                Email                = CASE WHEN @Email IS NOT NULL THEN @Email ELSE Email END,
                 Exceptuadopercepcion = @ExceptuadoPercepcion,
                 Observacion          = ISNULL(@Observacion, Observacion),
                 Estado               = @EstadoCliente,
@@ -199,6 +206,36 @@ BEGIN
         END
 
         SET @IDClienteGenerado = @IDCliente;
+
+        -- -------------------------------------------------------------
+        -- PASO 2.1: SINCRONIZAR TABLA per_Persona (TipoEntidad = 'CLIENTE')
+        -- -------------------------------------------------------------
+        IF EXISTS (SELECT 1 FROM per_Persona WHERE IDCliente = @IDCliente AND TipoEntidad = 'CLIENTE')
+        BEGIN
+            UPDATE per_Persona
+            SET 
+                NombreCompleto     = @NombreCompleto,
+                NombreComercial    = @NombreComercial,
+                IDTipoDocIdentidad = @IDTipoDocIdentidad,
+                Email              = CASE WHEN @Email IS NOT NULL THEN @Email ELSE Email END,
+                Observacion        = LEFT(ISNULL(@Observacion, ''), 500),
+                Estado             = @EstadoCliente,
+                FechaModificacion  = GETDATE()
+            WHERE IDCliente = @IDCliente AND TipoEntidad = 'CLIENTE';
+        END
+        ELSE
+        BEGIN
+            INSERT INTO per_Persona (
+                TipoEntidad, IDCliente, NombreCompleto, NombreComercial,
+                DocIdentidad, IDTipoDocIdentidad, Telefono, Email,
+                Observacion, Estado, FechaCreacion, FechaModificacion, Eliminado
+            )
+            VALUES (
+                'CLIENTE', @IDCliente, @NombreCompleto, @NombreComercial,
+                @DocIdentidad, @IDTipoDocIdentidad, NULLIF(@Telefono, ''), @Email,
+                LEFT(ISNULL(@Observacion, ''), 500), @EstadoCliente, GETDATE(), GETDATE(), 0
+            );
+        END
 
         -- -------------------------------------------------------------
         -- PASO 3: INSERT O UPDATE EN dir_Direccion (POR IDExtra)
@@ -239,9 +276,9 @@ BEGIN
                 Direccion         = @Direccion,
                 Referencia        = @Referencia,
                 Ubigeo            = @Ubigeo,
-                IDDepartamento    = @IDDpto,
-                IDProvincia       = @IDProv,
-                IDDistrito        = @IDDist,
+                IDDepartamento    = ISNULL(@IDDpto, IDDepartamento),
+                IDProvincia       = ISNULL(@IDProv, IDProvincia),
+                IDDistrito        = ISNULL(@IDDist, IDDistrito),
                 Latitud           = @Latitud,
                 Longitud          = @Longitud,
                 Estado            = @EstadoDireccion,

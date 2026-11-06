@@ -6,15 +6,13 @@ namespace IntegradorFlexForce.Models
     public class SyncStatusDto
     {
         public bool IsRunning { get; set; }
-        public string EstadoActual { get; set; } = "EN_ESPERA"; // EN_ESPERA, ESCANEANDO, PROCESANDO_CLIENTES, PROCESANDO_ZONAS
-        public string FaseDetalle { get; set; } = "Listo para operar en modo manual";
+        public string EstadoActual { get; set; } = "EN_ESPERA";
+        public string FaseDetalle { get; set; } = "Sistema en espera (Modo Manual)";
         public int ProgresoActual { get; set; }
         public int ProgresoTotal { get; set; }
         public double Porcentaje => ProgresoTotal > 0 ? Math.Round((double)ProgresoActual / ProgresoTotal * 100, 1) : 0;
 
         public DateTime? UltimaEjecucion { get; set; }
-        public int TotalRegistrosDestino { get; set; }
-        public int TotalConError { get; set; }
         public int UltimoLoteProcesados { get; set; }
         public int UltimoLoteNuevos { get; set; }
         public int UltimoLoteModificados { get; set; }
@@ -27,23 +25,43 @@ namespace IntegradorFlexForce.Models
         public string VentanaHoraria { get; set; } = "05:00 - 23:30";
     }
 
+    public class TablaComparacionResumenDto
+    {
+        public string CodigoTabla { get; set; } = ""; // CLIENTES, DIRECCIONES, ZONAS_RUTAS, CREDITOS
+        public string NombreTabla { get; set; } = "";
+        public string TablasForce { get; set; } = "";
+        public int TotalOrigen { get; set; }
+        public int TotalDestino { get; set; }
+        public int InsertsDetectados { get; set; }
+        public int UpdatesDetectados { get; set; }
+        public int DeletesBajasDetectados { get; set; }
+        public int TotalCambios => InsertsDetectados + UpdatesDetectados + DeletesBajasDetectados;
+        public string Observacion { get; set; } = "Sincronizado";
+    }
+
+    public class CambioDetectadoItemDto
+    {
+        public string Tabla { get; set; } = "";          // CLIENTES, DIRECCIONES, ZONAS_RUTAS, CREDITOS
+        public string TipoOperacion { get; set; } = "";  // INSERT, UPDATE, BAJA / DELETE
+        public int IDOrigen { get; set; }
+        public string CodigoCliente { get; set; } = "";
+        public string NombreCliente { get; set; } = "";
+        public string CampoModificado { get; set; } = "";
+        public string ValorActualForce { get; set; } = "";
+        public string ValorNuevoERP { get; set; } = "";
+    }
+
     public class SyncPreviewDto
     {
         public DateTime FechaAnalisis { get; set; } = DateTime.Now;
         public double TiempoEscaneoSegundos { get; set; }
-        public int TotalClientesOrigen { get; set; }
-        public int TotalClientesSincronizados { get; set; }
-        public int ClientesNuevosDetectados { get; set; }
-        public int ClientesModificadosDetectados { get; set; }
-        public int ClientesInactivosOrigen { get; set; }
-        public int TotalZonasRutasOrigen { get; set; }
-        public int ZonasRutasNuevasDetectadas { get; set; }
-        public int ZonasRutasModificadasDetectadas { get; set; }
+        public List<TablaComparacionResumenDto> ResumenPorTabla { get; set; } = new();
+        public List<CambioDetectadoItemDto> DetalleCambios { get; set; } = new();
     }
 
     public class SyncConfigDto
     {
-        public bool SincronizacionActiva { get; set; } = false; // Modo manual por defecto
+        public bool SincronizacionActiva { get; set; } = false;
         public int IntervaloMinutos { get; set; } = 3;
         public string HoraInicioVentana { get; set; } = "05:00";
         public string HoraFinVentana { get; set; } = "23:30";
