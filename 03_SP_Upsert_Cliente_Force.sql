@@ -250,22 +250,22 @@ BEGIN
         END
 
         -- -------------------------------------------------------------
-        -- PASO 4: VINCULACIÓN EN dir_EntidadDireccion
+        -- PASO 4: VINCULACIÓN EN dir_EntidadDireccion (TipoEntidad = 'CLIENTE')
         -- -------------------------------------------------------------
         DECLARE @IDEntidadDireccion int;
         SELECT TOP 1 @IDEntidadDireccion = ID 
         FROM dir_EntidadDireccion 
-        WHERE IDEntidad = @IDCliente AND IDDireccion = @IDDireccion;
+        WHERE TipoEntidad = 'CLIENTE' AND IDEntidad = @IDCliente AND IDDireccion = @IDDireccion;
 
         IF @IDEntidadDireccion IS NULL
         BEGIN
             INSERT INTO dir_EntidadDireccion (
-                IDEntidad, IDDireccion, EsPrincipal, Estado,
-                FechaCreacion, FechaModificacion, Eliminado
+                TipoEntidad, IDEntidad, IDDireccion, EsPrincipal, Estado,
+                FechaCreacion, FechaModificacion, IDExtra
             )
             VALUES (
-                @IDCliente, @IDDireccion, @EsPrincipal, @EstadoDireccion,
-                GETDATE(), GETDATE(), 0
+                'CLIENTE', @IDCliente, @IDDireccion, @EsPrincipal, @EstadoDireccion,
+                GETDATE(), GETDATE(), @ID_Direccion_Origen
             );
 
             SET @IDEntidadDireccion = SCOPE_IDENTITY();
@@ -276,39 +276,9 @@ BEGIN
             SET 
                 EsPrincipal       = @EsPrincipal,
                 Estado            = @EstadoDireccion,
-                FechaModificacion = GETDATE()
+                FechaModificacion = GETDATE(),
+                IDExtra           = @ID_Direccion_Origen
             WHERE ID = @IDEntidadDireccion;
-        END
-
-        -- -------------------------------------------------------------
-        -- PASO 5: REGISTRO DE CONTACTO (dir_ContactoEntidad) SI TIENE TELÉFONO
-        -- -------------------------------------------------------------
-        IF LTRIM(RTRIM(@Telefono)) <> '' OR LTRIM(RTRIM(@Contacto)) <> ''
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM dir_ContactoEntidad WHERE IDEntidadDireccion = @IDEntidadDireccion)
-            BEGIN
-                INSERT INTO dir_ContactoEntidad (
-                    IDEntidadDireccion, Contacto, Puesto, Numero,
-                    Estado, FechaCreacion, FechaModificacion, Eliminado
-                )
-                VALUES (
-                    @IDEntidadDireccion, 
-                    CASE WHEN LTRIM(RTRIM(@Contacto)) = '' THEN @NombreCompleto ELSE @Contacto END,
-                    CASE WHEN LTRIM(RTRIM(@PuestoContacto)) = '' THEN 'RESPONSABLE' ELSE @PuestoContacto END,
-                    @Telefono,
-                    1, GETDATE(), GETDATE(), 0
-                );
-            END
-            ELSE
-            BEGIN
-                UPDATE dir_ContactoEntidad
-                SET 
-                    Contacto          = CASE WHEN LTRIM(RTRIM(@Contacto)) = '' THEN @NombreCompleto ELSE @Contacto END,
-                    Puesto            = CASE WHEN LTRIM(RTRIM(@PuestoContacto)) = '' THEN 'RESPONSABLE' ELSE @PuestoContacto END,
-                    Numero            = @Telefono,
-                    FechaModificacion = GETDATE()
-                WHERE IDEntidadDireccion = @IDEntidadDireccion;
-            END
         END
 
         COMMIT TRANSACTION;
