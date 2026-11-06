@@ -22,10 +22,10 @@ BEGIN
         CONSTRAINT PK_sync_Configuracion PRIMARY KEY (Clave)
     );
 
-    -- Valores iniciales recomendados
+    -- Valores iniciales recomendados (MODO MANUAL POR DEFECTO)
     INSERT INTO dbo.sync_Configuracion (Clave, Valor, Descripcion)
     VALUES 
-    ('SINCRONIZACION_ACTIVA', '1', '1 = Sincronizador automático activo, 0 = Pausado'),
+    ('SINCRONIZACION_ACTIVA', '0', '1 = Sincronizador automático activo, 0 = Pausado (Solo Manual)'),
     ('MODO_EJECUCION', 'INTERVALO', 'INTERVALO (cada X minutos) o PROGRAMADO (hora fija)'),
     ('INTERVALO_MINUTOS', '3', 'Minutos entre cada escaneo de huellas (RowHash)'),
     ('HORA_INICIO_VENTANA', '05:00', 'Hora inicial permitida para sincronizaciones automáticas'),

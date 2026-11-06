@@ -22,7 +22,7 @@ namespace IntegradorFlexForce.Models
 
     public class SyncConfigDto
     {
-        public bool SincronizacionActiva { get; set; } = true;
+        public bool SincronizacionActiva { get; set; } = false; // Modo manual por defecto
         public int IntervaloMinutos { get; set; } = 3;
         public string HoraInicioVentana { get; set; } = "05:00";
         public string HoraFinVentana { get; set; } = "23:30";

@@ -124,12 +124,32 @@ BEGIN
         IF LTRIM(RTRIM(@Email)) = '' SET @Email = NULL;
 
         -- -------------------------------------------------------------
-        -- PASO 2: INSERT O UPDATE EN cli_Cliente (POR IDExtra O Codigo)
+        -- REGLA DOCIDENTIDAD: Manejo de vacíos y unicidad (UQ_Cliente_DocIdentidad)
+        -- -------------------------------------------------------------
+        -- En el ERP Antiguo miles de clientes minoristas no tienen documento ('', '0', etc.)
+        -- Como cli_Cliente tiene el índice único UQ_Cliente_DocIdentidad, no se permiten
+        -- valores repetidos ni cadenas vacías. A los clientes sin doc se les asigna 'SD-' + ID_Cliente_Origen.
+        SET @DocIdentidad = LTRIM(RTRIM(ISNULL(@DocIdentidad, '')));
+        IF @DocIdentidad IN ('', '0', '00', '00000000', '-', '.', 'SD')
+        BEGIN
+            SET @DocIdentidad = 'SD-' + CAST(@ID_Cliente_Origen AS varchar(16));
+        END
+
+        -- -------------------------------------------------------------
+        -- PASO 2: INSERT O UPDATE EN cli_Cliente (POR IDExtra, Codigo O DocIdentidad)
         -- -------------------------------------------------------------
         DECLARE @IDCliente int;
         SELECT TOP 1 @IDCliente = ID 
         FROM cli_Cliente 
         WHERE IDExtra = @ID_Cliente_Origen OR Codigo = @CodigoCliente;
+
+        -- Si no se encontró por IDExtra ni por Código, verificar si ya existe este DocIdentidad en Force
+        IF @IDCliente IS NULL AND @DocIdentidad NOT LIKE 'SD-%'
+        BEGIN
+            SELECT TOP 1 @IDCliente = ID 
+            FROM cli_Cliente 
+            WHERE DocIdentidad = @DocIdentidad;
+        END
 
         IF @IDCliente IS NULL
         BEGIN
@@ -155,27 +175,26 @@ BEGIN
         END
         ELSE
         BEGIN
-            -- UPDATE CLIENTE EXISTENTE
+            -- UPDATE CLIENTE EXISTENTE (Sin pisar claves si se unificó por DocIdentidad)
             UPDATE cli_Cliente
             SET 
-                IDTipoPersona        = @IDTipoPersona,
-                IDTipoDocIdentidad   = @IDTipoDocIdentidad,
+                IDTipoPersona        = ISNULL(@IDTipoPersona, IDTipoPersona),
+                IDTipoDocIdentidad   = ISNULL(@IDTipoDocIdentidad, IDTipoDocIdentidad),
                 DocIdentidad         = @DocIdentidad,
-                ApellidoPaterno      = @ApellidoPaterno,
-                ApellidoMaterno      = @ApellidoMaterno,
-                PrimerNombre         = @PrimerNombre,
-                SegundoNombre        = @SegundoNombre,
-                NombreCompleto       = @NombreCompleto,
-                NombreComercial      = @NombreComercial,
-                IDTipoCliente        = @IDTipoCliente,
-                IDCategoriaCliente   = @IDCategoriaCliente,
-                IDTipoNegocio        = @IDTipoNegocio,
-                Email                = @Email,
+                ApellidoPaterno      = CASE WHEN ISNULL(ApellidoPaterno, '') = '' THEN @ApellidoPaterno ELSE ApellidoPaterno END,
+                ApellidoMaterno      = CASE WHEN ISNULL(ApellidoMaterno, '') = '' THEN @ApellidoMaterno ELSE ApellidoMaterno END,
+                PrimerNombre         = CASE WHEN ISNULL(PrimerNombre, '') = '' THEN @PrimerNombre ELSE PrimerNombre END,
+                NombreCompleto       = CASE WHEN ISNULL(NombreCompleto, '') = '' THEN @NombreCompleto ELSE NombreCompleto END,
+                NombreComercial      = ISNULL(NombreComercial, @NombreComercial),
+                IDTipoCliente        = ISNULL(@IDTipoCliente, IDTipoCliente),
+                IDCategoriaCliente   = ISNULL(@IDCategoriaCliente, IDCategoriaCliente),
+                IDTipoNegocio        = ISNULL(@IDTipoNegocio, IDTipoNegocio),
+                Email                = ISNULL(Email, @Email),
                 Exceptuadopercepcion = @ExceptuadoPercepcion,
-                Observacion          = @Observacion,
+                Observacion          = ISNULL(@Observacion, Observacion),
                 Estado               = @EstadoCliente,
                 FechaModificacion    = GETDATE(),
-                IDExtra              = @ID_Cliente_Origen
+                IDExtra              = ISNULL(IDExtra, @ID_Cliente_Origen)
             WHERE ID = @IDCliente;
         END
 

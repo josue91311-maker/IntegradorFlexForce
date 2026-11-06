@@ -35,7 +35,7 @@ namespace IntegradorFlexForce.Services
 
                     if (!config.SincronizacionActiva)
                     {
-                        _logger.LogInformation("Sincronización automática está pausada según sync_Configuracion. Próxima revisión en {Min} min.", delayMinutes);
+                        _logger.LogInformation("Modo manual activo: La sincronización automática está pausada. Use el botón 'Sincronizar Ahora' en el portal.");
                     }
                     else if (!EstaEnVentanaHoraria(config.HoraInicioVentana, config.HoraFinVentana))
                     {
