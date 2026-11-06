@@ -288,7 +288,20 @@ BEGIN
 
         -- -------------------------------------------------------------
         -- PASO 4: VINCULACIÓN EN dir_EntidadDireccion (TipoEntidad = 'CLIENTE')
+        -- NOTA: BDForceGVD tiene el índice único UQ_EntidadDireccion_Principal
+        -- que restringe a un cliente a tener MÁXIMO UNA dirección con EsPrincipal = 1.
+        -- Si esta dirección es principal (@EsPrincipal = 1), apagamos cualquier otra previa.
         -- -------------------------------------------------------------
+        IF @EsPrincipal = 1
+        BEGIN
+            UPDATE dir_EntidadDireccion
+            SET EsPrincipal = 0, FechaModificacion = GETDATE()
+            WHERE TipoEntidad = 'CLIENTE' 
+              AND IDEntidad = @IDCliente 
+              AND IDDireccion <> @IDDireccion 
+              AND EsPrincipal = 1;
+        END
+
         DECLARE @IDEntidadDireccion int;
         SELECT TOP 1 @IDEntidadDireccion = ID 
         FROM dir_EntidadDireccion 
