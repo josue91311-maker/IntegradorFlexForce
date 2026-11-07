@@ -210,7 +210,7 @@ BEGIN
                 Estado               = @EstadoCliente,
                 FechaModificacion    = GETDATE(),
                 IDExtra              = ISNULL(IDExtra, @ID_Cliente_Origen)
-            WHERE ID = @IDCliente;
+            WHERE ID = @IDCliente OR IDExtra = @ID_Cliente_Origen;
         END
 
         SET @IDClienteGenerado = @IDCliente;
@@ -281,7 +281,7 @@ BEGIN
             UPDATE dir_Direccion
             SET 
                 IDTipoDireccion   = @IDTipoDireccion,
-                Direccion         = @Direccion,
+                Direccion         = CASE WHEN @Direccion = 'SIN DIRECCION' AND ISNULL(Direccion, '') NOT IN ('', 'SIN DIRECCION') THEN Direccion ELSE @Direccion END,
                 Referencia        = @Referencia,
                 Ubigeo            = @Ubigeo,
                 IDDepartamento    = ISNULL(@IDDpto, IDDepartamento),
@@ -291,7 +291,7 @@ BEGIN
                 Longitud          = @Longitud,
                 Estado            = @EstadoDireccion,
                 FechaModificacion = GETDATE()
-            WHERE ID = @IDDireccion;
+            WHERE ID = @IDDireccion OR IDExtra = @ID_Direccion_Origen;
         END
 
         -- -------------------------------------------------------------

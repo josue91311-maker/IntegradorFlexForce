@@ -17,28 +17,30 @@ WITH CTE_Cartera AS (
         p.PKID                                  AS ID_Cliente,
         LTRIM(RTRIM(p.Codigo))                  AS CodigoCliente,
         LTRIM(RTRIM(p.Nombre))                  AS NombreCliente,
-        MAX(LTRIM(RTRIM(pv.Codigo)))            AS CodigoVendedor,
-        MAX(LTRIM(RTRIM(pv.Nombre)))            AS NombreVendedor,
+        LTRIM(RTRIM(pv.Codigo))                 AS CodigoVendedor,
+        LTRIM(RTRIM(pv.Nombre))                 AS NombreVendedor,
         z.PKID                                  AS IDZonaVenta,
         LTRIM(RTRIM(z.Codigo))                  AS CodigoZonaVenta,
         LTRIM(RTRIM(z.Descripcion))             AS NombreZonaVenta,
         zr.PKID                                 AS IDZonaReparto,
         LTRIM(RTRIM(zr.Codigo))                 AS CodigoZonaReparto,
-        MAX(LTRIM(RTRIM(rr.Codigo)))            AS CodigoRuta,
-        MAX(
-            CASE LOWER(LTRIM(RTRIM(rr.DiaDeSemana)))
-                WHEN 'lunes'     THEN 1
-                WHEN 'martes'    THEN 2
-                WHEN 'miercoles' THEN 3
-                WHEN 'miércoles' THEN 3
-                WHEN 'jueves'    THEN 4
-                WHEN 'viernes'   THEN 5
-                WHEN 'sabado'    THEN 6
-                WHEN 'sábado'    THEN 6
-                WHEN 'domingo'   THEN 7
-                ELSE 1
-            END
-        )                                       AS DiaDeSemana
+        LTRIM(RTRIM(rr.Codigo))                 AS CodigoRuta,
+        CASE LOWER(LTRIM(RTRIM(rr.DiaDeSemana)))
+            WHEN 'lunes'     THEN 1
+            WHEN 'martes'    THEN 2
+            WHEN 'miercoles' THEN 3
+            WHEN 'miércoles' THEN 3
+            WHEN 'jueves'    THEN 4
+            WHEN 'viernes'   THEN 5
+            WHEN 'sabado'    THEN 6
+            WHEN 'sábado'    THEN 6
+            WHEN 'domingo'   THEN 7
+            ELSE 1
+        END                                     AS DiaDeSemana,
+        ROW_NUMBER() OVER (
+            PARTITION BY dc.PKID, p.PKID, z.Codigo
+            ORDER BY ISNULL(ass.Activo, 1) DESC, ISNULL(pv.Activo, 1) DESC, ISNULL(z.Activo, 1) DESC, rr.PKID DESC
+        )                                       AS Rn
     FROM dbo.DireccionZona dz WITH (NOLOCK)
     INNER JOIN dbo.Persona p WITH (NOLOCK) ON dz.IDCliente = p.PKID
     INNER JOIN dbo.DireccionCliente dc WITH (NOLOCK) ON dc.PKID = dz.IDDireccion
@@ -54,9 +56,6 @@ WITH CTE_Cartera AS (
     LEFT JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
     WHERE dd.Activo = 1 
       AND p.Activo = 1
-    GROUP BY 
-        dc.PKID, p.PKID, p.Codigo, p.Nombre,
-        z.PKID, z.Codigo, z.Descripcion, zr.PKID, zr.Codigo
 )
 SELECT 
     ID_Direccion,
@@ -85,5 +84,6 @@ SELECT
             DiaDeSemana
         )
     ) AS RowHash
-FROM CTE_Cartera;
+FROM CTE_Cartera
+WHERE Rn = 1;
 GO

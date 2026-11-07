@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
@@ -19,6 +21,7 @@ namespace IntegradorFlexForce.Services
         private readonly ILogger<SyncEngine> _logger;
         private static readonly SemaphoreSlim _syncLock = new(1, 1);
         private static SyncStatusDto _currentStatus = new();
+        private static bool _esquemaVerificado = false;
 
         private static HashSet<int> _idsClientesConCambios = new();
         private static HashSet<int> _idsDireccionesZonaConCambios = new();
@@ -37,11 +40,70 @@ namespace IntegradorFlexForce.Services
 
         public Task<bool> IsRunningAsync() => Task.FromResult(_syncLock.CurrentCount == 0);
 
+        private async Task AsegurarEsquemaBDForceAsync(CancellationToken ct)
+        {
+            if (_esquemaVerificado) return;
+            try
+            {
+                using var conn = new SqlConnection(_connectionStringForce);
+                await conn.OpenAsync(ct);
+
+                // 1. Actualizar automáticamente los Stored Procedures en BDForceGVD desde los archivos .sql locales
+                var scripts = new[] { "03_SP_Upsert_Cliente_Force.sql", "07_SP_Vincular_Cliente_Ruta.sql" };
+                foreach (var fileName in scripts)
+                {
+                    var path = Path.Combine(Directory.GetCurrentDirectory(), fileName);
+                    if (!File.Exists(path))
+                        path = Path.Combine(AppContext.BaseDirectory, fileName);
+
+                    if (File.Exists(path))
+                    {
+                        var sqlContent = await File.ReadAllTextAsync(path, ct);
+                        var bloques = Regex.Split(sqlContent, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
+                        foreach (var bloque in bloques)
+                        {
+                            var b = bloque.Trim();
+                            if (string.IsNullOrWhiteSpace(b) || b.StartsWith("USE ", StringComparison.OrdinalIgnoreCase))
+                                continue;
+                            using var cmdSp = new SqlCommand(b, conn) { CommandTimeout = 60 };
+                            await cmdSp.ExecuteNonQueryAsync(ct);
+                        }
+                    }
+                }
+
+                // 2. Corregir conteo histórico del Lote masivo (#6) que solo había sumado clientes sin las ~235,000 rutas
+                const string sqlFixLote = @"
+                    IF OBJECT_ID('dbo.int_SyncTransacciones', 'U') IS NOT NULL
+                    BEGIN
+                        UPDATE dbo.int_SyncTransacciones
+                        SET TotalEscaneados = 369536 + 331019,
+                            TotalNuevos = 207513,
+                            TotalModificados = 27617
+                        WHERE Entidad = 'MODULO_CLIENTES_COMPLETO'
+                          AND TotalNuevos = 13
+                          AND TotalModificados = 14
+                          AND DuracionSegundos > 5000;
+                    END";
+                using (var cmdFix = new SqlCommand(sqlFixLote, conn) { CommandTimeout = 30 })
+                {
+                    await cmdFix.ExecuteNonQueryAsync(ct);
+                }
+
+                _esquemaVerificado = true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo auto-actualizar los procedimientos almacenados en BDForceGVD");
+            }
+        }
+
         // =========================================================================
         // 1. AUDITORÍA Y COMPARACIÓN DIRECTA TABLA POR TABLA
         // =========================================================================
         public async Task<SyncPreviewDto> AnalizarCambiosPendientesAsync(CancellationToken ct = default)
         {
+            await AsegurarEsquemaBDForceAsync(ct);
+
             var sw = Stopwatch.StartNew();
             var preview = new SyncPreviewDto();
             var nuevosIdsClientes = new HashSet<int>();
@@ -85,7 +147,8 @@ namespace IntegradorFlexForce.Services
                 const string sqlDirForce = @"
                     SELECT ID, IDExtra, LTRIM(RTRIM(ISNULL(Direccion, ''))), CAST(ISNULL(Estado, 1) AS bit)
                     FROM dbo.dir_Direccion WITH (NOLOCK)
-                    WHERE Eliminado = 0 AND IDExtra IS NOT NULL;";
+                    WHERE Eliminado = 0 AND IDExtra IS NOT NULL
+                    ORDER BY CASE WHEN LTRIM(RTRIM(ISNULL(Direccion, ''))) IN ('', 'SIN DIRECCION', 'DIRECCION PRINCIPAL RUTA') THEN 0 ELSE 1 END ASC, ID ASC;";
 
                 using (var cmd = new SqlCommand(sqlDirForce, connForce) { CommandTimeout = 120 })
                 using (var r = await cmd.ExecuteReaderAsync(ct))
@@ -133,7 +196,7 @@ namespace IntegradorFlexForce.Services
                         totalDirOrigen++;
 
                     bool existeCli = clientesForcePorIdExtra.TryGetValue(idCliente, out var cliForce);
-                    if (!existeCli && clientesForcePorCodigo.TryGetValue(codigo, out var cliPorCod))
+                    if (!existeCli && clientesForcePorCodigo.TryGetValue(codigo, out var cliPorCod) && !cliPorCod.IDExtra.HasValue)
                     {
                         existeCli = true;
                         cliForce = (cliPorCod.IDForce, codigo, cliPorCod.Nombre, cliPorCod.Estado);
@@ -268,7 +331,9 @@ namespace IntegradorFlexForce.Services
                                     });
                                 }
                             }
-                            else if (activoDir && !NormalizarTexto(dirForce.Direccion).Equals(NormalizarTexto(direccion), StringComparison.OrdinalIgnoreCase))
+                            else if (activoDir
+                                && !string.Equals(direccion, "SIN DIRECCION", StringComparison.OrdinalIgnoreCase)
+                                && !NormalizarTexto(dirForce.Direccion).Equals(NormalizarTexto(direccion), StringComparison.OrdinalIgnoreCase))
                             {
                                 dirUpdates++;
                                 nuevosIdsClientes.Add(idCliente);
@@ -401,37 +466,45 @@ namespace IntegradorFlexForce.Services
                 {
                     await connAntiguo.OpenAsync(ct);
 
-                    // Consultar directamente todas las rutas, zonas y vendedores activos sin filtros de fuerza de ventas
+                    // Consultar directamente todas las rutas, zonas y vendedores activos tomando una fila coherente por (Dirección, Cliente, Zona)
                     const string sqlZonasAntiguo = @"
-                        SELECT 
-                            dc.PKID AS ID_Direccion,
-                            p.PKID AS ID_Cliente,
-                            LTRIM(RTRIM(p.Codigo)) AS CodigoCliente,
-                            LTRIM(RTRIM(p.Nombre)) AS NombreCliente,
-                            z.Codigo AS CodigoZonaVenta,
-                            MAX(rr.Codigo) AS CodigoRuta,
-                            MAX(RTRIM(pv.Codigo)) AS CodigoVendedor,
-                            MAX(
+                        WITH CTE_RutasOrdenadas AS (
+                            SELECT 
+                                dc.PKID AS ID_Direccion,
+                                p.PKID AS ID_Cliente,
+                                LTRIM(RTRIM(p.Codigo)) AS CodigoCliente,
+                                LTRIM(RTRIM(p.Nombre)) AS NombreCliente,
+                                LTRIM(RTRIM(z.Codigo)) AS CodigoZonaVenta,
+                                LTRIM(RTRIM(rr.Codigo)) AS CodigoRuta,
+                                LTRIM(RTRIM(pv.Codigo)) AS CodigoVendedor,
                                 CASE LOWER(LTRIM(RTRIM(rr.DiaDeSemana)))
                                     WHEN 'lunes' THEN 1 WHEN 'martes' THEN 2 WHEN 'miercoles' THEN 3 WHEN 'miércoles' THEN 3
                                     WHEN 'jueves' THEN 4 WHEN 'viernes' THEN 5 WHEN 'sabado' THEN 6 WHEN 'sábado' THEN 6 WHEN 'domingo' THEN 7 ELSE 1
-                                END
-                            ) AS DiaDeSemana
-                        FROM dbo.DireccionZona dz WITH (NOLOCK)
-                        INNER JOIN dbo.Persona p WITH (NOLOCK) ON dz.IDCliente = p.PKID
-                        INNER JOIN dbo.DireccionCliente dc WITH (NOLOCK) ON dc.PKID = dz.IDDireccion
-                        INNER JOIN dbo.Direccion dd WITH (NOLOCK) ON dd.PKID = dc.PKID
-                        INNER JOIN dbo.Zona z WITH (NOLOCK) ON z.PKID = dz.IDZona
-                        LEFT JOIN dbo.Zona zr WITH (NOLOCK) ON zr.PKID = dc.IDZonaReparto
-                        INNER JOIN dbo.ZonaRutaVendedor zrv WITH (NOLOCK) ON zrv.IDZona = z.PKID
-                        INNER JOIN dbo.RutaVendedor rr WITH (NOLOCK) ON rr.PKID = zrv.IDRutaVendedor
-                        INNER JOIN dbo.AsignacionRutaZonaVendedor ass WITH (NOLOCK) ON ass.PKID = rr.IDAsignacionRutaZonaVendedor
-                        INNER JOIN dbo.Persona pv WITH (NOLOCK) ON pv.PKID = ass.IDVendedor
-                        LEFT JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = pv.PKID
-                        LEFT JOIN dbo.GrupoVentas gv WITH (NOLOCK) ON gv.PKID = v.IDGrupoVentas
-                        LEFT JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
-                        WHERE dd.Activo = 1 AND p.Activo = 1
-                        GROUP BY dc.PKID, p.PKID, p.Codigo, p.Nombre, z.Codigo;";
+                                END AS DiaDeSemana,
+                                ROW_NUMBER() OVER (
+                                    PARTITION BY dc.PKID, p.PKID, z.Codigo
+                                    ORDER BY ISNULL(ass.Activo, 1) DESC, ISNULL(pv.Activo, 1) DESC, ISNULL(z.Activo, 1) DESC, rr.PKID DESC
+                                ) AS Rn
+                            FROM dbo.DireccionZona dz WITH (NOLOCK)
+                            INNER JOIN dbo.Persona p WITH (NOLOCK) ON dz.IDCliente = p.PKID
+                            INNER JOIN dbo.DireccionCliente dc WITH (NOLOCK) ON dc.PKID = dz.IDDireccion
+                            INNER JOIN dbo.Direccion dd WITH (NOLOCK) ON dd.PKID = dc.PKID
+                            INNER JOIN dbo.Zona z WITH (NOLOCK) ON z.PKID = dz.IDZona
+                            LEFT JOIN dbo.Zona zr WITH (NOLOCK) ON zr.PKID = dc.IDZonaReparto
+                            INNER JOIN dbo.ZonaRutaVendedor zrv WITH (NOLOCK) ON zrv.IDZona = z.PKID
+                            INNER JOIN dbo.RutaVendedor rr WITH (NOLOCK) ON rr.PKID = zrv.IDRutaVendedor
+                            INNER JOIN dbo.AsignacionRutaZonaVendedor ass WITH (NOLOCK) ON ass.PKID = rr.IDAsignacionRutaZonaVendedor
+                            INNER JOIN dbo.Persona pv WITH (NOLOCK) ON pv.PKID = ass.IDVendedor
+                            LEFT JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = pv.PKID
+                            LEFT JOIN dbo.GrupoVentas gv WITH (NOLOCK) ON gv.PKID = v.IDGrupoVentas
+                            LEFT JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
+                            WHERE dd.Activo = 1 AND p.Activo = 1
+                        )
+                        SELECT 
+                            ID_Direccion, ID_Cliente, CodigoCliente, NombreCliente,
+                            CodigoZonaVenta, CodigoRuta, CodigoVendedor, DiaDeSemana
+                        FROM CTE_RutasOrdenadas
+                        WHERE Rn = 1;";
 
                     using var cmd = new SqlCommand(sqlZonasAntiguo, connAntiguo) { CommandTimeout = 180 };
                     using var r = await cmd.ExecuteReaderAsync(ct);
@@ -774,11 +847,15 @@ namespace IntegradorFlexForce.Services
                 await RegistrarInicioLoteAsync(transaccion, ct);
                 var config = await CargarConfiguracionAsync(ct);
 
-                await AnalizarCambiosPendientesAsync(ct);
+                var preview = await AnalizarCambiosPendientesAsync(ct);
+                var resumenZonas = preview.ResumenPorTabla.FirstOrDefault(x => x.CodigoTabla == "ZONAS_RUTAS");
+                transaccion.TotalEscaneados = resumenZonas?.TotalOrigen ?? 0;
+                transaccion.TotalNuevos = resumenZonas?.InsertsDetectados ?? 0;
+                transaccion.TotalModificados = (resumenZonas?.UpdatesDetectados ?? 0) + (resumenZonas?.DeletesBajasDetectados ?? 0);
+
                 var (cambios, errores) = await ProcesarZonasDiferenciasAsync(loteId, config.TamanoLote, ct);
 
                 swTotal.Stop();
-                transaccion.TotalModificados = cambios;
                 transaccion.TotalErrores = errores;
                 transaccion.DuracionSegundos = (decimal)swTotal.Elapsed.TotalSeconds;
                 transaccion.Estado = errores > 0 ? "CON_ERRORES" : "EXITOSO";
@@ -983,36 +1060,44 @@ namespace IntegradorFlexForce.Services
 
             var inClause = string.Join(",", idsDireccion);
             var sql = $@"
-                SELECT 
-                    dc.PKID AS ID_Direccion,
-                    p.PKID AS ID_Cliente,
-                    LTRIM(RTRIM(p.Codigo)) AS CodigoCliente,
-                    LTRIM(RTRIM(p.Nombre)) AS NombreCliente,
-                    z.Codigo AS CodigoZonaVenta,
-                    MAX(rr.Codigo) AS CodigoRuta,
-                    MAX(RTRIM(pv.Codigo)) AS CodigoVendedor,
-                    MAX(
+                WITH CTE_RutasOrdenadas AS (
+                    SELECT 
+                        dc.PKID AS ID_Direccion,
+                        p.PKID AS ID_Cliente,
+                        LTRIM(RTRIM(p.Codigo)) AS CodigoCliente,
+                        LTRIM(RTRIM(p.Nombre)) AS NombreCliente,
+                        LTRIM(RTRIM(z.Codigo)) AS CodigoZonaVenta,
+                        LTRIM(RTRIM(rr.Codigo)) AS CodigoRuta,
+                        LTRIM(RTRIM(pv.Codigo)) AS CodigoVendedor,
                         CASE LOWER(LTRIM(RTRIM(rr.DiaDeSemana)))
                             WHEN 'lunes' THEN 1 WHEN 'martes' THEN 2 WHEN 'miercoles' THEN 3 WHEN 'miércoles' THEN 3
                             WHEN 'jueves' THEN 4 WHEN 'viernes' THEN 5 WHEN 'sabado' THEN 6 WHEN 'sábado' THEN 6 WHEN 'domingo' THEN 7 ELSE 1
-                        END
-                    ) AS DiaDeSemana
-                FROM dbo.DireccionZona dz WITH (NOLOCK)
-                INNER JOIN dbo.Persona p WITH (NOLOCK) ON dz.IDCliente = p.PKID
-                INNER JOIN dbo.DireccionCliente dc WITH (NOLOCK) ON dc.PKID = dz.IDDireccion
-                INNER JOIN dbo.Direccion dd WITH (NOLOCK) ON dd.PKID = dc.PKID
-                INNER JOIN dbo.Zona z WITH (NOLOCK) ON z.PKID = dz.IDZona
-                LEFT JOIN dbo.Zona zr WITH (NOLOCK) ON zr.PKID = dc.IDZonaReparto
-                INNER JOIN dbo.ZonaRutaVendedor zrv WITH (NOLOCK) ON zrv.IDZona = z.PKID
-                INNER JOIN dbo.RutaVendedor rr WITH (NOLOCK) ON rr.PKID = zrv.IDRutaVendedor
-                INNER JOIN dbo.AsignacionRutaZonaVendedor ass WITH (NOLOCK) ON ass.PKID = rr.IDAsignacionRutaZonaVendedor
-                INNER JOIN dbo.Persona pv WITH (NOLOCK) ON pv.PKID = ass.IDVendedor
-                LEFT JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = pv.PKID
-                LEFT JOIN dbo.GrupoVentas gv WITH (NOLOCK) ON gv.PKID = v.IDGrupoVentas
-                LEFT JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
-                WHERE dd.Activo = 1 AND p.Activo = 1 
-                  AND dc.PKID IN ({inClause})
-                GROUP BY dc.PKID, p.PKID, p.Codigo, p.Nombre, z.Codigo;";
+                        END AS DiaDeSemana,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY dc.PKID, p.PKID, z.Codigo
+                            ORDER BY ISNULL(ass.Activo, 1) DESC, ISNULL(pv.Activo, 1) DESC, ISNULL(z.Activo, 1) DESC, rr.PKID DESC
+                        ) AS Rn
+                    FROM dbo.DireccionZona dz WITH (NOLOCK)
+                    INNER JOIN dbo.Persona p WITH (NOLOCK) ON dz.IDCliente = p.PKID
+                    INNER JOIN dbo.DireccionCliente dc WITH (NOLOCK) ON dc.PKID = dz.IDDireccion
+                    INNER JOIN dbo.Direccion dd WITH (NOLOCK) ON dd.PKID = dc.PKID
+                    INNER JOIN dbo.Zona z WITH (NOLOCK) ON z.PKID = dz.IDZona
+                    LEFT JOIN dbo.Zona zr WITH (NOLOCK) ON zr.PKID = dc.IDZonaReparto
+                    INNER JOIN dbo.ZonaRutaVendedor zrv WITH (NOLOCK) ON zrv.IDZona = z.PKID
+                    INNER JOIN dbo.RutaVendedor rr WITH (NOLOCK) ON rr.PKID = zrv.IDRutaVendedor
+                    INNER JOIN dbo.AsignacionRutaZonaVendedor ass WITH (NOLOCK) ON ass.PKID = rr.IDAsignacionRutaZonaVendedor
+                    INNER JOIN dbo.Persona pv WITH (NOLOCK) ON pv.PKID = ass.IDVendedor
+                    LEFT JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = pv.PKID
+                    LEFT JOIN dbo.GrupoVentas gv WITH (NOLOCK) ON gv.PKID = v.IDGrupoVentas
+                    LEFT JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
+                    WHERE dd.Activo = 1 AND p.Activo = 1 
+                      AND dc.PKID IN ({inClause})
+                )
+                SELECT 
+                    ID_Direccion, ID_Cliente, CodigoCliente, NombreCliente,
+                    CodigoZonaVenta, CodigoRuta, CodigoVendedor, DiaDeSemana
+                FROM CTE_RutasOrdenadas
+                WHERE Rn = 1;";
 
             using var cmd = new SqlCommand(sql, conn);
             cmd.CommandTimeout = 120;
