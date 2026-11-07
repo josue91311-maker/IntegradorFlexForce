@@ -466,45 +466,37 @@ namespace IntegradorFlexForce.Services
                 {
                     await connAntiguo.OpenAsync(ct);
 
-                    // Consultar directamente todas las rutas, zonas y vendedores activos tomando una fila coherente por (Dirección, Cliente, Zona)
+                    // Consultar directamente todas las rutas, zonas y vendedores activos sin filtros de fuerza de ventas
                     const string sqlZonasAntiguo = @"
-                        WITH CTE_RutasOrdenadas AS (
-                            SELECT 
-                                dc.PKID AS ID_Direccion,
-                                p.PKID AS ID_Cliente,
-                                LTRIM(RTRIM(p.Codigo)) AS CodigoCliente,
-                                LTRIM(RTRIM(p.Nombre)) AS NombreCliente,
-                                LTRIM(RTRIM(z.Codigo)) AS CodigoZonaVenta,
-                                LTRIM(RTRIM(rr.Codigo)) AS CodigoRuta,
-                                LTRIM(RTRIM(pv.Codigo)) AS CodigoVendedor,
+                        SELECT 
+                            dc.PKID AS ID_Direccion,
+                            p.PKID AS ID_Cliente,
+                            LTRIM(RTRIM(p.Codigo)) AS CodigoCliente,
+                            LTRIM(RTRIM(p.Nombre)) AS NombreCliente,
+                            z.Codigo AS CodigoZonaVenta,
+                            MAX(rr.Codigo) AS CodigoRuta,
+                            MAX(RTRIM(pv.Codigo)) AS CodigoVendedor,
+                            MAX(
                                 CASE LOWER(LTRIM(RTRIM(rr.DiaDeSemana)))
                                     WHEN 'lunes' THEN 1 WHEN 'martes' THEN 2 WHEN 'miercoles' THEN 3 WHEN 'miércoles' THEN 3
                                     WHEN 'jueves' THEN 4 WHEN 'viernes' THEN 5 WHEN 'sabado' THEN 6 WHEN 'sábado' THEN 6 WHEN 'domingo' THEN 7 ELSE 1
-                                END AS DiaDeSemana,
-                                ROW_NUMBER() OVER (
-                                    PARTITION BY dc.PKID, p.PKID, z.Codigo
-                                    ORDER BY ISNULL(ass.Activo, 1) DESC, ISNULL(pv.Activo, 1) DESC, ISNULL(z.Activo, 1) DESC, rr.PKID DESC
-                                ) AS Rn
-                            FROM dbo.DireccionZona dz WITH (NOLOCK)
-                            INNER JOIN dbo.Persona p WITH (NOLOCK) ON dz.IDCliente = p.PKID
-                            INNER JOIN dbo.DireccionCliente dc WITH (NOLOCK) ON dc.PKID = dz.IDDireccion
-                            INNER JOIN dbo.Direccion dd WITH (NOLOCK) ON dd.PKID = dc.PKID
-                            INNER JOIN dbo.Zona z WITH (NOLOCK) ON z.PKID = dz.IDZona
-                            LEFT JOIN dbo.Zona zr WITH (NOLOCK) ON zr.PKID = dc.IDZonaReparto
-                            INNER JOIN dbo.ZonaRutaVendedor zrv WITH (NOLOCK) ON zrv.IDZona = z.PKID
-                            INNER JOIN dbo.RutaVendedor rr WITH (NOLOCK) ON rr.PKID = zrv.IDRutaVendedor
-                            INNER JOIN dbo.AsignacionRutaZonaVendedor ass WITH (NOLOCK) ON ass.PKID = rr.IDAsignacionRutaZonaVendedor
-                            INNER JOIN dbo.Persona pv WITH (NOLOCK) ON pv.PKID = ass.IDVendedor
-                            LEFT JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = pv.PKID
-                            LEFT JOIN dbo.GrupoVentas gv WITH (NOLOCK) ON gv.PKID = v.IDGrupoVentas
-                            LEFT JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
-                            WHERE dd.Activo = 1 AND p.Activo = 1
-                        )
-                        SELECT 
-                            ID_Direccion, ID_Cliente, CodigoCliente, NombreCliente,
-                            CodigoZonaVenta, CodigoRuta, CodigoVendedor, DiaDeSemana
-                        FROM CTE_RutasOrdenadas
-                        WHERE Rn = 1;";
+                                END
+                            ) AS DiaDeSemana
+                        FROM dbo.DireccionZona dz WITH (NOLOCK)
+                        INNER JOIN dbo.Persona p WITH (NOLOCK) ON dz.IDCliente = p.PKID
+                        INNER JOIN dbo.DireccionCliente dc WITH (NOLOCK) ON dc.PKID = dz.IDDireccion
+                        INNER JOIN dbo.Direccion dd WITH (NOLOCK) ON dd.PKID = dc.PKID
+                        INNER JOIN dbo.Zona z WITH (NOLOCK) ON z.PKID = dz.IDZona
+                        LEFT JOIN dbo.Zona zr WITH (NOLOCK) ON zr.PKID = dc.IDZonaReparto
+                        INNER JOIN dbo.ZonaRutaVendedor zrv WITH (NOLOCK) ON zrv.IDZona = z.PKID
+                        INNER JOIN dbo.RutaVendedor rr WITH (NOLOCK) ON rr.PKID = zrv.IDRutaVendedor
+                        INNER JOIN dbo.AsignacionRutaZonaVendedor ass WITH (NOLOCK) ON ass.PKID = rr.IDAsignacionRutaZonaVendedor
+                        INNER JOIN dbo.Persona pv WITH (NOLOCK) ON pv.PKID = ass.IDVendedor
+                        LEFT JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = pv.PKID
+                        LEFT JOIN dbo.GrupoVentas gv WITH (NOLOCK) ON gv.PKID = v.IDGrupoVentas
+                        LEFT JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
+                        WHERE dd.Activo = 1 AND p.Activo = 1
+                        GROUP BY dc.PKID, p.PKID, p.Codigo, p.Nombre, z.Codigo;";
 
                     using var cmd = new SqlCommand(sqlZonasAntiguo, connAntiguo) { CommandTimeout = 180 };
                     using var r = await cmd.ExecuteReaderAsync(ct);
@@ -1060,44 +1052,36 @@ namespace IntegradorFlexForce.Services
 
             var inClause = string.Join(",", idsDireccion);
             var sql = $@"
-                WITH CTE_RutasOrdenadas AS (
-                    SELECT 
-                        dc.PKID AS ID_Direccion,
-                        p.PKID AS ID_Cliente,
-                        LTRIM(RTRIM(p.Codigo)) AS CodigoCliente,
-                        LTRIM(RTRIM(p.Nombre)) AS NombreCliente,
-                        LTRIM(RTRIM(z.Codigo)) AS CodigoZonaVenta,
-                        LTRIM(RTRIM(rr.Codigo)) AS CodigoRuta,
-                        LTRIM(RTRIM(pv.Codigo)) AS CodigoVendedor,
+                SELECT 
+                    dc.PKID AS ID_Direccion,
+                    p.PKID AS ID_Cliente,
+                    LTRIM(RTRIM(p.Codigo)) AS CodigoCliente,
+                    LTRIM(RTRIM(p.Nombre)) AS NombreCliente,
+                    z.Codigo AS CodigoZonaVenta,
+                    MAX(rr.Codigo) AS CodigoRuta,
+                    MAX(RTRIM(pv.Codigo)) AS CodigoVendedor,
+                    MAX(
                         CASE LOWER(LTRIM(RTRIM(rr.DiaDeSemana)))
                             WHEN 'lunes' THEN 1 WHEN 'martes' THEN 2 WHEN 'miercoles' THEN 3 WHEN 'miércoles' THEN 3
                             WHEN 'jueves' THEN 4 WHEN 'viernes' THEN 5 WHEN 'sabado' THEN 6 WHEN 'sábado' THEN 6 WHEN 'domingo' THEN 7 ELSE 1
-                        END AS DiaDeSemana,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY dc.PKID, p.PKID, z.Codigo
-                            ORDER BY ISNULL(ass.Activo, 1) DESC, ISNULL(pv.Activo, 1) DESC, ISNULL(z.Activo, 1) DESC, rr.PKID DESC
-                        ) AS Rn
-                    FROM dbo.DireccionZona dz WITH (NOLOCK)
-                    INNER JOIN dbo.Persona p WITH (NOLOCK) ON dz.IDCliente = p.PKID
-                    INNER JOIN dbo.DireccionCliente dc WITH (NOLOCK) ON dc.PKID = dz.IDDireccion
-                    INNER JOIN dbo.Direccion dd WITH (NOLOCK) ON dd.PKID = dc.PKID
-                    INNER JOIN dbo.Zona z WITH (NOLOCK) ON z.PKID = dz.IDZona
-                    LEFT JOIN dbo.Zona zr WITH (NOLOCK) ON zr.PKID = dc.IDZonaReparto
-                    INNER JOIN dbo.ZonaRutaVendedor zrv WITH (NOLOCK) ON zrv.IDZona = z.PKID
-                    INNER JOIN dbo.RutaVendedor rr WITH (NOLOCK) ON rr.PKID = zrv.IDRutaVendedor
-                    INNER JOIN dbo.AsignacionRutaZonaVendedor ass WITH (NOLOCK) ON ass.PKID = rr.IDAsignacionRutaZonaVendedor
-                    INNER JOIN dbo.Persona pv WITH (NOLOCK) ON pv.PKID = ass.IDVendedor
-                    LEFT JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = pv.PKID
-                    LEFT JOIN dbo.GrupoVentas gv WITH (NOLOCK) ON gv.PKID = v.IDGrupoVentas
-                    LEFT JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
-                    WHERE dd.Activo = 1 AND p.Activo = 1 
-                      AND dc.PKID IN ({inClause})
-                )
-                SELECT 
-                    ID_Direccion, ID_Cliente, CodigoCliente, NombreCliente,
-                    CodigoZonaVenta, CodigoRuta, CodigoVendedor, DiaDeSemana
-                FROM CTE_RutasOrdenadas
-                WHERE Rn = 1;";
+                        END
+                    ) AS DiaDeSemana
+                FROM dbo.DireccionZona dz WITH (NOLOCK)
+                INNER JOIN dbo.Persona p WITH (NOLOCK) ON dz.IDCliente = p.PKID
+                INNER JOIN dbo.DireccionCliente dc WITH (NOLOCK) ON dc.PKID = dz.IDDireccion
+                INNER JOIN dbo.Direccion dd WITH (NOLOCK) ON dd.PKID = dc.PKID
+                INNER JOIN dbo.Zona z WITH (NOLOCK) ON z.PKID = dz.IDZona
+                LEFT JOIN dbo.Zona zr WITH (NOLOCK) ON zr.PKID = dc.IDZonaReparto
+                INNER JOIN dbo.ZonaRutaVendedor zrv WITH (NOLOCK) ON zrv.IDZona = z.PKID
+                INNER JOIN dbo.RutaVendedor rr WITH (NOLOCK) ON rr.PKID = zrv.IDRutaVendedor
+                INNER JOIN dbo.AsignacionRutaZonaVendedor ass WITH (NOLOCK) ON ass.PKID = rr.IDAsignacionRutaZonaVendedor
+                INNER JOIN dbo.Persona pv WITH (NOLOCK) ON pv.PKID = ass.IDVendedor
+                LEFT JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = pv.PKID
+                LEFT JOIN dbo.GrupoVentas gv WITH (NOLOCK) ON gv.PKID = v.IDGrupoVentas
+                LEFT JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
+                WHERE dd.Activo = 1 AND p.Activo = 1 
+                  AND dc.PKID IN ({inClause})
+                GROUP BY dc.PKID, p.PKID, p.Codigo, p.Nombre, z.Codigo;";
 
             using var cmd = new SqlCommand(sql, conn);
             cmd.CommandTimeout = 120;
