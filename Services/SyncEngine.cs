@@ -921,43 +921,44 @@ namespace IntegradorFlexForce.Services
                         }
                     }
                 }
+            }
 
-                // 2. SEGUNDO: Aplicar Altas y Reasignaciones vigentes desde el ERP Antiguo
-                for (int i = 0; i < idsCambiados.Count; i += batchSize)
+            // 2. SEGUNDO: Aplicar Altas y Reasignaciones vigentes desde el ERP Antiguo
+            for (int i = 0; i < idsCambiados.Count; i += batchSize)
+            {
+                ct.ThrowIfCancellationRequested();
+                var loteIds = idsCambiados.Skip(i).Take(batchSize).ToList();
+                _currentStatus.FaseDetalle = $"Sincronizando Zonas y Rutas vigentes: {Math.Min(i + batchSize, idsCambiados.Count):N0} de {idsCambiados.Count:N0}";
+
+                var carteraDetalle = await ObtenerDetalleCarteraZonasAsync(loteIds, ct);
+
+                // Ajustar ProgresoTotal si una dirección tiene múltiples zonas por día
+                if (carteraDetalle.Count > loteIds.Count)
                 {
-                    ct.ThrowIfCancellationRequested();
-                    var loteIds = idsCambiados.Skip(i).Take(batchSize).ToList();
-                    _currentStatus.FaseDetalle = $"Sincronizando Zonas y Rutas vigentes: {Math.Min(i + batchSize, idsCambiados.Count):N0} de {idsCambiados.Count:N0}";
-
-                    var carteraDetalle = await ObtenerDetalleCarteraZonasAsync(loteIds, ct);
-
-                    // Ajustar ProgresoTotal si una dirección tiene múltiples zonas por día
-                    if (carteraDetalle.Count > loteIds.Count)
-                    {
-                        _currentStatus.ProgresoTotal += (carteraDetalle.Count - loteIds.Count);
-                    }
-
-                    foreach (var item in carteraDetalle)
-                    {
-                        try
-                        {
-                            await EjecutarVincularCarteraRutaAsync(item, ct);
-                            procesados++;
-                        }
-                        catch (Exception ex)
-                        {
-                            errores++;
-                            await RegistrarLogAsync(loteId, "ZONAS_RUTAS", "ERROR", item.ID_Direccion, item.CodigoCliente,
-                                $"Error vinculando zona ({item.CodigoZonaVenta}): {ex.Message}", ex.ToString(), ct);
-                        }
-                        finally
-                        {
-                            _currentStatus.ProgresoActual = Math.Min(_currentStatus.ProgresoTotal, _currentStatus.ProgresoActual + 1);
-                        }
-                    }
+                    _currentStatus.ProgresoTotal += (carteraDetalle.Count - loteIds.Count);
                 }
 
-                return (procesados, errores);
+                foreach (var item in carteraDetalle)
+                {
+                    try
+                    {
+                        await EjecutarVincularCarteraRutaAsync(item, ct);
+                        procesados++;
+                    }
+                    catch (Exception ex)
+                    {
+                        errores++;
+                        await RegistrarLogAsync(loteId, "ZONAS_RUTAS", "ERROR", item.ID_Direccion, item.CodigoCliente,
+                            $"Error vinculando zona ({item.CodigoZonaVenta}): {ex.Message}", ex.ToString(), ct);
+                    }
+                    finally
+                    {
+                        _currentStatus.ProgresoActual = Math.Min(_currentStatus.ProgresoTotal, _currentStatus.ProgresoActual + 1);
+                    }
+                }
+            }
+
+            return (procesados, errores);
         }
 
         // =========================================================================
