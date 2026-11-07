@@ -26,6 +26,7 @@ namespace IntegradorFlexForce.Services
         private static HashSet<int> _idsClientesConCambios = new();
         private static HashSet<int> _idsDireccionesZonaConCambios = new();
         private static HashSet<int> _idsDireccionesZonaQuitadas = new();
+        private static HashSet<int> _idsCreditosConCambios = new();
 
         public SyncEngine(IConfiguration config, ILogger<SyncEngine> logger)
         {
@@ -49,7 +50,7 @@ namespace IntegradorFlexForce.Services
                 await conn.OpenAsync(ct);
 
                 // 1. Actualizar automáticamente los Stored Procedures en BDForceGVD desde los archivos .sql locales
-                var scripts = new[] { "03_SP_Upsert_Cliente_Force.sql", "07_SP_Vincular_Cliente_Ruta.sql" };
+                var scripts = new[] { "03_SP_Upsert_Cliente_Force.sql", "07_SP_Vincular_Cliente_Ruta.sql", "09_SP_Upsert_Cliente_Credito_Catalogo.sql" };
                 foreach (var fileName in scripts)
                 {
                     var path = Path.Combine(Directory.GetCurrentDirectory(), fileName);
@@ -633,34 +634,156 @@ namespace IntegradorFlexForce.Services
             });
 
             // ---------------------------------------------------------------------
-            // D. RESUMEN DE LÍNEAS Y MODALIDADES DE CRÉDITO
+            // D. RESUMEN Y COMPARACIÓN DE LÍNEAS DE CRÉDITO POR PORTAFOLIO
             // ---------------------------------------------------------------------
-            int totalCreditosForce = 0;
+            int totalCreditosOrigen = 0, totalCreditosDestino = 0;
+            int credInserts = 0, credUpdates = 0, credDeletes = 0;
+            var creditosPendientesIds = new HashSet<int>();
+            string obsCreditos = "Al día (Sin diferencias)";
+
             try
             {
-                using var connForce = new SqlConnection(_connectionStringForce);
-                await connForce.OpenAsync(ct);
-                using var cmd = new SqlCommand("SELECT COUNT(*) FROM dbo.ctg_ClienteCatalogo WITH (NOLOCK) WHERE Eliminado = 0;", connForce);
-                totalCreditosForce = (int)(await cmd.ExecuteScalarAsync(ct) ?? 0);
+                // Cargar créditos actuales en BDForceGVD agrupados por (IDClienteExtra, IDCatalogoExtra)
+                var creditosForce = new Dictionary<string, (decimal Monto, int DiasGracia, bool Estado)>(1500000, StringComparer.OrdinalIgnoreCase);
+                using (var connForce = new SqlConnection(_connectionStringForce))
+                {
+                    await connForce.OpenAsync(ct);
+                    const string sqlCredForce = @"
+                        SELECT 
+                            c.IDExtra AS IDClienteExtra,
+                            cat.IDExtra AS IDCatalogoExtra,
+                            cc.Monto,
+                            cc.DiasDeGracia,
+                            cc.Estado
+                        FROM dbo.ctg_ClienteCatalogo cc WITH (NOLOCK)
+                        INNER JOIN dbo.cli_Cliente c WITH (NOLOCK) ON c.ID = cc.IDCliente
+                        INNER JOIN dbo.ctg_Catalogo cat WITH (NOLOCK) ON cat.ID = cc.IDCatalogo
+                        WHERE cc.Eliminado = 0 AND c.IDExtra IS NOT NULL AND cat.IDExtra IS NOT NULL;";
+
+                    using var cmd = new SqlCommand(sqlCredForce, connForce) { CommandTimeout = 120 };
+                    using var r = await cmd.ExecuteReaderAsync(ct);
+                    while (await r.ReadAsync(ct))
+                    {
+                        int idCliEx = r.GetInt32(0);
+                        int idCatEx = r.GetInt32(1);
+                        decimal monto = r.GetDecimal(2);
+                        int dias = r.GetInt32(3);
+                        bool estado = r.GetBoolean(4);
+                        creditosForce[$"{idCliEx}_{idCatEx}"] = (monto, dias, estado);
+                    }
+                    totalCreditosDestino = creditosForce.Count;
+                }
+
+                // Comparar contra LineaCreditoPorPortafolioProducto del ERP Antiguo
+                using (var connAntiguo = new SqlConnection(_connectionStringAntiguo))
+                {
+                    await connAntiguo.OpenAsync(ct);
+                    const string sqlCredAntiguo = @"
+                        SELECT 
+                            l.PKID AS ID_LineaCredito,
+                            l.IDCliente,
+                            LTRIM(RTRIM(p.Codigo)) AS CodigoCliente,
+                            LTRIM(RTRIM(p.Nombre)) AS NombreCliente,
+                            l.IDPortafolioProducto,
+                            LTRIM(RTRIM(ISNULL(pp.Codigo, 'PORT'))) AS CodigoPortafolio,
+                            LTRIM(RTRIM(ISNULL(pp.Nombre, 'PORTAFOLIO'))) AS NombrePortafolio,
+                            ISNULL(l.Monto, 0.00) AS Monto,
+                            ISNULL(l.DiasGracia, 5) AS DiasGracia,
+                            CAST(ISNULL(l.Activo, 1) AS bit) AS Activo
+                        FROM dbo.LineaCreditoPorPortafolioProducto l WITH (NOLOCK)
+                        INNER JOIN dbo.Persona p WITH (NOLOCK) ON p.PKID = l.IDCliente
+                        LEFT JOIN dbo.PortafolioProducto pp WITH (NOLOCK) ON pp.PKID = l.IDPortafolioProducto
+                        WHERE p.Activo = 1;";
+
+                    using var cmd = new SqlCommand(sqlCredAntiguo, connAntiguo) { CommandTimeout = 180 };
+                    using var r = await cmd.ExecuteReaderAsync(ct);
+                    while (await r.ReadAsync(ct))
+                    {
+                        totalCreditosOrigen++;
+                        int idLinea = r.GetInt32(0);
+                        int idCli = r.GetInt32(1);
+                        string codCli = r.GetString(2);
+                        string nomCli = r.GetString(3);
+                        int idPort = r.GetInt32(4);
+                        string codPort = r.GetString(5);
+                        string nomPort = r.GetString(6);
+                        decimal monto = r.GetDecimal(7);
+                        int dias = r.GetInt32(8);
+                        bool activo = r.GetBoolean(9);
+
+                        string key = $"{idCli}_{idPort}";
+                        if (!creditosForce.TryGetValue(key, out var credF))
+                        {
+                            if (activo && monto > 0)
+                            {
+                                credInserts++;
+                                creditosPendientesIds.Add(idLinea);
+                                if (preview.DetalleCambios.Count < 2500)
+                                {
+                                    preview.DetalleCambios.Add(new CambioDetectadoItemDto
+                                    {
+                                        Tabla = "LINEAS DE CREDITO",
+                                        TipoOperacion = "INSERT",
+                                        IDOrigen = idLinea,
+                                        CodigoCliente = codCli,
+                                        NombreCliente = nomCli,
+                                        CampoModificado = $"Línea Crédito ({nomPort})",
+                                        ValorActualForce = "Sin línea asignada",
+                                        ValorNuevoERP = $"Línea: S/. {monto:N2} | Días: {dias}"
+                                    });
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if (credF.Estado != activo || Math.Abs(credF.Monto - monto) > 0.01m || credF.DiasGracia != dias)
+                            {
+                                credUpdates++;
+                                creditosPendientesIds.Add(idLinea);
+                                if (preview.DetalleCambios.Count < 2500)
+                                {
+                                    preview.DetalleCambios.Add(new CambioDetectadoItemDto
+                                    {
+                                        Tabla = "LINEAS DE CREDITO",
+                                        TipoOperacion = "UPDATE",
+                                        IDOrigen = idLinea,
+                                        CodigoCliente = codCli,
+                                        NombreCliente = nomCli,
+                                        CampoModificado = $"Monto/Días Crédito ({nomPort})",
+                                        ValorActualForce = $"Línea: S/. {credF.Monto:N2} | Días: {credF.DiasGracia} | {(credF.Estado ? "ACTIVO" : "INACTIVO")}",
+                                        ValorNuevoERP = $"Línea: S/. {monto:N2} | Días: {dias} | {(activo ? "ACTIVO" : "INACTIVO")}"
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                obsCreditos = (credInserts + credUpdates + credDeletes) == 0 ? "Al día (Sin diferencias)" : "Líneas de crédito por actualizar";
             }
-            catch { }
+            catch (Exception ex)
+            {
+                obsCreditos = "Error al consultar líneas de crédito";
+                _logger.LogWarning(ex, "Fallo al comparar líneas de crédito");
+            }
 
             preview.ResumenPorTabla.Add(new TablaComparacionResumenDto
             {
                 CodigoTabla = "CREDITOS",
                 NombreTabla = "4. Líneas y Modalidades de Crédito",
-                TablasForce = "dbo.ctg_ClienteCatalogo, dbo.ctg_ModalidadCreditoCatalogo",
-                TotalOrigen = totalCreditosForce,
-                TotalDestino = totalCreditosForce,
-                InsertsDetectados = 0,
-                UpdatesDetectados = 0,
-                DeletesBajasDetectados = 0,
-                Observacion = "Monitoreado en Force"
+                TablasForce = "dbo.ctg_ClienteCatalogo, dbo.ctg_Catalogo",
+                TotalOrigen = totalCreditosOrigen,
+                TotalDestino = totalCreditosDestino,
+                InsertsDetectados = credInserts,
+                UpdatesDetectados = credUpdates,
+                DeletesBajasDetectados = credDeletes,
+                Observacion = obsCreditos
             });
 
             _idsClientesConCambios = nuevosIdsClientes;
             _idsDireccionesZonaConCambios = nuevosIdsZonas;
             _idsDireccionesZonaQuitadas = zonasQuitadasIds;
+            _idsCreditosConCambios = creditosPendientesIds;
 
             sw.Stop();
             preview.TiempoEscaneoSegundos = Math.Round(sw.Elapsed.TotalSeconds, 2);
@@ -768,6 +891,14 @@ namespace IntegradorFlexForce.Services
                     erroresCount += zErrores;
                 }
 
+                int creditosActualizados = 0;
+                if (incluirZonas && _idsCreditosConCambios.Count > 0)
+                {
+                    var (cCambios, cErrores) = await ProcesarCreditosDiferenciasAsync(loteId, config.TamanoLote, ct);
+                    creditosActualizados = cCambios;
+                    erroresCount += cErrores;
+                }
+
                 swTotal.Stop();
                 transaccion.TotalErrores = erroresCount;
                 transaccion.DuracionSegundos = (decimal)swTotal.Elapsed.TotalSeconds;
@@ -776,14 +907,14 @@ namespace IntegradorFlexForce.Services
                 await RegistrarFinLoteAsync(transaccion, ct);
 
                 _currentStatus.UltimaEjecucion = DateTime.Now;
-                _currentStatus.UltimoLoteProcesados = idsPendientes.Count + zonasActualizadas;
+                _currentStatus.UltimoLoteProcesados = idsPendientes.Count + zonasActualizadas + creditosActualizados;
                 _currentStatus.UltimoLoteNuevos = transaccion.TotalNuevos;
                 _currentStatus.UltimoLoteModificados = transaccion.TotalModificados;
                 _currentStatus.UltimoLoteZonasActualizadas = zonasActualizadas;
                 _currentStatus.UltimoLoteErrores = erroresCount;
                 _currentStatus.UltimaDuracionSegundos = Math.Round(swTotal.Elapsed.TotalSeconds, 2);
                 _currentStatus.EstadoActual = "COMPLETADO";
-                _currentStatus.FaseDetalle = $"Sincronización finalizada en {_currentStatus.UltimaDuracionSegundos}s. Procesados: {idsPendientes.Count} clientes/direcciones, {zonasActualizadas} zonas.";
+                _currentStatus.FaseDetalle = $"Sincronización finalizada en {_currentStatus.UltimaDuracionSegundos}s. Procesados: {idsPendientes.Count} clientes/direcciones, {zonasActualizadas} zonas, {creditosActualizados} créditos.";
 
                 return transaccion;
             }
@@ -959,6 +1090,131 @@ namespace IntegradorFlexForce.Services
             }
 
             return (procesados, errores);
+        }
+
+        private async Task<(int Procesados, int Errores)> ProcesarCreditosDiferenciasAsync(Guid loteId, int batchSize, CancellationToken ct)
+        {
+            var idsCreditos = _idsCreditosConCambios.ToList();
+            if (idsCreditos.Count == 0) return (0, 0);
+
+            _currentStatus.ProgresoActual = 0;
+            _currentStatus.ProgresoTotal = idsCreditos.Count;
+            int errores = 0;
+            int procesados = 0;
+            if (batchSize <= 0) batchSize = 500;
+
+            for (int i = 0; i < idsCreditos.Count; i += batchSize)
+            {
+                ct.ThrowIfCancellationRequested();
+                var loteIds = idsCreditos.Skip(i).Take(batchSize).ToList();
+                _currentStatus.FaseDetalle = $"Sincronizando Líneas de Crédito: {Math.Min(i + batchSize, idsCreditos.Count):N0} de {idsCreditos.Count:N0}";
+
+                var creditosDetalle = await ObtenerDetalleCreditosAsync(loteIds, ct);
+
+                foreach (var item in creditosDetalle)
+                {
+                    try
+                    {
+                        await EjecutarUpsertCreditoCatalogoAsync(item, ct);
+                        procesados++;
+                    }
+                    catch (Exception ex)
+                    {
+                        errores++;
+                        await RegistrarLogAsync(loteId, "CREDITOS", "ERROR", item.ID_LineaCredito, item.CodigoCliente,
+                            $"Error vinculando línea de crédito portafolio ({item.CodigoPortafolio}): {ex.Message}", ex.ToString(), ct);
+                    }
+                    finally
+                    {
+                        _currentStatus.ProgresoActual = Math.Min(_currentStatus.ProgresoTotal, _currentStatus.ProgresoActual + 1);
+                    }
+                }
+            }
+
+            return (procesados, errores);
+        }
+
+        private async Task<List<CreditoCatalogoExtraccionDto>> ObtenerDetalleCreditosAsync(List<int> ids, CancellationToken ct)
+        {
+            var lista = new List<CreditoCatalogoExtraccionDto>(ids.Count);
+            using var conn = new SqlConnection(_connectionStringAntiguo);
+            await conn.OpenAsync(ct);
+
+            var inClause = string.Join(",", ids);
+            var sql = $@"
+                SELECT 
+                    l.PKID AS ID_LineaCredito,
+                    l.IDCliente,
+                    LTRIM(RTRIM(p.Codigo)) AS CodigoCliente,
+                    LTRIM(RTRIM(p.Nombre)) AS NombreCliente,
+                    l.IDPortafolioProducto,
+                    LTRIM(RTRIM(ISNULL(pp.Codigo, 'PORT'))) AS CodigoPortafolio,
+                    LTRIM(RTRIM(ISNULL(pp.Nombre, 'PORTAFOLIO'))) AS NombrePortafolio,
+                    ISNULL(l.Monto, 0.00) AS Monto,
+                    ISNULL(l.BalanceSoles, 0.00) AS BalanceSoles,
+                    ISNULL(l.BalanceDolares, 0.00) AS BalanceDolares,
+                    ISNULL(l.Saldo, 0.00) AS Saldo,
+                    ISNULL(l.DiasGracia, 5) AS DiasGracia,
+                    ISNULL(l.PorcentajeMaximoVencidoCredito, 0.00) AS PorcentajeMaximoVencidoCredito,
+                    ISNULL(l.PorcentajeMaximoVencidoContado, 100.00) AS PorcentajeMaximoVencidoContado,
+                    CAST(ISNULL(l.Activo, 1) AS bit) AS Activo
+                FROM dbo.LineaCreditoPorPortafolioProducto l WITH (NOLOCK)
+                INNER JOIN dbo.Persona p WITH (NOLOCK) ON p.PKID = l.IDCliente
+                LEFT JOIN dbo.PortafolioProducto pp WITH (NOLOCK) ON pp.PKID = l.IDPortafolioProducto
+                WHERE l.PKID IN ({inClause});";
+
+            using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 };
+            using var r = await cmd.ExecuteReaderAsync(ct);
+            while (await r.ReadAsync(ct))
+            {
+                lista.Add(new CreditoCatalogoExtraccionDto
+                {
+                    ID_LineaCredito = r.GetInt32(0),
+                    ID_Cliente = r.GetInt32(1),
+                    CodigoCliente = r.GetString(2),
+                    NombreCliente = r.GetString(3),
+                    ID_Portafolio = r.GetInt32(4),
+                    CodigoPortafolio = r.GetString(5),
+                    NombrePortafolio = r.GetString(6),
+                    Monto = r.GetDecimal(7),
+                    BalanceSoles = r.GetDecimal(8),
+                    BalanceDolares = r.GetDecimal(9),
+                    Saldo = r.GetDecimal(10),
+                    DiasGracia = r.GetInt32(11),
+                    PorcentajeMaximoVencidoCredito = r.GetDecimal(12),
+                    PorcentajeMaximoVencidoContado = r.GetDecimal(13),
+                    Activo = r.GetBoolean(14)
+                });
+            }
+            return lista;
+        }
+
+        private async Task EjecutarUpsertCreditoCatalogoAsync(CreditoCatalogoExtraccionDto c, CancellationToken ct)
+        {
+            using var conn = new SqlConnection(_connectionStringForce);
+            await conn.OpenAsync(ct);
+
+            using var cmd = new SqlCommand("dbo.usp_Sync_UpsertClienteCreditoCatalogo", conn)
+            {
+                CommandType = CommandType.StoredProcedure,
+                CommandTimeout = 60
+            };
+
+            cmd.Parameters.AddWithValue("@ID_LineaCredito_Origen", c.ID_LineaCredito);
+            cmd.Parameters.AddWithValue("@ID_Cliente_Origen", c.ID_Cliente);
+            cmd.Parameters.AddWithValue("@ID_Portafolio_Origen", c.ID_Portafolio);
+            cmd.Parameters.AddWithValue("@CodigoPortafolio", c.CodigoPortafolio);
+            cmd.Parameters.AddWithValue("@NombrePortafolio", c.NombrePortafolio);
+            cmd.Parameters.AddWithValue("@Monto", c.Monto);
+            cmd.Parameters.AddWithValue("@BalanceSoles", c.BalanceSoles);
+            cmd.Parameters.AddWithValue("@BalanceDolares", c.BalanceDolares);
+            cmd.Parameters.AddWithValue("@Saldo", c.Saldo);
+            cmd.Parameters.AddWithValue("@DiasGracia", c.DiasGracia);
+            cmd.Parameters.AddWithValue("@PorcentajeMaximoVencidoCredito", c.PorcentajeMaximoVencidoCredito);
+            cmd.Parameters.AddWithValue("@PorcentajeMaximoVencidoContado", c.PorcentajeMaximoVencidoContado);
+            cmd.Parameters.AddWithValue("@Estado", c.Activo);
+
+            await cmd.ExecuteNonQueryAsync(ct);
         }
 
         // =========================================================================

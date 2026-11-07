@@ -153,4 +153,23 @@ namespace IntegradorFlexForce.Models
         public string CodigoRuta { get; set; } = "";
         public int DiaDeSemana { get; set; } = 1;
     }
+
+    public class CreditoCatalogoExtraccionDto
+    {
+        public int ID_LineaCredito { get; set; }
+        public int ID_Cliente { get; set; }
+        public string CodigoCliente { get; set; } = "";
+        public string NombreCliente { get; set; } = "";
+        public int ID_Portafolio { get; set; }
+        public string CodigoPortafolio { get; set; } = "";
+        public string NombrePortafolio { get; set; } = "";
+        public decimal Monto { get; set; }
+        public decimal BalanceSoles { get; set; }
+        public decimal BalanceDolares { get; set; }
+        public decimal Saldo { get; set; }
+        public int DiasGracia { get; set; } = 5;
+        public decimal PorcentajeMaximoVencidoCredito { get; set; }
+        public decimal PorcentajeMaximoVencidoContado { get; set; } = 100;
+        public bool Activo { get; set; } = true;
+    }
 }
