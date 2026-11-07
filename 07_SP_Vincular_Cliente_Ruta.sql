@@ -41,19 +41,60 @@ BEGIN
         SELECT TOP 1 @IDCliente = ID FROM cli_Cliente WHERE IDExtra = @ID_Cliente_Origen;
         SELECT TOP 1 @IDDireccion = ID FROM dir_Direccion WHERE IDExtra = @ID_Direccion_Origen;
 
-        -- Si no se encuentra la dirección por IDExtra, buscar la dirección principal del cliente
+        -- Si no se encuentra la dirección por IDExtra, buscar cualquier dirección vinculada al cliente
         IF @IDDireccion IS NULL AND @IDCliente IS NOT NULL
         BEGIN
             SELECT TOP 1 @IDDireccion = IDDireccion 
             FROM dir_EntidadDireccion 
-            WHERE IDEntidad = @IDCliente AND TipoEntidad = 'CLIENTE' AND EsPrincipal = 1;
+            WHERE IDEntidad = @IDCliente AND TipoEntidad = 'CLIENTE'
+            ORDER BY EsPrincipal DESC, Estado DESC, ID DESC;
+        END
+
+        -- Si el cliente existe pero aún no tenía ninguna dirección creada en Force, crearla
+        IF @IDDireccion IS NULL AND @IDCliente IS NOT NULL
+        BEGIN
+            DECLARE @IDTipoDirDefault int;
+            SELECT TOP 1 @IDTipoDirDefault = ID FROM cat_TipoDireccion WHERE Estado = 1;
+
+            INSERT INTO dir_Direccion (
+                IDTipoDireccion, Direccion, Referencia, Ubigeo,
+                IDPais, Estado, FechaCreacion, FechaModificacion, Eliminado, IDExtra
+            )
+            VALUES (
+                ISNULL(@IDTipoDirDefault, 1), 'DIRECCION PRINCIPAL RUTA', '', '150101',
+                1, 1, GETDATE(), GETDATE(), 0, @ID_Direccion_Origen
+            );
+            SET @IDDireccion = SCOPE_IDENTITY();
         END
 
         IF @IDCliente IS NULL OR @IDDireccion IS NULL
         BEGIN
-            -- Si aún no existe el cliente o su dirección, no se puede rutear todavía
             ROLLBACK TRANSACTION;
             RETURN;
+        END
+
+        -- Garantizar que la dirección no esté marcada como eliminada y que exista el vínculo activo en dir_EntidadDireccion
+        UPDATE dir_Direccion 
+        SET Estado = 1, Eliminado = 0, FechaModificacion = GETDATE()
+        WHERE ID = @IDDireccion AND (Estado = 0 OR Eliminado = 1);
+
+        IF NOT EXISTS (SELECT 1 FROM dir_EntidadDireccion WHERE TipoEntidad = 'CLIENTE' AND IDEntidad = @IDCliente AND IDDireccion = @IDDireccion)
+        BEGIN
+            DECLARE @EsPrinc bit = CASE WHEN EXISTS (SELECT 1 FROM dir_EntidadDireccion WHERE TipoEntidad = 'CLIENTE' AND IDEntidad = @IDCliente AND EsPrincipal = 1) THEN 0 ELSE 1 END;
+            INSERT INTO dir_EntidadDireccion (
+                TipoEntidad, IDEntidad, IDDireccion, EsPrincipal, Estado,
+                FechaCreacion, FechaModificacion, IDExtra
+            )
+            VALUES (
+                'CLIENTE', @IDCliente, @IDDireccion, @EsPrinc, 1,
+                GETDATE(), GETDATE(), @ID_Direccion_Origen
+            );
+        END
+        ELSE
+        BEGIN
+            UPDATE dir_EntidadDireccion
+            SET Estado = 1, FechaModificacion = GETDATE()
+            WHERE TipoEntidad = 'CLIENTE' AND IDEntidad = @IDCliente AND IDDireccion = @IDDireccion AND Estado = 0;
         END
 
         -- -------------------------------------------------------------
@@ -72,10 +113,16 @@ BEGIN
             VALUES (
                 @CodigoVendedor, 
                 CASE WHEN LTRIM(RTRIM(@NombreVendedor)) = '' THEN 'VENDEDOR ' + @CodigoVendedor ELSE @NombreVendedor END,
-                @CodigoVendedor, -- DocumentoIdentidad temporal si no viene
+                @CodigoVendedor,
                 1, GETDATE(), GETDATE(), 0
             );
             SET @IDVendedor = SCOPE_IDENTITY();
+        END
+        ELSE IF @IDVendedor IS NOT NULL
+        BEGIN
+            UPDATE vnd_Vendedor
+            SET Estado = 1, Eliminado = 0, FechaModificacion = GETDATE()
+            WHERE ID = @IDVendedor AND (Estado = 0 OR Eliminado = 1);
         END
 
         -- Si aún no hay vendedor, asignamos el primer vendedor activo por defecto
@@ -105,6 +152,12 @@ BEGIN
             );
             SET @IDZona = SCOPE_IDENTITY();
         END
+        ELSE IF @IDZona IS NOT NULL
+        BEGIN
+            UPDATE cat_Zona
+            SET Estado = 1, FechaModificacion = GETDATE()
+            WHERE ID = @IDZona AND Estado = 0;
+        END
 
         -- -------------------------------------------------------------
         -- 4. RESOLVER O CREAR RUTA (rut_Ruta) Y ASIGNAR VENDEDOR
@@ -127,12 +180,16 @@ BEGIN
             );
             SET @IDRuta = SCOPE_IDENTITY();
         END
-        ELSE IF @IDRuta IS NOT NULL AND @IDVendedor IS NOT NULL
+        ELSE IF @IDRuta IS NOT NULL
         BEGIN
-            -- Si la ruta ya existía pero cambió de vendedor asignado, actualizamos
+            -- Si la ruta ya existía, actualizamos vendedor y garantizamos que esté activa
             UPDATE rut_Ruta 
-            SET IDVendedor = @IDVendedor, FechaModificacion = GETDATE() 
-            WHERE ID = @IDRuta AND IDVendedor <> @IDVendedor;
+            SET IDVendedor = ISNULL(@IDVendedor, IDVendedor), 
+                Estado = 1, 
+                Eliminado = 0, 
+                FechaModificacion = GETDATE() 
+            WHERE ID = @IDRuta 
+              AND (IDVendedor <> @IDVendedor OR Estado = 0 OR Eliminado = 1);
         END
 
         -- -------------------------------------------------------------
@@ -143,6 +200,13 @@ BEGIN
         BEGIN
             -- Validar que @DiaDeSemana esté en rango 1..7
             IF @DiaDeSemana < 1 OR @DiaDeSemana > 7 SET @DiaDeSemana = 1;
+
+            -- Desactivar cualquier otra ruta o día antiguo que haya tenido esta misma Zona en el pasado
+            UPDATE rut_RutaZonaDia
+            SET Estado = 0, FechaModificacion = GETDATE()
+            WHERE IDZona = @IDZona
+              AND (IDRuta <> @IDRuta OR IDDia <> @DiaDeSemana)
+              AND Estado = 1;
 
             IF NOT EXISTS (SELECT 1 FROM rut_RutaZonaDia WHERE IDZona = @IDZona AND IDRuta = @IDRuta AND IDDia = @DiaDeSemana)
             BEGIN

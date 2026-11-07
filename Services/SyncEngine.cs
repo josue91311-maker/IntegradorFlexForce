@@ -328,8 +328,10 @@ namespace IntegradorFlexForce.Services
 
             try
             {
-                // Llave: IDCliente (ID en Force) + DiaDeSemana -> CodigoVendedor
-                var carteraForce = new Dictionary<string, (int IDCliente, string CodigoVendedor, int DiaDeSemana)>(120000);
+                // Por cada (IDClienteExtra, DiaDeSemana) guardamos el conjunto de vendedores activos en Force
+                // (un mismo cliente puede tener más de una fuerza de ventas/zona en el mismo día)
+                var vendedoresForcePorCliDia = new Dictionary<string, HashSet<string>>(120000, StringComparer.OrdinalIgnoreCase);
+                var listaCarteraForce = new List<(int IDCliente, int? IDClienteExtra, string CodigoVendedor, int DiaDeSemana)>(120000);
 
                 using (var connForce = new SqlConnection(_connectionStringForce))
                 {
@@ -371,20 +373,29 @@ namespace IntegradorFlexForce.Services
                     {
                         int idCli = r.GetInt32(0);
                         int? idCliExtra = r.IsDBNull(1) ? null : r.GetInt32(1);
-                        string codVend = r.GetString(2);
+                        string codVend = r.GetString(2).Trim();
                         int dia = r.GetInt32(3);
 
-                        // Mapeamos tanto por IDCliente de Force como por su IDExtra (PKID del viejo)
-                        carteraForce[$"{idCli}_{dia}"] = (idCli, codVend, dia);
+                        listaCarteraForce.Add((idCli, idCliExtra, codVend, dia));
+
                         if (idCliExtra.HasValue)
                         {
-                            carteraForce[$"EX_{idCliExtra.Value}_{dia}"] = (idCli, codVend, dia);
+                            string keyEx = $"EX_{idCliExtra.Value}_{dia}";
+                            if (!vendedoresForcePorCliDia.TryGetValue(keyEx, out var setVends))
+                            {
+                                setVends = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                                vendedoresForcePorCliDia[keyEx] = setVends;
+                            }
+                            setVends.Add(codVend);
                         }
                     }
-                    totalZonasDestino = carteraForce.Count;
+                    totalZonasDestino = listaCarteraForce.Count;
                 }
 
-                var asignacionesVistasEnOrigen = new HashSet<string>();
+                var asignacionesVistasEnOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var asignacionesExactasEnOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var diasConUpdate = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var direccionesActivasPorClienteOrigen = new Dictionary<int, HashSet<int>>();
 
                 using (var connAntiguo = new SqlConnection(_connectionStringAntiguo))
                 {
@@ -437,15 +448,23 @@ namespace IntegradorFlexForce.Services
                         int idCli = r.GetInt32(1);
                         string codCli = r.GetString(2);
                         string nomCli = r.GetString(3);
-                        string codZona = r.GetString(4);
-                        string codRuta = r.IsDBNull(5) ? "" : r.GetString(5);
-                        string codVend = r.IsDBNull(6) ? "" : r.GetString(6);
+                        string codZona = r.GetString(4).Trim();
+                        string codRuta = r.IsDBNull(5) ? "" : r.GetString(5).Trim();
+                        string codVend = r.IsDBNull(6) ? "" : r.GetString(6).Trim();
                         int diaSemana = r.GetInt32(7);
+
+                        if (!direccionesActivasPorClienteOrigen.TryGetValue(idCli, out var setDirs))
+                        {
+                            setDirs = new HashSet<int>();
+                            direccionesActivasPorClienteOrigen[idCli] = setDirs;
+                        }
+                        setDirs.Add(idDir);
 
                         string keyOrigen = $"EX_{idCli}_{diaSemana}";
                         asignacionesVistasEnOrigen.Add(keyOrigen);
+                        asignacionesExactasEnOrigen.Add($"EX_{idCli}_{diaSemana}_{codVend}");
 
-                        if (!carteraForce.TryGetValue(keyOrigen, out var cForce))
+                        if (!vendedoresForcePorCliDia.TryGetValue(keyOrigen, out var setVendsForce))
                         {
                             // Es una asignación nueva (o día de visita nuevo)
                             zonasInserts++;
@@ -465,10 +484,12 @@ namespace IntegradorFlexForce.Services
                                 });
                             }
                         }
-                        else if (!string.Equals(cForce.CodigoVendedor, codVend, StringComparison.OrdinalIgnoreCase))
+                        else if (!setVendsForce.Contains(codVend))
                         {
-                            // Mismo día pero cambiaron de vendedor o ruta
+                            // Mismo día pero cambiaron de vendedor o falta esta fuerza de venta en ese día
+                            string vendActual = string.Join(", ", setVendsForce);
                             zonasUpdates++;
+                            diasConUpdate.Add(keyOrigen);
                             nuevosIdsZonas.Add(idDir);
                             if (preview.DetalleCambios.Count < 250)
                             {
@@ -480,7 +501,7 @@ namespace IntegradorFlexForce.Services
                                     CodigoCliente = codCli,
                                     NombreCliente = nomCli,
                                     CampoModificado = $"Cambio de Vendedor (Día {diaSemana})",
-                                    ValorActualForce = $"Vendedor: {cForce.CodigoVendedor}",
+                                    ValorActualForce = $"Vendedor: {vendActual}",
                                     ValorNuevoERP = $"Vendedor: {codVend} | Zona: {codZona} | Ruta: {codRuta}"
                                 });
                             }
@@ -488,26 +509,48 @@ namespace IntegradorFlexForce.Services
                     }
                 }
 
-                // Detectar eliminaciones / filas borradas en tablas de ruta del ERP antiguo (DELETE)
-                foreach (var (keyForce, cForce) in carteraForce)
+                // Detectar eliminaciones / filas borradas o vendedores antiguos que quedaron activos en Force (DELETE)
+                foreach (var itemForce in listaCarteraForce)
                 {
-                    if (keyForce.StartsWith("EX_") && !asignacionesVistasEnOrigen.Contains(keyForce))
+                    if (!itemForce.IDClienteExtra.HasValue) continue;
+
+                    int idCliExtra = itemForce.IDClienteExtra.Value;
+                    string keyDia = $"EX_{idCliExtra}_{itemForce.DiaDeSemana}";
+                    string keyExacta = $"EX_{idCliExtra}_{itemForce.DiaDeSemana}_{itemForce.CodigoVendedor}";
+
+                    if (!asignacionesExactasEnOrigen.Contains(keyExacta))
                     {
-                        zonasDeletes++;
-                        zonasQuitadasIds.Add(cForce.IDCliente);
-                        if (preview.DetalleCambios.Count < 250)
+                        zonasQuitadasIds.Add(itemForce.IDCliente);
+
+                        // Si el cliente aún tiene otras zonas/días vigentes en el ERP Antiguo,
+                        // asegurar que se re-vinculen después de limpiar las zonas obsoletas
+                        if (direccionesActivasPorClienteOrigen.TryGetValue(idCliExtra, out var dirsVigentes))
                         {
-                            preview.DetalleCambios.Add(new CambioDetectadoItemDto
+                            foreach (var dId in dirsVigentes)
                             {
-                                Tabla = "ZONAS Y RUTAS",
-                                TipoOperacion = "BAJA / DELETE",
-                                IDOrigen = cForce.IDCliente,
-                                CodigoCliente = $"IDForce:{cForce.IDCliente}",
-                                NombreCliente = "Ruta eliminada en ERP Antiguo",
-                                CampoModificado = $"Asignación Retirada (Día {cForce.DiaDeSemana})",
-                                ValorActualForce = $"Vendedor Activo: {cForce.CodigoVendedor} (Día {cForce.DiaDeSemana})",
-                                ValorNuevoERP = "Fila eliminada en tabla de rutas del ERP Antiguo"
-                            });
+                                nuevosIdsZonas.Add(dId);
+                            }
+                        }
+
+                        // Contabilizar como BAJA / DELETE si ese día ya no existe en el ERP Antiguo
+                        // o si quedó un vendedor obsoleto duplicado en Force (que no fue ya contado como UPDATE)
+                        if (!diasConUpdate.Contains(keyDia))
+                        {
+                            zonasDeletes++;
+                            if (preview.DetalleCambios.Count < 250)
+                            {
+                                preview.DetalleCambios.Add(new CambioDetectadoItemDto
+                                {
+                                    Tabla = "ZONAS Y RUTAS",
+                                    TipoOperacion = "BAJA / DELETE",
+                                    IDOrigen = itemForce.IDCliente,
+                                    CodigoCliente = $"IDForce:{itemForce.IDCliente}",
+                                    NombreCliente = "Ruta eliminada en ERP Antiguo",
+                                    CampoModificado = $"Asignación Retirada (Día {itemForce.DiaDeSemana})",
+                                    ValorActualForce = $"Vendedor Activo: {itemForce.CodigoVendedor} (Día {itemForce.DiaDeSemana})",
+                                    ValorNuevoERP = "Fila eliminada en tabla de rutas del ERP Antiguo"
+                                });
+                            }
                         }
                     }
                 }
@@ -774,14 +817,82 @@ namespace IntegradorFlexForce.Services
             int procesados = 0;
             if (batchSize <= 0) batchSize = 500;
 
-            // 1. Altas y Reasignaciones de Zona/Ruta
+            // 1. PRIMERO: Inactivar en bloque las zonas retiradas o antiguas en Force
+            //    (Debe ejecutarse ANTES de insertar/reactivar las zonas vigentes para no pisar las nuevas asignaciones)
+            using (var connForce = new SqlConnection(_connectionStringForce))
+            {
+                await connForce.OpenAsync(ct);
+
+                if (idsQuitados.Count > 0)
+                {
+                    for (int i = 0; i < idsQuitados.Count; i += batchSize)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var loteQuitados = idsQuitados.Skip(i).Take(batchSize).ToList();
+                        _currentStatus.FaseDetalle = $"Depurando rutas retiradas en Force: {Math.Min(i + batchSize, idsQuitados.Count):N0} de {idsQuitados.Count:N0}";
+
+                        try
+                        {
+                            var inClause = string.Join(",", loteQuitados);
+                            var sqlDesactivar = $@"
+                                UPDATE dz
+                                SET dz.Estado = 0, dz.EsPrincipalVenta = 0, dz.FechaModificacion = GETDATE()
+                                FROM dbo.dir_DireccionZona dz
+                                INNER JOIN dbo.dir_EntidadDireccion ed ON ed.IDDireccion = dz.IDDireccion AND ed.TipoEntidad = 'CLIENTE'
+                                WHERE ed.IDEntidad IN ({inClause}) AND (dz.Estado = 1 OR dz.EsPrincipalVenta = 1);";
+
+                            using var cmd = new SqlCommand(sqlDesactivar, connForce) { CommandTimeout = 120 };
+                            await cmd.ExecuteNonQueryAsync(ct);
+                            procesados += loteQuitados.Count;
+                        }
+                        catch (Exception ex)
+                        {
+                            errores++;
+                            await RegistrarLogAsync(loteId, "ZONAS_RUTAS", "ERROR", loteQuitados.FirstOrDefault(), null,
+                                $"Error al inactivar lote de zonas retiradas: {ex.Message}", ex.ToString(), ct);
+                        }
+                        finally
+                        {
+                            _currentStatus.ProgresoActual = Math.Min(_currentStatus.ProgresoTotal, _currentStatus.ProgresoActual + loteQuitados.Count);
+                        }
+                    }
+                }
+
+                // Limpiar también cualquier zona anterior de las direcciones que van a ser reasignadas
+                if (idsCambiados.Count > 0)
+                {
+                    for (int i = 0; i < idsCambiados.Count; i += batchSize)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var loteDirs = idsCambiados.Skip(i).Take(batchSize).ToList();
+                        var inDirs = string.Join(",", loteDirs);
+                        var sqlLimpiarPrevias = $@"
+                            UPDATE dz
+                            SET dz.Estado = 0, dz.EsPrincipalVenta = 0, dz.FechaModificacion = GETDATE()
+                            FROM dbo.dir_DireccionZona dz
+                            INNER JOIN dbo.dir_Direccion dd ON dd.ID = dz.IDDireccion
+                            WHERE dd.IDExtra IN ({inDirs}) AND (dz.Estado = 1 OR dz.EsPrincipalVenta = 1);";
+
+                        using var cmd = new SqlCommand(sqlLimpiarPrevias, connForce) { CommandTimeout = 120 };
+                        await cmd.ExecuteNonQueryAsync(ct);
+                    }
+                }
+            }
+
+            // 2. SEGUNDO: Aplicar Altas y Reasignaciones vigentes desde el ERP Antiguo
             for (int i = 0; i < idsCambiados.Count; i += batchSize)
             {
                 ct.ThrowIfCancellationRequested();
                 var loteIds = idsCambiados.Skip(i).Take(batchSize).ToList();
-                _currentStatus.FaseDetalle = $"Sincronizando Zonas y Rutas: {Math.Min(i + batchSize, idsCambiados.Count):N0} de {idsCambiados.Count:N0}";
+                _currentStatus.FaseDetalle = $"Sincronizando Zonas y Rutas vigentes: {Math.Min(i + batchSize, idsCambiados.Count):N0} de {idsCambiados.Count:N0}";
 
                 var carteraDetalle = await ObtenerDetalleCarteraZonasAsync(loteIds, ct);
+
+                // Ajustar ProgresoTotal si una dirección tiene múltiples zonas por día
+                if (carteraDetalle.Count > loteIds.Count)
+                {
+                    _currentStatus.ProgresoTotal += (carteraDetalle.Count - loteIds.Count);
+                }
 
                 foreach (var item in carteraDetalle)
                 {
@@ -798,42 +909,7 @@ namespace IntegradorFlexForce.Services
                     }
                     finally
                     {
-                        _currentStatus.ProgresoActual++;
-                    }
-                }
-            }
-
-            // 2. Registros Quitados o Eliminados en el ERP Antiguo (Inactivar en Force)
-            if (idsQuitados.Count > 0)
-            {
-                using var connForce = new SqlConnection(_connectionStringForce);
-                await connForce.OpenAsync(ct);
-
-                foreach (var idClienteForce in idsQuitados)
-                {
-                    try
-                    {
-                        const string sqlDesactivar = @"
-                            UPDATE dz
-                            SET dz.Estado = 0, dz.FechaModificacion = GETDATE()
-                            FROM dbo.dir_DireccionZona dz
-                            INNER JOIN dbo.dir_EntidadDireccion ed ON ed.IDDireccion = dz.IDDireccion AND ed.TipoEntidad = 'CLIENTE'
-                            WHERE ed.IDEntidad = @IDClienteForce AND dz.Estado = 1;";
-
-                        using var cmd = new SqlCommand(sqlDesactivar, connForce);
-                        cmd.Parameters.AddWithValue("@IDClienteForce", idClienteForce);
-                        await cmd.ExecuteNonQueryAsync(ct);
-                        procesados++;
-                    }
-                    catch (Exception ex)
-                    {
-                        errores++;
-                        await RegistrarLogAsync(loteId, "ZONAS_RUTAS", "ERROR", idClienteForce, null,
-                            $"Error al inactivar zona retirada: {ex.Message}", ex.ToString(), ct);
-                    }
-                    finally
-                    {
-                        _currentStatus.ProgresoActual++;
+                        _currentStatus.ProgresoActual = Math.Min(_currentStatus.ProgresoTotal, _currentStatus.ProgresoActual + 1);
                     }
                 }
             }
