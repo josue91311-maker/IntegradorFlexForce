@@ -352,17 +352,14 @@ BEGIN
 
         -- -------------------------------------------------------------
         -- 6. VINCULAR LA DIRECCIÓN DEL CLIENTE CON LA ZONA EN dir_DireccionZona
-        -- NOTA: dir_DireccionZona tiene el índice único UQ_DireccionZona_Venta
-        --       que permite solo UNA fila con EsPrincipalVenta = 1 por IDDireccion.
+        -- NOTA: Una misma dirección puede tener múltiples zonas activas para
+        --       distintos vendedores o días. Solo garantizamos que esta zona
+        --       quede activa para la dirección.
         -- -------------------------------------------------------------
         IF @IDDireccion IS NOT NULL AND @IDZona IS NOT NULL
         BEGIN
-            -- Desmarcar EsPrincipalVenta = 1 en cualquier otra zona previa de esta misma dirección
-            UPDATE dir_DireccionZona
-            SET EsPrincipalVenta = 0, FechaModificacion = GETDATE()
-            WHERE IDDireccion = @IDDireccion 
-              AND IDZona <> @IDZona 
-              AND EsPrincipalVenta = 1;
+            -- Si no tiene ninguna zona con EsPrincipalVenta = 1, marcar esta como principal
+            DECLARE @EsPrincVenta bit = CASE WHEN EXISTS (SELECT 1 FROM dir_DireccionZona WHERE IDDireccion = @IDDireccion AND EsPrincipalVenta = 1 AND IDZona <> @IDZona) THEN 0 ELSE 1 END;
 
             IF NOT EXISTS (SELECT 1 FROM dir_DireccionZona WHERE IDDireccion = @IDDireccion AND IDZona = @IDZona)
             BEGIN
@@ -371,14 +368,14 @@ BEGIN
                     Estado, FechaCreacion, FechaModificacion
                 )
                 VALUES (
-                    @IDDireccion, @IDZona, 1, 0, 
+                    @IDDireccion, @IDZona, @EsPrincVenta, 0, 
                     @Estado, GETDATE(), GETDATE()
                 );
             END
             ELSE
             BEGIN
                 UPDATE dir_DireccionZona 
-                SET Estado = @Estado, EsPrincipalVenta = 1, FechaModificacion = GETDATE()
+                SET Estado = @Estado, FechaModificacion = GETDATE()
                 WHERE IDDireccion = @IDDireccion AND IDZona = @IDZona;
             END
         END

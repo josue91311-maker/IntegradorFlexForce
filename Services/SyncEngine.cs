@@ -473,15 +473,13 @@ namespace IntegradorFlexForce.Services
                             p.PKID AS ID_Cliente,
                             LTRIM(RTRIM(p.Codigo)) AS CodigoCliente,
                             LTRIM(RTRIM(p.Nombre)) AS NombreCliente,
-                            z.Codigo AS CodigoZonaVenta,
-                            MAX(rr.Codigo) AS CodigoRuta,
-                            MAX(RTRIM(pv.Codigo)) AS CodigoVendedor,
-                            MAX(
-                                CASE LOWER(LTRIM(RTRIM(rr.DiaDeSemana)))
-                                    WHEN 'lunes' THEN 1 WHEN 'martes' THEN 2 WHEN 'miercoles' THEN 3 WHEN 'miércoles' THEN 3
-                                    WHEN 'jueves' THEN 4 WHEN 'viernes' THEN 5 WHEN 'sabado' THEN 6 WHEN 'sábado' THEN 6 WHEN 'domingo' THEN 7 ELSE 1
-                                END
-                            ) AS DiaDeSemana
+                            LTRIM(RTRIM(z.Codigo)) AS CodigoZonaVenta,
+                            LTRIM(RTRIM(rr.Codigo)) AS CodigoRuta,
+                            LTRIM(RTRIM(pv.Codigo)) AS CodigoVendedor,
+                            CASE LOWER(LTRIM(RTRIM(rr.DiaDeSemana)))
+                                WHEN 'lunes' THEN 1 WHEN 'martes' THEN 2 WHEN 'miercoles' THEN 3 WHEN 'miércoles' THEN 3
+                                WHEN 'jueves' THEN 4 WHEN 'viernes' THEN 5 WHEN 'sabado' THEN 6 WHEN 'sábado' THEN 6 WHEN 'domingo' THEN 7 ELSE 1
+                            END AS DiaDeSemana
                         FROM dbo.DireccionZona dz WITH (NOLOCK)
                         INNER JOIN dbo.Persona p WITH (NOLOCK) ON dz.IDCliente = p.PKID
                         INNER JOIN dbo.DireccionCliente dc WITH (NOLOCK) ON dc.PKID = dz.IDDireccion
@@ -495,8 +493,7 @@ namespace IntegradorFlexForce.Services
                         LEFT JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = pv.PKID
                         LEFT JOIN dbo.GrupoVentas gv WITH (NOLOCK) ON gv.PKID = v.IDGrupoVentas
                         LEFT JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
-                        WHERE dd.Activo = 1 AND p.Activo = 1
-                        GROUP BY dc.PKID, p.PKID, p.Codigo, p.Nombre, z.Codigo;";
+                        WHERE dd.Activo = 1 AND p.Activo = 1;";
 
                     using var cmd = new SqlCommand(sqlZonasAntiguo, connAntiguo) { CommandTimeout = 180 };
                     using var r = await cmd.ExecuteReaderAsync(ct);
@@ -925,63 +922,42 @@ namespace IntegradorFlexForce.Services
                     }
                 }
 
-                // Limpiar también cualquier zona anterior de las direcciones que van a ser reasignadas
-                if (idsCambiados.Count > 0)
+                // 2. SEGUNDO: Aplicar Altas y Reasignaciones vigentes desde el ERP Antiguo
+                for (int i = 0; i < idsCambiados.Count; i += batchSize)
                 {
-                    for (int i = 0; i < idsCambiados.Count; i += batchSize)
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        var loteDirs = idsCambiados.Skip(i).Take(batchSize).ToList();
-                        var inDirs = string.Join(",", loteDirs);
-                        var sqlLimpiarPrevias = $@"
-                            UPDATE dz
-                            SET dz.Estado = 0, dz.EsPrincipalVenta = 0, dz.FechaModificacion = GETDATE()
-                            FROM dbo.dir_DireccionZona dz
-                            INNER JOIN dbo.dir_Direccion dd ON dd.ID = dz.IDDireccion
-                            WHERE dd.IDExtra IN ({inDirs}) AND (dz.Estado = 1 OR dz.EsPrincipalVenta = 1);";
+                    ct.ThrowIfCancellationRequested();
+                    var loteIds = idsCambiados.Skip(i).Take(batchSize).ToList();
+                    _currentStatus.FaseDetalle = $"Sincronizando Zonas y Rutas vigentes: {Math.Min(i + batchSize, idsCambiados.Count):N0} de {idsCambiados.Count:N0}";
 
-                        using var cmd = new SqlCommand(sqlLimpiarPrevias, connForce) { CommandTimeout = 120 };
-                        await cmd.ExecuteNonQueryAsync(ct);
+                    var carteraDetalle = await ObtenerDetalleCarteraZonasAsync(loteIds, ct);
+
+                    // Ajustar ProgresoTotal si una dirección tiene múltiples zonas por día
+                    if (carteraDetalle.Count > loteIds.Count)
+                    {
+                        _currentStatus.ProgresoTotal += (carteraDetalle.Count - loteIds.Count);
+                    }
+
+                    foreach (var item in carteraDetalle)
+                    {
+                        try
+                        {
+                            await EjecutarVincularCarteraRutaAsync(item, ct);
+                            procesados++;
+                        }
+                        catch (Exception ex)
+                        {
+                            errores++;
+                            await RegistrarLogAsync(loteId, "ZONAS_RUTAS", "ERROR", item.ID_Direccion, item.CodigoCliente,
+                                $"Error vinculando zona ({item.CodigoZonaVenta}): {ex.Message}", ex.ToString(), ct);
+                        }
+                        finally
+                        {
+                            _currentStatus.ProgresoActual = Math.Min(_currentStatus.ProgresoTotal, _currentStatus.ProgresoActual + 1);
+                        }
                     }
                 }
-            }
 
-            // 2. SEGUNDO: Aplicar Altas y Reasignaciones vigentes desde el ERP Antiguo
-            for (int i = 0; i < idsCambiados.Count; i += batchSize)
-            {
-                ct.ThrowIfCancellationRequested();
-                var loteIds = idsCambiados.Skip(i).Take(batchSize).ToList();
-                _currentStatus.FaseDetalle = $"Sincronizando Zonas y Rutas vigentes: {Math.Min(i + batchSize, idsCambiados.Count):N0} de {idsCambiados.Count:N0}";
-
-                var carteraDetalle = await ObtenerDetalleCarteraZonasAsync(loteIds, ct);
-
-                // Ajustar ProgresoTotal si una dirección tiene múltiples zonas por día
-                if (carteraDetalle.Count > loteIds.Count)
-                {
-                    _currentStatus.ProgresoTotal += (carteraDetalle.Count - loteIds.Count);
-                }
-
-                foreach (var item in carteraDetalle)
-                {
-                    try
-                    {
-                        await EjecutarVincularCarteraRutaAsync(item, ct);
-                        procesados++;
-                    }
-                    catch (Exception ex)
-                    {
-                        errores++;
-                        await RegistrarLogAsync(loteId, "ZONAS_RUTAS", "ERROR", item.ID_Direccion, item.CodigoCliente,
-                            $"Error vinculando zona ({item.CodigoZonaVenta}): {ex.Message}", ex.ToString(), ct);
-                    }
-                    finally
-                    {
-                        _currentStatus.ProgresoActual = Math.Min(_currentStatus.ProgresoTotal, _currentStatus.ProgresoActual + 1);
-                    }
-                }
-            }
-
-            return (procesados, errores);
+                return (procesados, errores);
         }
 
         // =========================================================================
@@ -1057,15 +1033,13 @@ namespace IntegradorFlexForce.Services
                     p.PKID AS ID_Cliente,
                     LTRIM(RTRIM(p.Codigo)) AS CodigoCliente,
                     LTRIM(RTRIM(p.Nombre)) AS NombreCliente,
-                    z.Codigo AS CodigoZonaVenta,
-                    MAX(rr.Codigo) AS CodigoRuta,
-                    MAX(RTRIM(pv.Codigo)) AS CodigoVendedor,
-                    MAX(
-                        CASE LOWER(LTRIM(RTRIM(rr.DiaDeSemana)))
-                            WHEN 'lunes' THEN 1 WHEN 'martes' THEN 2 WHEN 'miercoles' THEN 3 WHEN 'miércoles' THEN 3
-                            WHEN 'jueves' THEN 4 WHEN 'viernes' THEN 5 WHEN 'sabado' THEN 6 WHEN 'sábado' THEN 6 WHEN 'domingo' THEN 7 ELSE 1
-                        END
-                    ) AS DiaDeSemana
+                    LTRIM(RTRIM(z.Codigo)) AS CodigoZonaVenta,
+                    LTRIM(RTRIM(rr.Codigo)) AS CodigoRuta,
+                    LTRIM(RTRIM(pv.Codigo)) AS CodigoVendedor,
+                    CASE LOWER(LTRIM(RTRIM(rr.DiaDeSemana)))
+                        WHEN 'lunes' THEN 1 WHEN 'martes' THEN 2 WHEN 'miercoles' THEN 3 WHEN 'miércoles' THEN 3
+                        WHEN 'jueves' THEN 4 WHEN 'viernes' THEN 5 WHEN 'sabado' THEN 6 WHEN 'sábado' THEN 6 WHEN 'domingo' THEN 7 ELSE 1
+                    END AS DiaDeSemana
                 FROM dbo.DireccionZona dz WITH (NOLOCK)
                 INNER JOIN dbo.Persona p WITH (NOLOCK) ON dz.IDCliente = p.PKID
                 INNER JOIN dbo.DireccionCliente dc WITH (NOLOCK) ON dc.PKID = dz.IDDireccion
@@ -1080,8 +1054,7 @@ namespace IntegradorFlexForce.Services
                 LEFT JOIN dbo.GrupoVentas gv WITH (NOLOCK) ON gv.PKID = v.IDGrupoVentas
                 LEFT JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
                 WHERE dd.Activo = 1 AND p.Activo = 1 
-                  AND dc.PKID IN ({inClause})
-                GROUP BY dc.PKID, p.PKID, p.Codigo, p.Nombre, z.Codigo;";
+                  AND dc.PKID IN ({inClause});";
 
             using var cmd = new SqlCommand(sql, conn);
             cmd.CommandTimeout = 120;
