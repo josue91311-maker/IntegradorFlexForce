@@ -137,23 +137,30 @@ BEGIN
         END
 
         -- -------------------------------------------------------------
-        -- PASO 2: INSERT O UPDATE EN cli_Cliente (POR IDExtra, Codigo O DocIdentidad)
+        -- PASO 2: INSERT O UPDATE EN cli_Cliente (POR IDExtra O Codigo)
         -- -------------------------------------------------------------
         DECLARE @IDCliente int;
         SELECT TOP 1 @IDCliente = ID 
         FROM cli_Cliente 
-        WHERE IDExtra = @ID_Cliente_Origen OR Codigo = @CodigoCliente;
+        WHERE IDExtra = @ID_Cliente_Origen;
 
-        -- Si no se encontró por IDExtra ni por Código, verificar si ya existe este DocIdentidad en Force
-        IF @IDCliente IS NULL AND @DocIdentidad NOT LIKE 'SD-%'
+        IF @IDCliente IS NULL
         BEGIN
             SELECT TOP 1 @IDCliente = ID 
             FROM cli_Cliente 
-            WHERE DocIdentidad = @DocIdentidad;
+            WHERE Codigo = @CodigoCliente;
         END
 
         IF @IDCliente IS NULL
         BEGIN
+            -- Si es un cliente NUEVO pero su DocIdentidad (ej. '8152933') ya está repetido
+            -- en otro cliente dentro de Force, le concatenamos su ID_Cliente_Origen para no
+            -- violar el índice único UQ_Cliente_DocIdentidad y permitir que el cliente se cree.
+            IF EXISTS (SELECT 1 FROM cli_Cliente WHERE DocIdentidad = @DocIdentidad)
+            BEGIN
+                SET @DocIdentidad = LEFT(@DocIdentidad, 10) + '-' + CAST(@ID_Cliente_Origen AS varchar(9));
+            END
+
             INSERT INTO cli_Cliente (
                 IDTipoPersona, IDTipoDocIdentidad, DocIdentidad,
                 ApellidoPaterno, ApellidoMaterno, PrimerNombre, SegundoNombre,
@@ -175,8 +182,9 @@ BEGIN
         END
         ELSE
         BEGIN
-            -- Si el nuevo DocIdentidad ya le pertenece a OTRO IDCliente distinto en Force,
-            -- mantenemos el DocIdentidad actual de este registro para no violar UQ_Cliente_DocIdentidad
+            -- Si el cliente YA EXISTE en Force pero el DocIdentidad que viene del ERP antiguo
+            -- (ej. '8152933') ya está ocupado por OTRO cliente distinto (ID <> @IDCliente),
+            -- conservamos su DocIdentidad actual en Force para no disparar UQ_Cliente_DocIdentidad.
             DECLARE @DocIdentidadSeguro nvarchar(20) = @DocIdentidad;
             IF EXISTS (SELECT 1 FROM cli_Cliente WHERE DocIdentidad = @DocIdentidad AND ID <> @IDCliente)
             BEGIN
