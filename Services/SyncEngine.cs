@@ -145,7 +145,7 @@ namespace IntegradorFlexForce.Services
                         {
                             cliInserts++;
                             nuevosIdsClientes.Add(idCliente);
-                            if (preview.DetalleCambios.Count < 250)
+                            if (preview.DetalleCambios.Count < 2500)
                             {
                                 preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                 {
@@ -167,7 +167,7 @@ namespace IntegradorFlexForce.Services
                         {
                             cliDeletes++;
                             nuevosIdsClientes.Add(idCliente);
-                            if (preview.DetalleCambios.Count < 250)
+                            if (preview.DetalleCambios.Count < 2500)
                             {
                                 preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                 {
@@ -186,7 +186,7 @@ namespace IntegradorFlexForce.Services
                         {
                             cliUpdates++;
                             nuevosIdsClientes.Add(idCliente);
-                            if (preview.DetalleCambios.Count < 250)
+                            if (preview.DetalleCambios.Count < 2500)
                             {
                                 preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                 {
@@ -205,7 +205,7 @@ namespace IntegradorFlexForce.Services
                         {
                             cliUpdates++;
                             nuevosIdsClientes.Add(idCliente);
-                            if (preview.DetalleCambios.Count < 250)
+                            if (preview.DetalleCambios.Count < 2500)
                             {
                                 preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                 {
@@ -231,7 +231,7 @@ namespace IntegradorFlexForce.Services
                             {
                                 dirInserts++;
                                 nuevosIdsClientes.Add(idCliente);
-                                if (preview.DetalleCambios.Count < 250)
+                                if (preview.DetalleCambios.Count < 2500)
                                 {
                                     preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                     {
@@ -253,7 +253,7 @@ namespace IntegradorFlexForce.Services
                             {
                                 dirDeletes++;
                                 nuevosIdsClientes.Add(idCliente);
-                                if (preview.DetalleCambios.Count < 250)
+                                if (preview.DetalleCambios.Count < 2500)
                                 {
                                     preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                     {
@@ -272,7 +272,7 @@ namespace IntegradorFlexForce.Services
                             {
                                 dirUpdates++;
                                 nuevosIdsClientes.Add(idCliente);
-                                if (preview.DetalleCambios.Count < 250)
+                                if (preview.DetalleCambios.Count < 2500)
                                 {
                                     preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                     {
@@ -463,7 +463,7 @@ namespace IntegradorFlexForce.Services
                             // Es una asignación nueva (o día de visita nuevo)
                             zonasInserts++;
                             nuevosIdsZonas.Add(idDir);
-                            if (preview.DetalleCambios.Count < 250)
+                            if (preview.DetalleCambios.Count < 2500)
                             {
                                 preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                 {
@@ -485,7 +485,7 @@ namespace IntegradorFlexForce.Services
                             zonasUpdates++;
                             diasConUpdate.Add(keyOrigen);
                             nuevosIdsZonas.Add(idDir);
-                            if (preview.DetalleCambios.Count < 250)
+                            if (preview.DetalleCambios.Count < 2500)
                             {
                                 preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                 {
@@ -531,7 +531,7 @@ namespace IntegradorFlexForce.Services
                         if (!diasConUpdate.Contains(keyDia))
                         {
                             zonasDeletes++;
-                            if (preview.DetalleCambios.Count < 250)
+                            if (preview.DetalleCambios.Count < 2500)
                             {
                                 preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                 {
@@ -649,11 +649,15 @@ namespace IntegradorFlexForce.Services
                 var preview = await AnalizarCambiosPendientesAsync(ct);
                 var resumenCli = preview.ResumenPorTabla.FirstOrDefault(x => x.CodigoTabla == "CLIENTES");
                 var resumenDir = preview.ResumenPorTabla.FirstOrDefault(x => x.CodigoTabla == "DIRECCIONES");
+                var resumenZonas = preview.ResumenPorTabla.FirstOrDefault(x => x.CodigoTabla == "ZONAS_RUTAS");
 
-                transaccion.TotalEscaneados = resumenCli?.TotalOrigen ?? 0;
-                transaccion.TotalNuevos = (resumenCli?.InsertsDetectados ?? 0) + (resumenDir?.InsertsDetectados ?? 0);
+                transaccion.TotalEscaneados = (resumenCli?.TotalOrigen ?? 0) + (incluirZonas ? (resumenZonas?.TotalOrigen ?? 0) : 0);
+                transaccion.TotalNuevos = (resumenCli?.InsertsDetectados ?? 0)
+                                        + (resumenDir?.InsertsDetectados ?? 0)
+                                        + (incluirZonas ? (resumenZonas?.InsertsDetectados ?? 0) : 0);
                 transaccion.TotalModificados = (resumenCli?.UpdatesDetectados ?? 0) + (resumenCli?.DeletesBajasDetectados ?? 0)
-                                             + (resumenDir?.UpdatesDetectados ?? 0) + (resumenDir?.DeletesBajasDetectados ?? 0);
+                                             + (resumenDir?.UpdatesDetectados ?? 0) + (resumenDir?.DeletesBajasDetectados ?? 0)
+                                             + (incluirZonas ? ((resumenZonas?.UpdatesDetectados ?? 0) + (resumenZonas?.DeletesBajasDetectados ?? 0)) : 0);
 
                 var idsPendientes = _idsClientesConCambios.ToList();
                 _currentStatus.ProgresoTotal = idsPendientes.Count;
