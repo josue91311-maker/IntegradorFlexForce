@@ -646,7 +646,7 @@ namespace IntegradorFlexForce.Services
 
             try
             {
-                // Cargar créditos actuales en BDForceGVD agrupados por (IDClienteExtra, IDCatalogoExtra)
+                // Cargar créditos actuales en BDForceGVD agrupados por (IDClienteExtra, CodigoCatalogo) e (IDClienteExtra, IDCatalogoExtra)
                 var creditosForce = new Dictionary<string, (decimal Monto, int DiasGracia, bool Estado)>(1500000, StringComparer.OrdinalIgnoreCase);
                 using (var connForce = new SqlConnection(_connectionStringForce))
                 {
@@ -655,24 +655,30 @@ namespace IntegradorFlexForce.Services
                         SELECT 
                             c.IDExtra AS IDClienteExtra,
                             cat.IDExtra AS IDCatalogoExtra,
+                            LTRIM(RTRIM(ISNULL(cat.Codigo, ''))) AS CodigoCatalogo,
                             cc.Monto,
                             cc.DiasDeGracia,
                             cc.Estado
                         FROM dbo.ctg_ClienteCatalogo cc WITH (NOLOCK)
                         INNER JOIN dbo.cli_Cliente c WITH (NOLOCK) ON c.ID = cc.IDCliente
                         INNER JOIN dbo.ctg_Catalogo cat WITH (NOLOCK) ON cat.ID = cc.IDCatalogo
-                        WHERE cc.Eliminado = 0 AND c.IDExtra IS NOT NULL AND cat.IDExtra IS NOT NULL;";
+                        WHERE cc.Eliminado = 0 AND c.IDExtra IS NOT NULL;";
 
                     using var cmd = new SqlCommand(sqlCredForce, connForce) { CommandTimeout = 120 };
                     using var r = await cmd.ExecuteReaderAsync(ct);
                     while (await r.ReadAsync(ct))
                     {
                         int idCliEx = r.GetInt32(0);
-                        int idCatEx = r.GetInt32(1);
-                        decimal monto = r.GetDecimal(2);
-                        int dias = r.GetInt32(3);
-                        bool estado = r.GetBoolean(4);
-                        creditosForce[$"{idCliEx}_{idCatEx}"] = (monto, dias, estado);
+                        int? idCatEx = r.IsDBNull(1) ? null : r.GetInt32(1);
+                        string codCat = r.GetString(2);
+                        decimal monto = r.GetDecimal(3);
+                        int dias = r.GetInt32(4);
+                        bool estado = r.GetBoolean(5);
+
+                        if (idCatEx.HasValue)
+                            creditosForce[$"{idCliEx}_{idCatEx.Value}"] = (monto, dias, estado);
+                        if (!string.IsNullOrEmpty(codCat))
+                            creditosForce[$"{idCliEx}_COD_{codCat}"] = (monto, dias, estado);
                     }
                     totalCreditosDestino = creditosForce.Count;
                 }
@@ -715,7 +721,8 @@ namespace IntegradorFlexForce.Services
                         bool activo = r.GetBoolean(9);
 
                         string key = $"{idCli}_{idPort}";
-                        if (!creditosForce.TryGetValue(key, out var credF))
+                        string keyCod = $"{idCli}_COD_{codPort}";
+                        if (!creditosForce.TryGetValue(key, out var credF) && !creditosForce.TryGetValue(keyCod, out credF))
                         {
                             if (activo && monto > 0)
                             {
