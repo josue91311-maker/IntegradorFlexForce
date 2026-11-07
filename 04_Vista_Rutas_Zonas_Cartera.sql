@@ -44,19 +44,16 @@ WITH CTE_Cartera AS (
     INNER JOIN dbo.DireccionCliente dc WITH (NOLOCK) ON dc.PKID = dz.IDDireccion
     INNER JOIN dbo.Direccion dd WITH (NOLOCK) ON dd.PKID = dc.PKID
     INNER JOIN dbo.Zona z WITH (NOLOCK) ON z.PKID = dz.IDZona
-    INNER JOIN dbo.Zona zr WITH (NOLOCK) ON zr.PKID = dc.IDZonaReparto
+    LEFT JOIN dbo.Zona zr WITH (NOLOCK) ON zr.PKID = dc.IDZonaReparto
     INNER JOIN dbo.ZonaRutaVendedor zrv WITH (NOLOCK) ON zrv.IDZona = z.PKID
     INNER JOIN dbo.RutaVendedor rr WITH (NOLOCK) ON rr.PKID = zrv.IDRutaVendedor
     INNER JOIN dbo.AsignacionRutaZonaVendedor ass WITH (NOLOCK) ON ass.PKID = rr.IDAsignacionRutaZonaVendedor
     INNER JOIN dbo.Persona pv WITH (NOLOCK) ON pv.PKID = ass.IDVendedor
-    INNER JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = pv.PKID
-    INNER JOIN dbo.GrupoVentas gv WITH (NOLOCK) ON gv.PKID = v.IDGrupoVentas
-    INNER JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
-    WHERE dd.DireccionPrincipal = 1 
-      AND dd.Activo = 1 
-      AND p.Activo = 1 
-      AND fv.Nombre IN ('Ruta Ex P&G', 'Ruta Ex P&G M', 'MDOS P&G')
-      AND RTRIM(pv.Codigo) NOT LIKE '%ep%'
+    LEFT JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = pv.PKID
+    LEFT JOIN dbo.GrupoVentas gv WITH (NOLOCK) ON gv.PKID = v.IDGrupoVentas
+    LEFT JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
+    WHERE dd.Activo = 1 
+      AND p.Activo = 1
     GROUP BY 
         dc.PKID, p.PKID, p.Codigo, p.Nombre,
         z.PKID, z.Codigo, z.Descripcion, zr.PKID, zr.Codigo
