@@ -165,10 +165,18 @@ BEGIN
 
         -- -------------------------------------------------------------
         -- 6. VINCULAR LA DIRECCIÓN DEL CLIENTE CON LA ZONA EN dir_DireccionZona
-        -- NOTA: dir_DireccionZona usa 'EsPrincipalVenta' y 'EsPrincipalReparto'
+        -- NOTA: dir_DireccionZona tiene el índice único UQ_DireccionZona_Venta
+        --       que permite solo UNA fila con EsPrincipalVenta = 1 por IDDireccion.
         -- -------------------------------------------------------------
         IF @IDDireccion IS NOT NULL AND @IDZona IS NOT NULL
         BEGIN
+            -- Desmarcar EsPrincipalVenta = 1 en cualquier otra zona previa de esta misma dirección
+            UPDATE dir_DireccionZona
+            SET EsPrincipalVenta = 0, FechaModificacion = GETDATE()
+            WHERE IDDireccion = @IDDireccion 
+              AND IDZona <> @IDZona 
+              AND EsPrincipalVenta = 1;
+
             IF NOT EXISTS (SELECT 1 FROM dir_DireccionZona WHERE IDDireccion = @IDDireccion AND IDZona = @IDZona)
             BEGIN
                 INSERT INTO dir_DireccionZona (
