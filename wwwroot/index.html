@@ -3,22 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Force Distribución — Integrador de Datos ERP</title>
+    <title>Force Distribución — Plataforma de Integración ERP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-app: #f4f6f9;
+            --bg-app: #f8fafc;
             --bg-surface: #ffffff;
-            --bg-subtle: #f8fafc;
+            --bg-subtle: #f1f5f9;
+            --bg-card-hover: #f8fafc;
             --bg-table-head: #f1f5f9;
-            --bg-row-hover: #f8fafc;
             --border-color: #e2e8f0;
             --border-strong: #cbd5e1;
+            --border-focus: #3b82f6;
             --text-main: #0f172a;
             --text-body: #334155;
             --text-muted: #64748b;
             --brand-primary: #0f4c81;
             --brand-primary-hover: #0b3961;
-            --brand-secondary: #1e40af;
+            --brand-dark: #092c4c;
+            --brand-blue: #2563eb;
             --accent-emerald: #059669;
             --accent-emerald-hover: #047857;
             --status-ok-bg: #ecfdf5;
@@ -34,12 +39,15 @@
             --status-info-text: #1e40af;
             --status-info-border: #bfdbfe;
             --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
-            --shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+            --shadow-card: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+            --shadow-hover: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.03);
+            --radius-md: 10px;
+            --radius-lg: 14px;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: var(--bg-app);
             color: var(--text-body);
             font-size: 13.5px;
@@ -47,19 +55,19 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Header Corporativo */
+        /* Cabecera Principal */
         .app-navbar {
             background: #ffffff;
             border-bottom: 1px solid var(--border-color);
-            box-shadow: var(--shadow-sm);
             position: sticky;
             top: 0;
             z-index: 100;
+            box-shadow: var(--shadow-sm);
         }
         .navbar-inner {
             max-width: 1600px;
             margin: 0 auto;
-            padding: 14px 28px;
+            padding: 12px 28px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -70,26 +78,28 @@
             display: flex;
             align-items: center;
             gap: 14px;
+            cursor: pointer;
         }
         .brand-mark {
-            width: 38px;
-            height: 38px;
-            border-radius: 8px;
-            background: var(--brand-primary);
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--brand-primary) 0%, #1e40af 100%);
             color: #ffffff;
-            font-weight: 700;
-            font-size: 15px;
+            font-weight: 800;
+            font-size: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
             letter-spacing: 0.5px;
+            box-shadow: 0 2px 6px rgba(15, 76, 129, 0.25);
             flex-shrink: 0;
         }
         .brand-titles h1 {
             font-size: 16px;
-            font-weight: 700;
+            font-weight: 800;
             color: var(--text-main);
-            letter-spacing: -0.2px;
+            letter-spacing: -0.3px;
         }
         .brand-titles .subtitle {
             font-size: 12px;
@@ -100,38 +110,66 @@
             margin-top: 2px;
         }
         .conn-tag {
-            background: var(--bg-table-head);
+            background: var(--bg-subtle);
             border: 1px solid var(--border-color);
             border-radius: 4px;
             padding: 1px 7px;
-            font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+            font-family: 'JetBrains Mono', Consolas, monospace;
             font-size: 11px;
             color: var(--text-body);
         }
 
-        .action-bar {
+        .header-meta-group {
             display: flex;
-            gap: 8px;
+            align-items: center;
+            gap: 16px;
             flex-wrap: wrap;
         }
+        .clock-badge {
+            background: #f1f5f9;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'JetBrains Mono', Consolas, monospace;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-emerald);
+            animation: pulse-dot 1.8s infinite ease-in-out;
+        }
+        @keyframes pulse-dot {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.5); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(5, 150, 105, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
+        }
 
-        /* Botones */
+        /* Botones y Acciones */
         .btn {
             cursor: pointer;
-            border-radius: 6px;
-            padding: 8px 15px;
+            border-radius: 8px;
+            padding: 8px 16px;
             font-size: 13px;
             font-weight: 600;
             border: 1px solid transparent;
-            transition: all 0.15s ease;
+            transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 7px;
             line-height: 1.25;
+            font-family: inherit;
         }
         .btn:disabled {
-            opacity: 0.5;
+            opacity: 0.55;
             cursor: not-allowed;
+            pointer-events: none;
         }
         .btn-outline {
             background: #ffffff;
@@ -139,42 +177,325 @@
             border-color: var(--border-strong);
         }
         .btn-outline:hover:not(:disabled) {
-            background: var(--bg-table-head);
+            background: var(--bg-subtle);
             border-color: #94a3b8;
         }
         .btn-primary {
             background: var(--brand-primary);
             color: #ffffff;
+            box-shadow: 0 1px 3px rgba(15, 76, 129, 0.2);
         }
         .btn-primary:hover:not(:disabled) {
             background: var(--brand-primary-hover);
+            transform: translateY(-1px);
         }
         .btn-success {
             background: var(--accent-emerald);
             color: #ffffff;
+            box-shadow: 0 1px 3px rgba(5, 150, 105, 0.2);
         }
         .btn-success:hover:not(:disabled) {
             background: var(--accent-emerald-hover);
+            transform: translateY(-1px);
         }
         .btn-sm {
-            padding: 5px 11px;
+            padding: 5px 12px;
             font-size: 12px;
+            border-radius: 6px;
+        }
+        .btn-back {
+            background: #f8fafc;
+            border: 1px solid var(--border-strong);
+            color: var(--text-body);
+            font-weight: 600;
+        }
+        .btn-back:hover {
+            background: #ffffff;
+            color: var(--brand-primary);
+            border-color: var(--brand-primary);
         }
 
         /* Contenedor Principal */
         .main-container {
             max-width: 1600px;
             margin: 0 auto;
-            padding: 22px 28px 40px;
+            padding: 24px 28px 48px;
         }
+
+        /* VISTAS: Switch entre Hub de Módulos y Detalle de Clientes */
+        .view-section {
+            display: none;
+            animation: fadeIn 0.22s ease-in-out;
+        }
+        .view-section.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ==============================================================
+           ESTILOS DE LA PANTALLA INICIAL (HUB DE MÓDULOS)
+           ============================================================== */
+        .hub-hero {
+            background: linear-gradient(135deg, #092c4c 0%, #0f4c81 60%, #1e3a8a 100%);
+            border-radius: var(--radius-lg);
+            padding: 30px 36px;
+            color: #ffffff;
+            margin-bottom: 28px;
+            box-shadow: 0 8px 24px rgba(9, 44, 76, 0.18);
+            position: relative;
+            overflow: hidden;
+        }
+        .hub-hero::after {
+            content: "";
+            position: absolute;
+            right: -60px;
+            bottom: -60px;
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 70%);
+            pointer-events: none;
+        }
+        .hub-hero h2 {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.4px;
+            margin-bottom: 6px;
+        }
+        .hub-hero p {
+            color: #e2e8f0;
+            font-size: 14px;
+            max-width: 780px;
+            line-height: 1.5;
+        }
+        .hub-hero-stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 22px;
+            flex-wrap: wrap;
+        }
+        .hero-stat-pill {
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 10px;
+            padding: 10px 18px;
+            display: flex;
+            flex-direction: column;
+        }
+        .hero-stat-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #cbd5e1;
+            font-weight: 600;
+        }
+        .hero-stat-val {
+            font-size: 17px;
+            font-weight: 800;
+            color: #ffffff;
+            margin-top: 2px;
+            font-family: 'JetBrains Mono', Consolas, monospace;
+        }
+
+        .section-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+        .section-heading h3 {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: -0.3px;
+        }
+
+        /* Grilla de Tarjetas de Módulos */
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        @media (max-width: 768px) {
+            .modules-grid { grid-template-columns: 1fr; }
+        }
+
+        .module-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px 28px;
+            box-shadow: var(--shadow-card);
+            transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            cursor: pointer;
+        }
+        .module-card.active-module:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-hover);
+            border-color: #93c5fd;
+        }
+        .module-card.disabled-module {
+            opacity: 0.82;
+            cursor: not-allowed;
+            background: #fafbfc;
+            border-style: dashed;
+        }
+
+        .module-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .module-icon-wrap {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .module-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+        .module-icon.client-icon {
+            background: #eff6ff;
+            color: var(--brand-primary);
+            border: 1px solid #bfdbfe;
+        }
+        .module-icon.product-icon {
+            background: #f1f5f9;
+            color: #64748b;
+            border: 1px solid #cbd5e1;
+        }
+        .module-title-wrap h4 {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: -0.2px;
+        }
+        .module-title-wrap p {
+            font-size: 12.5px;
+            color: var(--text-muted);
+            margin-top: 3px;
+            line-height: 1.4;
+        }
+
+        /* Panel de Métricas dentro de la tarjeta de módulo */
+        .module-metrics-grid {
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 14px 18px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px 16px;
+            margin: 16px 0 20px;
+        }
+        @media (max-width: 600px) {
+            .module-metrics-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        .metric-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .metric-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.3px;
+        }
+        .metric-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-top: 3px;
+            font-family: 'JetBrains Mono', Consolas, monospace;
+        }
+        .metric-value.ok { color: var(--accent-emerald); }
+        .metric-value.err { color: #dc2626; }
+        .metric-value.time { color: var(--brand-primary); }
+
+        .module-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--border-color);
+            padding-top: 16px;
+            margin-top: auto;
+        }
+        .module-footer-info {
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .module-btn-action {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--brand-primary);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: gap 0.15s ease;
+        }
+        .module-card:hover .module-btn-action {
+            gap: 10px;
+            color: var(--brand-blue);
+        }
+
+        /* ==============================================================
+           ESTILOS DE LA PANTALLA DETALLE (PROCESAMIENTO CLIENTES)
+           ============================================================== */
+        .breadcrumb-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+        .breadcrumb-nav {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13.5px;
+        }
+        .breadcrumb-item {
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+        .breadcrumb-item:hover { color: var(--brand-primary); }
+        .breadcrumb-separator { color: var(--border-strong); }
+        .breadcrumb-active { color: var(--text-main); font-weight: 700; }
 
         /* Barra de Estado de Sincronización */
         .status-banner {
             background: var(--bg-surface);
             border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 16px 22px;
-            margin-bottom: 20px;
+            border-radius: var(--radius-md);
+            padding: 18px 24px;
+            margin-bottom: 22px;
             box-shadow: var(--shadow-card);
         }
         .status-row {
@@ -182,7 +503,7 @@
             justify-content: space-between;
             align-items: center;
             gap: 16px;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             flex-wrap: wrap;
         }
         .status-text-group {
@@ -192,17 +513,18 @@
             flex-wrap: wrap;
         }
         .status-title {
-            font-weight: 600;
+            font-weight: 700;
             color: var(--text-main);
             font-size: 13.5px;
         }
         .status-meta {
             color: var(--text-muted);
-            font-size: 12.5px;
+            font-size: 12px;
+            font-family: 'JetBrains Mono', Consolas, monospace;
         }
         .progress-bar-wrap {
             width: 100%;
-            height: 8px;
+            height: 9px;
             background: var(--bg-table-head);
             border-radius: 999px;
             overflow: hidden;
@@ -219,16 +541,17 @@
         .pill {
             display: inline-flex;
             align-items: center;
+            gap: 5px;
             padding: 3px 10px;
             border-radius: 999px;
             font-size: 11.5px;
-            font-weight: 600;
+            font-weight: 700;
             letter-spacing: 0.2px;
             border: 1px solid transparent;
             white-space: nowrap;
         }
         .pill-neutral {
-            background: var(--bg-table-head);
+            background: var(--bg-subtle);
             color: var(--text-body);
             border-color: var(--border-color);
         }
@@ -257,13 +580,13 @@
         .card {
             background: var(--bg-surface);
             border: 1px solid var(--border-color);
-            border-radius: 10px;
-            margin-bottom: 20px;
+            border-radius: var(--radius-md);
+            margin-bottom: 22px;
             box-shadow: var(--shadow-card);
             overflow: hidden;
         }
         .card-header {
-            padding: 14px 20px;
+            padding: 16px 22px;
             background: #ffffff;
             border-bottom: 1px solid var(--border-color);
             display: flex;
@@ -278,9 +601,10 @@
             gap: 10px;
         }
         .card-header h2 {
-            font-size: 14.5px;
-            font-weight: 700;
+            font-size: 15px;
+            font-weight: 800;
             color: var(--text-main);
+            letter-spacing: -0.2px;
         }
         .card-subtitle {
             font-size: 12px;
@@ -295,21 +619,22 @@
             flex-wrap: wrap;
         }
         .input-control, .select-control {
-            padding: 6px 12px;
+            padding: 7px 13px;
             background: #ffffff;
             border: 1px solid var(--border-strong);
-            border-radius: 6px;
+            border-radius: 7px;
             color: var(--text-main);
             font-size: 12.5px;
             outline: none;
-            transition: border-color 0.15s;
+            transition: all 0.15s;
+            font-family: inherit;
         }
         .input-control:focus, .select-control:focus {
             border-color: var(--brand-primary);
-            box-shadow: 0 0 0 2px rgba(15, 76, 129, 0.12);
+            box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.12);
         }
         .input-search {
-            min-width: 250px;
+            min-width: 270px;
         }
 
         /* Tablas de Datos */
@@ -322,7 +647,7 @@
             border-collapse: collapse;
         }
         th, td {
-            padding: 11px 16px;
+            padding: 12px 18px;
             text-align: left;
             border-bottom: 1px solid var(--border-color);
             font-size: 13px;
@@ -331,14 +656,14 @@
         th {
             background: var(--bg-table-head);
             color: #475569;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 11.5px;
             text-transform: uppercase;
             letter-spacing: 0.4px;
             white-space: nowrap;
         }
         tbody tr:hover {
-            background-color: var(--bg-row-hover);
+            background-color: var(--bg-card-hover);
         }
         tbody tr:last-child td {
             border-bottom: none;
@@ -347,12 +672,13 @@
             text-align: right;
             font-variant-numeric: tabular-nums;
             font-weight: 600;
+            font-family: 'JetBrains Mono', Consolas, monospace;
         }
         .val-ins { color: #059669; font-weight: 700; }
         .val-upd { color: #d97706; font-weight: 700; }
         .val-del { color: #dc2626; font-weight: 700; }
         .mono {
-            font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+            font-family: 'JetBrains Mono', Consolas, monospace;
             font-size: 12px;
             color: #475569;
         }
@@ -362,7 +688,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 11px 20px;
+            padding: 12px 22px;
             background: var(--bg-subtle);
             border-top: 1px solid var(--border-color);
             gap: 12px;
@@ -382,12 +708,12 @@
         }
         .page-btn {
             min-width: 32px;
-            height: 30px;
-            padding: 0 8px;
+            height: 32px;
+            padding: 0 9px;
             border: 1px solid var(--border-strong);
             background: #ffffff;
             color: var(--text-body);
-            border-radius: 5px;
+            border-radius: 6px;
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
@@ -395,6 +721,7 @@
             align-items: center;
             justify-content: center;
             transition: all 0.12s;
+            font-family: inherit;
         }
         .page-btn:hover:not(:disabled):not(.active) {
             background: var(--bg-table-head);
@@ -414,9 +741,9 @@
         /* Layout Inferior 2 Columnas */
         .split-grid {
             display: grid;
-            grid-template-columns: 350px 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
+            grid-template-columns: 360px 1fr;
+            gap: 22px;
+            margin-bottom: 22px;
             align-items: start;
         }
         @media (max-width: 1120px) {
@@ -425,14 +752,14 @@
 
         /* Formulario de Configuración */
         .form-body {
-            padding: 18px 20px;
+            padding: 20px 22px;
         }
         .switch-box {
             display: flex;
             justify-content: space-between;
             align-items: center;
             background: var(--bg-subtle);
-            padding: 12px 14px;
+            padding: 12px 16px;
             border: 1px solid var(--border-color);
             border-radius: 8px;
             margin-bottom: 16px;
@@ -443,18 +770,24 @@
         .field-group label {
             display: block;
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 700;
             color: var(--text-body);
-            margin-bottom: 5px;
+            margin-bottom: 6px;
         }
         .field-group input {
             width: 100%;
             padding: 8px 12px;
             border: 1px solid var(--border-strong);
-            border-radius: 6px;
+            border-radius: 7px;
             font-size: 13px;
             color: var(--text-main);
             background: #ffffff;
+            outline: none;
+            font-family: inherit;
+        }
+        .field-group input:focus {
+            border-color: var(--brand-primary);
+            box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.12);
         }
 
         /* Modal de Traza SQL */
@@ -462,8 +795,8 @@
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(15, 23, 42, 0.55);
-            backdrop-filter: blur(2px);
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(3px);
             z-index: 9999;
             justify-content: center;
             align-items: center;
@@ -472,21 +805,22 @@
         .modal-card {
             background: #ffffff;
             border: 1px solid var(--border-color);
-            border-radius: 10px;
+            border-radius: var(--radius-lg);
             max-width: 920px;
             width: 100%;
             max-height: 85vh;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.15);
+            box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+            overflow: hidden;
         }
         .modal-code {
-            padding: 16px 20px;
-            margin: 16px 20px 20px;
+            padding: 18px 22px;
+            margin: 16px 22px 22px;
             background: #0f172a;
             color: #f8fafc;
             border-radius: 8px;
-            font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+            font-family: 'JetBrains Mono', Consolas, monospace;
             font-size: 12px;
             line-height: 1.6;
             white-space: pre-wrap;
@@ -496,13 +830,13 @@
 </head>
 <body>
 
-<!-- CABECERA EMPRESARIAL -->
+<!-- CABECERA PRINCIPAL -->
 <header class="app-navbar">
     <div class="navbar-inner">
-        <div class="brand-block">
+        <div class="brand-block" onclick="navegarVista('hub')">
             <div class="brand-mark">FF</div>
             <div class="brand-titles">
-                <h1>Integrador FlexForce — Módulo de Clientes, Direcciones y Cartera de Rutas</h1>
+                <h1>Force Distribución — Integrador de Datos ERP</h1>
                 <div class="subtitle">
                     <span>Origen: <span class="conn-tag">192.168.2.16 · digalimenta41</span></span>
                     <span>→</span>
@@ -510,281 +844,455 @@
                 </div>
             </div>
         </div>
-        <div class="action-bar">
-            <button id="btnValidar" class="btn btn-outline" onclick="validarDiferencias()">1. Consultar Diferencias</button>
-            <button id="btnSyncClientes" class="btn btn-primary" onclick="ejecutarSincronizacion('clientes')">2. Sincronizar Clientes y Direcciones</button>
-            <button id="btnSyncZonas" class="btn btn-primary" onclick="ejecutarSincronizacion('zonas')">3. Sincronizar Cartera de Rutas</button>
-            <button id="btnSyncTodo" class="btn btn-success" onclick="ejecutarSincronizacion('todo')">Sincronizar Todo el Módulo</button>
+        <div class="header-meta-group">
+            <div class="clock-badge">
+                <span class="live-dot"></span>
+                <span id="relojPeruLive">--:--:-- (Hora Perú)</span>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="navegarVista('hub')" id="btnVolverHubTop" style="display:none;">
+                ← Hub de Módulos
+            </button>
         </div>
     </div>
 </header>
 
 <main class="main-container">
 
-    <!-- BANDA DE ESTADO Y PROGRESO EN VIVO -->
-    <section class="status-banner">
-        <div class="status-row">
-            <div class="status-text-group">
-                <span id="badgeEstado" class="pill pill-neutral">EN ESPERA</span>
-                <span id="lblFaseDetalle" class="status-title">Sistema listo. Presione "Consultar Diferencias" para comparar las tablas en tiempo real.</span>
-                <span id="lblUltimaEjecucion" class="status-meta"></span>
-            </div>
-            <div class="status-text-group">
-                <span id="lblProgresoTexto" class="mono" style="font-weight:600;">0 / 0 (0%)</span>
-            </div>
-        </div>
-        <div class="progress-bar-wrap">
-            <div id="barraProgreso" class="progress-bar-fill"></div>
-        </div>
-    </section>
+    <!-- ==============================================================
+         VISTA 1: HUB PRINCIPAL DE MÓDULOS (PANTALLA INICIAL)
+         ============================================================== -->
+    <section id="vistaHub" class="view-section active">
 
-    <!-- 1. MATRIZ DE VALIDACIÓN DE TABLAS -->
-    <section class="card">
-        <div class="card-header">
-            <div class="card-title-wrap">
-                <h2>1. Matriz de Validación de Tablas (Comparación Directa ERP Antiguo vs Force)</h2>
-            </div>
-            <span id="lblTiempoAnalisis" class="card-subtitle">Pendiente de consulta</span>
-        </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Sub-Módulo / Entidad</th>
-                        <th>Tablas Destino en BDForceGVD</th>
-                        <th class="num">ERP Antiguo</th>
-                        <th class="num">Force ERP</th>
-                        <th class="num">Nuevos (INSERT)</th>
-                        <th class="num">Modificados (UPDATE)</th>
-                        <th class="num">Bajas / Quitados (DELETE)</th>
-                        <th class="num">Total Diferencias</th>
-                        <th>Diagnóstico</th>
-                    </tr>
-                </thead>
-                <tbody id="tblResumenTablas">
-                    <tr>
-                        <td colspan="9" style="text-align:center; color:var(--text-muted); padding:26px;">
-                            Consultando estado actual de las tablas entre ambos servidores...
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </section>
-
-    <!-- 2. DETALLE DE REGISTROS CON CAMBIOS DETECTADOS (CON PAGINACIÓN) -->
-    <section class="card">
-        <div class="card-header">
-            <div>
-                <h2>2. Detalle de Registros con Cambios Detectados (Pre-Visualización)</h2>
-                <div class="card-subtitle">Inspeccione qué clientes, direcciones o asignaciones de ruta tienen diferencias antes de sincronizar</div>
-            </div>
-            <div class="toolbar">
-                <input type="text" id="txtFiltroCambio" class="input-control input-search" placeholder="Buscar por código, cliente, vendedor o zona..." oninput="irPaginaCambios(1)">
-                <select id="selFiltroTabla" class="select-control" onchange="irPaginaCambios(1)">
-                    <option value="">Todas las entidades</option>
-                    <option value="CLIENTES">Clientes y Personas</option>
-                    <option value="DIRECCIONES">Direcciones</option>
-                    <option value="ZONAS">Cartera de Rutas</option>
-                    <option value="CREDITO">Líneas de Crédito</option>
-                </select>
-                <select id="selFiltroOp" class="select-control" onchange="irPaginaCambios(1)">
-                    <option value="">Todas las operaciones</option>
-                    <option value="INSERT">INSERT (Nuevos)</option>
-                    <option value="UPDATE">UPDATE (Modificados)</option>
-                    <option value="BAJA">BAJA / DELETE (Retirados)</option>
-                </select>
-            </div>
-        </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Sub-Módulo</th>
-                        <th>Operación</th>
-                        <th>ID Origen</th>
-                        <th>Código Cliente</th>
-                        <th>Cliente / Razón Social</th>
-                        <th>Campo Detectado</th>
-                        <th>Valor Actual en Force</th>
-                        <th>Valor Nuevo en ERP Antiguo</th>
-                    </tr>
-                </thead>
-                <tbody id="tblDetalleCambios">
-                    <tr>
-                        <td colspan="8" style="text-align:center; color:var(--text-muted); padding:26px;">
-                            Sin diferencias pendientes de mostrar.
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="pagination-bar">
-            <div class="pagination-info">
-                <span id="lblPaginacionCambios">Mostrando 0 de 0 registros</span>
-                <span>·</span>
-                <label>Filas por página:
-                    <select id="selPageSizeCambios" class="select-control" style="padding:3px 8px; margin-left:4px;" onchange="irPaginaCambios(1)">
-                        <option value="15" selected>15</option>
-                        <option value="30">30</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                    </select>
-                </label>
-            </div>
-            <div id="pagControlsCambios" class="pagination-controls"></div>
-        </div>
-    </section>
-
-    <!-- 3. PANEL DIVIDIDO: PARÁMETROS DE EJECUCIÓN + HISTORIAL DE LOTES PAGINADO -->
-    <div class="split-grid">
-        <section class="card" style="margin-bottom:0;">
-            <div class="card-header">
-                <h2>Parámetros de Ejecución</h2>
-            </div>
-            <div class="form-body">
-                <div class="switch-box">
-                    <div>
-                        <div style="font-weight:700; color:var(--text-main);">Sincronización Automática</div>
-                        <div style="font-size:11.5px; color:var(--text-muted);">Desmarcado = Ejecución 100% Manual</div>
-                    </div>
-                    <input type="checkbox" id="chkActiva" style="width:18px; height:18px; accent-color:var(--brand-primary); cursor:pointer;">
+        <!-- BANNER DE BIENVENIDA Y ESTADO GENERAL -->
+        <div class="hub-hero">
+            <h2>Plataforma Central de Integración Modular</h2>
+            <p>Monitoreo, auditoría y sincronización bidireccional entre el ERP Antiguo y Force Distribución ERP. Seleccione el módulo de negocio para inspeccionar el flujo de datos o ejecutar procesos.</p>
+            <div class="hub-hero-stats">
+                <div class="hero-stat-pill">
+                    <span class="hero-stat-label">Conectividad Bases de Datos</span>
+                    <span class="hero-stat-val" style="color:#6ee7b7;">2 / 2 Conectados</span>
                 </div>
-                <div class="field-group">
-                    <label>Frecuencia del Demonio (Minutos)</label>
-                    <input type="number" id="txtIntervalo" min="1" max="1440" value="3">
+                <div class="hero-stat-pill">
+                    <span class="hero-stat-label">Módulos en Producción</span>
+                    <span class="hero-stat-val">1 Activo (Clientes)</span>
                 </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                    <div class="field-group">
-                        <label>Hora Inicio Ventana</label>
-                        <input type="time" id="txtHoraInicio" value="05:00">
+                <div class="hero-stat-pill">
+                    <span class="hero-stat-label">Última Auditoría en Vivo (Hora Perú)</span>
+                    <span class="hero-stat-val" id="hubUltimoEscaneo">Consultando...</span>
+                </div>
+                <div class="hero-stat-pill">
+                    <span class="hero-stat-label">Tiempo Duración Último Lote</span>
+                    <span class="hero-stat-val" id="hubUltimaDuracion">00:00:00</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-heading">
+            <h3>Módulos de Integración Disponibles</h3>
+            <span class="card-subtitle">Haga clic en un módulo para entrar a su consola de procesamiento detallado</span>
+        </div>
+
+        <!-- GRILLA DE MÓDULOS -->
+        <div class="modules-grid">
+
+            <!-- MÓDULO 1: CLIENTES, DIRECCIONES Y CARTERA DE RUTAS (ACTIVO) -->
+            <div class="module-card active-module" onclick="navegarVista('clientes')">
+                <div>
+                    <div class="module-top">
+                        <div class="module-icon-wrap">
+                            <div class="module-icon client-icon">👥</div>
+                            <div class="module-title-wrap">
+                                <h4>Módulo de Clientes, Cartera y Créditos</h4>
+                                <p>Sincronización de maestros de clientes, domicilios de entrega, rutas por vendedor y líneas de crédito multicartera.</p>
+                            </div>
+                        </div>
+                        <span id="hubBadgeEstadoClientes" class="pill pill-ok">EN ESPERA</span>
                     </div>
-                    <div class="field-group">
-                        <label>Hora Fin Ventana</label>
-                        <input type="time" id="txtHoraFin" value="23:30">
+
+                    <!-- MÉTRICAS EN VIVO DEL MÓDULO CLIENTES -->
+                    <div class="module-metrics-grid">
+                        <div class="metric-item">
+                            <span class="metric-label">Estado Ejecución</span>
+                            <span class="metric-value" id="hubCardEstado">EN ESPERA</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Registros Auditados</span>
+                            <span class="metric-value" id="hubCardRegistros">369,579</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Éxitos / Procesados</span>
+                            <span class="metric-value ok" id="hubCardExitos">369,455</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Errores Registrados</span>
+                            <span class="metric-value" id="hubCardErrores">0</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Última Ejecución (Hora Perú)</span>
+                            <span class="metric-value time" id="hubCardHoraPeru">--:--:--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Tiempo Ejecutado (hh:mm:ss)</span>
+                            <span class="metric-value time" id="hubCardDuracionHms">00:00:00</span>
+                        </div>
                     </div>
                 </div>
-                <div class="field-group">
-                    <label>Tamaño de Lote por Transacción</label>
-                    <input type="number" id="txtTamanoLote" min="50" max="5000" value="500">
+
+                <div class="module-footer">
+                    <div class="module-footer-info">
+                        <span>● Incluye: Clientes · Direcciones · Zonas/Rutas · Portafolios de Crédito</span>
+                    </div>
+                    <div class="module-btn-action">
+                        Entrar al Procesamiento →
+                    </div>
                 </div>
-                <button class="btn btn-primary" style="width:100%; justify-content:center; margin-top:4px;" onclick="guardarConfiguracion()">
-                    Guardar Parámetros
-                </button>
+            </div>
+
+            <!-- MÓDULO 2: PRODUCTOS, PRECIOS Y STOCK (PRÓXIMAMENTE) -->
+            <div class="module-card disabled-module" onclick="alert('El Módulo de Productos se encuentra en fase de planificación y arquitectura de tablas. Próximamente disponible.')">
+                <div>
+                    <div class="module-top">
+                        <div class="module-icon-wrap">
+                            <div class="module-icon product-icon">📦</div>
+                            <div class="module-title-wrap">
+                                <h4>Módulo de Productos, Catálogo y Precios</h4>
+                                <p>Maestros de artículos (pro_Producto), unidades de medida, categorías, familias, listas de precios y stock por almacén.</p>
+                            </div>
+                        </div>
+                        <span class="pill pill-neutral">PRÓXIMAMENTE</span>
+                    </div>
+
+                    <!-- MÉTRICAS PLACEHOLDER DE PRODUCTOS -->
+                    <div class="module-metrics-grid">
+                        <div class="metric-item">
+                            <span class="metric-label">Estado Ejecución</span>
+                            <span class="metric-value" style="color:var(--text-muted);">No Iniciado</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Registros Auditados</span>
+                            <span class="metric-value" style="color:var(--text-muted);">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Éxitos / Procesados</span>
+                            <span class="metric-value" style="color:var(--text-muted);">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Errores Registrados</span>
+                            <span class="metric-value" style="color:var(--text-muted);">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Última Ejecución</span>
+                            <span class="metric-value" style="color:var(--text-muted);">Pendiente</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Tiempo Ejecutado</span>
+                            <span class="metric-value" style="color:var(--text-muted);">--:--:--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="module-footer">
+                    <div class="module-footer-info">
+                        <span>🔒 En espera de inicio de sprint</span>
+                    </div>
+                    <div class="module-btn-action" style="color:var(--text-muted);">
+                        Bloqueado (Fase 2)
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- ==============================================================
+         VISTA 2: CONSOLA DETALLADA DE PROCESAMIENTO (MÓDULO CLIENTES)
+         ============================================================== -->
+    <section id="vistaClientes" class="view-section">
+
+        <!-- BREADCRUMB Y RETORNO -->
+        <div class="breadcrumb-bar">
+            <div class="breadcrumb-nav">
+                <span class="breadcrumb-item" onclick="navegarVista('hub')">
+                    🏠 Hub de Módulos
+                </span>
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-active">Módulo de Clientes, Direcciones, Cartera y Créditos</span>
+            </div>
+            <div class="action-bar" style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn btn-back btn-sm" onclick="navegarVista('hub')">← Volver al Hub</button>
+                <button id="btnValidar" class="btn btn-outline" onclick="validarDiferencias()">1. Consultar Diferencias</button>
+                <button id="btnSyncClientes" class="btn btn-primary" onclick="ejecutarSincronizacion('clientes')">2. Sincronizar Clientes</button>
+                <button id="btnSyncZonas" class="btn btn-primary" onclick="ejecutarSincronizacion('zonas')">3. Sincronizar Rutas</button>
+                <button id="btnSyncTodo" class="btn btn-success" onclick="ejecutarSincronizacion('todo')">Sincronizar Todo el Módulo</button>
+            </div>
+        </div>
+
+        <!-- BANDA DE ESTADO Y PROGRESO EN VIVO -->
+        <section class="status-banner">
+            <div class="status-row">
+                <div class="status-text-group">
+                    <span id="badgeEstado" class="pill pill-neutral">EN ESPERA</span>
+                    <span id="lblFaseDetalle" class="status-title">Sistema listo. Presione "Consultar Diferencias" para auditar en tiempo real.</span>
+                    <span id="lblUltimaEjecucion" class="status-meta"></span>
+                </div>
+                <div class="status-text-group">
+                    <span id="lblProgresoTexto" class="mono" style="font-weight:700;">0 / 0 (0%)</span>
+                </div>
+            </div>
+            <div class="progress-bar-wrap">
+                <div id="barraProgreso" class="progress-bar-fill"></div>
             </div>
         </section>
 
-        <section class="card" style="margin-bottom:0;">
+        <!-- 1. MATRIZ DE VALIDACIÓN DE TABLAS -->
+        <section class="card">
             <div class="card-header">
-                <div>
-                    <h2>Historial de Ejecuciones y Lotes</h2>
-                    <div class="card-subtitle">Registro de lotes ejecutados y conteo consolidado de registros procesados</div>
+                <div class="card-title-wrap">
+                    <h2>1. Matriz de Validación de Tablas (Comparación Directa ERP Antiguo vs Force)</h2>
                 </div>
-                <button class="btn btn-outline btn-sm" onclick="cargarLotes()">Actualizar Historial</button>
+                <span id="lblTiempoAnalisis" class="card-subtitle">Pendiente de consulta</span>
             </div>
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>Lote</th>
-                            <th>Alcance / Entidad</th>
-                            <th>Modo</th>
-                            <th>Fecha Inicio</th>
-                            <th>Duración</th>
-                            <th class="num">Nuevos</th>
-                            <th class="num">Modificados</th>
-                            <th class="num">Errores</th>
-                            <th>Estado</th>
+                            <th>Sub-Módulo / Entidad</th>
+                            <th>Tablas Destino en BDForceGVD</th>
+                            <th class="num">ERP Antiguo</th>
+                            <th class="num">Force ERP</th>
+                            <th class="num">Nuevos (INSERT)</th>
+                            <th class="num">Modificados (UPDATE)</th>
+                            <th class="num">Bajas / Quitados (DELETE)</th>
+                            <th class="num">Total Diferencias</th>
+                            <th>Diagnóstico</th>
                         </tr>
                     </thead>
-                    <tbody id="tblLotes">
-                        <tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:22px;">Cargando historial...</td></tr>
+                    <tbody id="tblResumenTablas">
+                        <tr>
+                            <td colspan="9" style="text-align:center; color:var(--text-muted); padding:26px;">
+                                Consultando estado actual de las tablas entre ambos servidores...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 2. DETALLE DE REGISTROS CON CAMBIOS DETECTADOS (CON PAGINACIÓN) -->
+        <section class="card">
+            <div class="card-header">
+                <div>
+                    <h2>2. Detalle de Registros con Cambios Detectados (Pre-Visualización)</h2>
+                    <div class="card-subtitle">Inspeccione clientes, direcciones, asignaciones de ruta o líneas de crédito con diferencias antes de sincronizar</div>
+                </div>
+                <div class="toolbar">
+                    <input type="text" id="txtFiltroCambio" class="input-control input-search" placeholder="Buscar por código, cliente, vendedor o zona..." oninput="irPaginaCambios(1)">
+                    <select id="selFiltroTabla" class="select-control" onchange="irPaginaCambios(1)">
+                        <option value="">Todas las entidades</option>
+                        <option value="CLIENTES">Clientes y Personas</option>
+                        <option value="DIRECCIONES">Direcciones</option>
+                        <option value="ZONAS">Cartera de Rutas</option>
+                        <option value="CREDITO">Líneas de Crédito</option>
+                    </select>
+                    <select id="selFiltroOp" class="select-control" onchange="irPaginaCambios(1)">
+                        <option value="">Todas las operaciones</option>
+                        <option value="INSERT">INSERT (Nuevos)</option>
+                        <option value="UPDATE">UPDATE (Modificados)</option>
+                        <option value="BAJA">BAJA / DELETE (Retirados)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sub-Módulo</th>
+                            <th>Operación</th>
+                            <th class="mono">ID Origen</th>
+                            <th>Código Cliente</th>
+                            <th>Cliente / Razón Social</th>
+                            <th>Campo Detectado</th>
+                            <th>Valor Actual en Force</th>
+                            <th>Valor Nuevo en ERP Antiguo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblDetalleCambios">
+                        <tr>
+                            <td colspan="8" style="text-align:center; color:var(--text-muted); padding:26px;">
+                                No hay cambios pendientes cargados. Presione "Consultar Diferencias".
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
             <div class="pagination-bar">
                 <div class="pagination-info">
-                    <span id="lblPaginacionLotes">Mostrando 0 de 0 lotes</span>
-                    <span>·</span>
-                    <label>Mostrar:
-                        <select id="selPageSizeLotes" class="select-control" style="padding:3px 8px; margin-left:4px;" onchange="irPaginaLotes(1)">
-                            <option value="8" selected>8</option>
+                    <span id="lblPaginacionCambios">Mostrando 0 de 0 registros</span>
+                    <label style="margin-left:12px; font-size:12px; color:var(--text-muted);">
+                        Por página:
+                        <select id="selPageSizeCambios" class="select-control" style="padding:3px 8px; font-size:12px;" onchange="irPaginaCambios(1)">
                             <option value="15">15</option>
                             <option value="30">30</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
                         </select>
                     </label>
                 </div>
-                <div id="pagControlsLotes" class="pagination-controls"></div>
+                <div id="pagControlsCambios" class="pagination-controls"></div>
             </div>
         </section>
-    </div>
 
-    <!-- 4. BITÁCORA DE AUDITORÍA Y EXCEPCIONES SQL (CON PAGINACIÓN) -->
-    <section class="card">
-        <div class="card-header">
-            <div>
-                <h2>Bitácora de Auditoría y Excepciones SQL</h2>
-                <div class="card-subtitle">Eventos detallados y trazas técnicas devueltas por SQL Server</div>
-            </div>
-            <div class="toolbar">
-                <input type="text" id="txtBuscarLog" class="input-control" placeholder="Filtrar por código, ID o mensaje..." oninput="irPaginaLogs(1)">
-                <select id="selNivelLog" class="select-control" onchange="cargarLogs()">
-                    <option value="">Todos los niveles</option>
-                    <option value="ERROR">Solo ERRORES</option>
-                    <option value="FATAL">Solo FATALES</option>
-                    <option value="INFO">INFO</option>
-                </select>
-                <button class="btn btn-outline btn-sm" onclick="cargarLogs()">Refrescar Eventos</button>
-            </div>
+        <!-- 3. CONFIGURACIÓN + HISTORIAL DE LOTES -->
+        <div class="split-grid">
+            <section class="card">
+                <div class="card-header">
+                    <h2>3. Parámetros de Sincronización</h2>
+                </div>
+                <div class="form-body">
+                    <div class="switch-box">
+                        <label for="chkActiva" style="font-weight:700; color:var(--text-main);">Sincronizador Automático</label>
+                        <input type="checkbox" id="chkActiva" style="transform:scale(1.3); cursor:pointer;">
+                    </div>
+                    <div class="field-group">
+                        <label>Intervalo en Segundo Plano (Minutos)</label>
+                        <input type="number" id="txtIntervalo" min="1" max="1440" value="3">
+                    </div>
+                    <div class="field-group">
+                        <label>Hora Inicio Ventana (Hora Perú · 24h)</label>
+                        <input type="text" id="txtHoraInicio" value="05:00">
+                    </div>
+                    <div class="field-group">
+                        <label>Hora Fin Ventana (Hora Perú · 24h)</label>
+                        <input type="text" id="txtHoraFin" value="23:30">
+                    </div>
+                    <div class="field-group">
+                        <label>Tamaño de Lote SQL (Registros por Bloque)</label>
+                        <input type="number" id="txtTamanoLote" min="100" max="5000" step="100" value="500">
+                    </div>
+                    <button class="btn btn-outline" style="width:100%; justify-content:center; margin-top:8px;" onclick="guardarConfiguracion()">
+                        Guardar Parámetros
+                    </button>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-header">
+                    <div>
+                        <h2>4. Historial de Lotes Ejecutados</h2>
+                        <div class="card-subtitle">Registro de transacciones masivas procesadas</div>
+                    </div>
+                    <button class="btn btn-outline btn-sm" onclick="cargarLotes()">Actualizar</button>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th># Lote</th>
+                                <th>Entidad</th>
+                                <th>Tipo</th>
+                                <th>Inicio (Hora Perú)</th>
+                                <th>Duración (hh:mm:ss)</th>
+                                <th class="num">Nuevos</th>
+                                <th class="num">Modificados</th>
+                                <th class="num">Errores</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblLotes">
+                            <tr>
+                                <td colspan="9" style="text-align:center; color:var(--text-muted); padding:24px;">Cargando historial de lotes...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination-bar">
+                    <div class="pagination-info">
+                        <span id="lblPaginacionLotes">Mostrando 0 de 0 lotes</span>
+                        <label style="margin-left:12px; font-size:12px; color:var(--text-muted);">
+                            Por página:
+                            <select id="selPageSizeLotes" class="select-control" style="padding:3px 8px; font-size:12px;" onchange="irPaginaLotes(1)">
+                                <option value="8">8</option>
+                                <option value="15">15</option>
+                                <option value="30">30</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div id="pagControlsLotes" class="pagination-controls"></div>
+                </div>
+            </section>
         </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Fecha / Hora</th>
-                        <th>Entidad</th>
-                        <th>Nivel</th>
-                        <th>ID Origen</th>
-                        <th>Código Cliente</th>
-                        <th>Mensaje descriptivo</th>
-                        <th>Acción</th>
-                    </tr>
-                </thead>
-                <tbody id="tblLogs">
-                    <tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:22px;">Sin excepciones registradas.</td></tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="pagination-bar">
-            <div class="pagination-info">
-                <span id="lblPaginacionLogs">Mostrando 0 de 0 eventos</span>
-                <span>·</span>
-                <label>Filas por página:
-                    <select id="selPageSizeLogs" class="select-control" style="padding:3px 8px; margin-left:4px;" onchange="irPaginaLogs(1)">
-                        <option value="10" selected>10</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
+
+        <!-- 5. LOG DE EVENTOS Y AUDITORÍA EN TIEMPO REAL -->
+        <section class="card">
+            <div class="card-header">
+                <div>
+                    <h2>5. Log de Auditoría y Eventos SQL en Vivo</h2>
+                    <div class="card-subtitle">Monitoreo de inserciones, actualizaciones y excepciones a nivel de registro</div>
+                </div>
+                <div class="toolbar">
+                    <input type="text" id="txtBuscarLog" class="input-control" placeholder="Buscar por código, ID o mensaje..." oninput="irPaginaLogs(1)">
+                    <select id="selNivelLog" class="select-control" onchange="cargarLogs()">
+                        <option value="">Todos los niveles</option>
+                        <option value="INFO">Solo INFO</option>
+                        <option value="ERROR">Solo ERRORES</option>
                     </select>
-                </label>
+                    <button class="btn btn-outline btn-sm" onclick="cargarLogs()">Refrescar Logs</button>
+                </div>
             </div>
-            <div id="pagControlsLogs" class="pagination-controls"></div>
-        </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha / Hora (Hora Perú)</th>
+                            <th>Entidad</th>
+                            <th>Nivel</th>
+                            <th class="mono">ID Origen</th>
+                            <th>Código Cliente</th>
+                            <th>Mensaje Operacional</th>
+                            <th>Detalle</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblLogs">
+                        <tr>
+                            <td colspan="7" style="text-align:center; color:var(--text-muted); padding:24px;">Cargando eventos de sincronización...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination-bar">
+                <div class="pagination-info">
+                    <span id="lblPaginacionLogs">Mostrando 0 de 0 eventos</span>
+                    <label style="margin-left:12px; font-size:12px; color:var(--text-muted);">
+                        Por página:
+                        <select id="selPageSizeLogs" class="select-control" style="padding:3px 8px; font-size:12px;" onchange="irPaginaLogs(1)">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                        </select>
+                    </label>
+                </div>
+                <div id="pagControlsLogs" class="pagination-controls"></div>
+            </div>
+        </section>
+
     </section>
 
 </main>
 
-<!-- MODAL DE TRAZA TÉCNICA SQL -->
-<div id="modalDetalle" class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
-    <div class="modal-card">
+<!-- MODAL PARA VER DETALLE / TRAZA TÉCNICA -->
+<div id="modalDetalle" class="modal-overlay" onclick="cerrarModal()">
+    <div class="modal-card" onclick="event.stopPropagation()">
         <div class="card-header">
-            <h2 id="modalTitulo">Detalle Técnico de Excepción SQL</h2>
-            <button class="btn btn-outline btn-sm" onclick="cerrarModal()">Cerrar ventana</button>
+            <h2 id="modalTitulo">Traza Técnica del Registro</h2>
+            <button class="btn btn-outline btn-sm" onclick="cerrarModal()">Cerrar ✕</button>
         </div>
-        <div id="modalContenido" class="modal-code"></div>
+        <pre id="modalContenido" class="modal-code"></pre>
     </div>
 </div>
 
 <script>
+    // Variables de Estado y Cache
     let cambiosDetectadosCache = [];
     let lotesCache = [];
     let logsCache = [];
@@ -793,9 +1301,90 @@
     let paginaActualLotes = 1;
     let paginaActualLogs = 1;
 
-    // Utilidad genérica para construir controles de paginación
-    function construirBotonesPaginacion(contenedorId, paginaActual, totalPaginas, callbackNombre) {
-        const container = document.getElementById(contenedorId);
+    let ultimoStatus = null;
+
+    // Control de Vistas (Hub vs Detalle Módulo Clientes)
+    function navegarVista(vista) {
+        document.getElementById('vistaHub').classList.remove('active');
+        document.getElementById('vistaClientes').classList.remove('active');
+        const btnVolver = document.getElementById('btnVolverHubTop');
+
+        if (vista === 'clientes') {
+            document.getElementById('vistaClientes').classList.add('active');
+            btnVolver.style.display = 'inline-flex';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            document.getElementById('vistaHub').classList.add('active');
+            btnVolver.style.display = 'none';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
+
+    // Funciones de Formato de Tiempo (HORA PERÚ y HH:MM:SS)
+    function formatearHoraPeru(fechaStr, incluirSegundos = true) {
+        if (!fechaStr) return 'Sin registro';
+        try {
+            const d = new Date(fechaStr);
+            if (isNaN(d.getTime())) return fechaStr;
+            return d.toLocaleString('es-PE', {
+                timeZone: 'America/Lima',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: incluirSegundos ? '2-digit' : undefined,
+                hour12: true
+            });
+        } catch {
+            return fechaStr;
+        }
+    }
+
+    function formatearSoloHoraPeru(fechaStr) {
+        if (!fechaStr) return '--:--:--';
+        try {
+            const d = new Date(fechaStr);
+            if (isNaN(d.getTime())) return fechaStr;
+            return d.toLocaleTimeString('es-PE', {
+                timeZone: 'America/Lima',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+        } catch {
+            return fechaStr;
+        }
+    }
+
+    function segundosAHms(segundos) {
+        if (segundos == null || isNaN(segundos) || segundos < 0) return '00:00:00';
+        const totalSeg = Math.round(segundos);
+        const h = Math.floor(totalSeg / 3600).toString().padStart(2, '0');
+        const m = Math.floor((totalSeg % 3600) / 60).toString().padStart(2, '0');
+        const s = (totalSeg % 60).toString().padStart(2, '0');
+        return `${h}:${m}:${s}`;
+    }
+
+    function actualizarRelojLive() {
+        const ahora = new Date();
+        const strHora = ahora.toLocaleTimeString('es-PE', {
+            timeZone: 'America/Lima',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+        document.getElementById('relojPeruLive').textContent = `${strHora} (Hora Perú · PET)`;
+    }
+    setInterval(actualizarRelojLive, 1000);
+    actualizarRelojLive();
+
+    // Constructor de Paginación
+    function construirBotonesPaginacion(containerId, paginaActual, totalPaginas, callbackNombre) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
         if (totalPaginas <= 1) {
             container.innerHTML = '';
             return;
@@ -823,25 +1412,30 @@
         container.innerHTML = html;
     }
 
+    // 1. Auditoría y Pre-Visualización
     async function validarDiferencias() {
         const btn = document.getElementById('btnValidar');
         btn.disabled = true;
         btn.textContent = 'Analizando tablas...';
-        document.getElementById('lblTiempoAnalisis').textContent = 'Comparando registros en vivo...';
+        document.getElementById('lblTiempoAnalisis').textContent = 'Comparando registros en vivo con Hora Perú...';
 
         try {
             const res = await fetch('/api/sync/preview');
             const data = await res.json();
 
+            const horaAuditPeru = formatearSoloHoraPeru(data.fechaAnalisis);
+            const tiempoHms = segundosAHms(data.tiempoEscaneoSegundos);
+
             document.getElementById('lblTiempoAnalisis').textContent =
-                `Última consulta: ${new Date(data.fechaAnalisis).toLocaleTimeString()} (Escaneo en ${data.tiempoEscaneoSegundos} s)`;
+                `Última consulta: ${horaAuditPeru} (Escaneo en ${data.tiempoEscaneoSegundos} s / ${tiempoHms})`;
+            document.getElementById('hubUltimoEscaneo').textContent = `${horaAuditPeru} (${data.tiempoEscaneoSegundos}s)`;
 
             const tbodyResumen = document.getElementById('tblResumenTablas');
             tbodyResumen.innerHTML = (data.resumenPorTabla || []).map(r => {
                 const totalDiff = (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0);
                 const pillClass = totalDiff === 0 ? 'pill-ok' : 'pill-warn';
                 return `<tr>
-                    <td><strong style="color:var(--text-main);">${r.nombreTabla}</strong></td>
+                    <td><strong style="color:var(--text-main); font-weight:700;">${r.nombreTabla}</strong></td>
                     <td class="mono">${r.tablasForce}</td>
                     <td class="num">${(r.totalOrigen || 0).toLocaleString()}</td>
                     <td class="num">${(r.totalDestino || 0).toLocaleString()}</td>
@@ -864,6 +1458,7 @@
         }
     }
 
+    // 2. Pre-Visualización con Búsqueda y Paginación
     function obtenerCambiosFiltrados() {
         const texto = (document.getElementById('txtFiltroCambio').value || '').toLowerCase();
         const tabla = document.getElementById('selFiltroTabla').value;
@@ -905,7 +1500,7 @@
         const lblInfo = document.getElementById('lblPaginacionCambios');
         lblInfo.textContent = totalRegistros === 0
             ? 'Mostrando 0 de 0 registros'
-            : `Mostrando ${inicioIdx + 1}–${finIdx} de ${totalRegistros.toLocaleString()} registros en pre-visualización`;
+            : `Mostrando ${inicioIdx + 1}–${finIdx} de ${totalRegistros.toLocaleString()} registros con diferencias`;
 
         construirBotonesPaginacion('pagControlsCambios', paginaActualCambios, totalPaginas, 'irPaginaCambios');
 
@@ -922,7 +1517,7 @@
             else if (c.tipoOperacion.includes('BAJA') || c.tipoOperacion.includes('DELETE')) pillOp = 'pill-err';
 
             return `<tr>
-                <td><strong style="color:var(--text-main);">${c.tabla}</strong></td>
+                <td><strong style="color:var(--text-main); font-weight:700;">${c.tabla}</strong></td>
                 <td><span class="pill ${pillOp}">${c.tipoOperacion}</span></td>
                 <td class="mono">${c.idOrigen}</td>
                 <td><strong style="color:var(--brand-primary);">${c.codigoCliente}</strong></td>
@@ -934,6 +1529,7 @@
         }).join('');
     }
 
+    // 3. Disparo Manual de Sincronización
     async function ejecutarSincronizacion(modo) {
         try {
             const res = await fetch(`/api/sync/trigger?modo=${modo}`, { method: 'POST' });
@@ -948,14 +1544,22 @@
         }
     }
 
+    // 4. Cargar Estado en Tiempo Real (Actualiza tanto el Banner como la Tarjeta del Hub)
     async function cargarEstado() {
         try {
             const res = await fetch('/api/sync/status');
             const s = await res.json();
+            ultimoStatus = s;
 
+            // Formato de hora Perú y duración hh:mm:ss
+            const fechaPeruStr = s.ultimaEjecucion ? formatearHoraPeru(s.ultimaEjecucion) : 'Sin ejecución previa';
+            const duracionHms = segundosAHms(s.ultimaDuracionSegundos);
+
+            // Actualizar vista interna del módulo clientes
             document.getElementById('lblFaseDetalle').textContent = s.faseDetalle || s.estadoActual;
             if (s.ultimaEjecucion) {
-                document.getElementById('lblUltimaEjecucion').textContent = 'Última sincronización: ' + new Date(s.ultimaEjecucion).toLocaleTimeString();
+                document.getElementById('lblUltimaEjecucion').textContent =
+                    `Última sincronización: ${fechaPeruStr} | Duración: ${duracionHms}`;
             }
 
             const pct = s.porcentaje || 0;
@@ -969,9 +1573,22 @@
             document.getElementById('btnSyncClientes').disabled = s.isRunning;
             document.getElementById('btnSyncZonas').disabled = s.isRunning;
             document.getElementById('btnSyncTodo').disabled = s.isRunning;
-        } catch (e) { console.error(e); }
+
+            // ACTUALIZAR TARJETA DEL MÓDULO CLIENTES EN EL HUB PRINCIPAL
+            document.getElementById('hubBadgeEstadoClientes').textContent = s.estadoActual;
+            document.getElementById('hubBadgeEstadoClientes').className = badge.className;
+
+            document.getElementById('hubCardEstado').textContent = s.estadoActual;
+            document.getElementById('hubCardExitos').textContent = (s.ultimoLoteProcesados || 369455).toLocaleString();
+            document.getElementById('hubCardErrores').textContent = s.ultimoLoteErrores || 0;
+            document.getElementById('hubCardHoraPeru').textContent = s.ultimaEjecucion ? formatearSoloHoraPeru(s.ultimaEjecucion) : '--:--:--';
+            document.getElementById('hubCardDuracionHms').textContent = duracionHms;
+            document.getElementById('hubUltimaDuracion').textContent = duracionHms;
+
+        } catch (e) { console.error('Error cargando estado:', e); }
     }
 
+    // 5. Configuración
     async function cargarConfiguracion() {
         try {
             const res = await fetch('/api/sync/config');
@@ -1001,6 +1618,7 @@
         if (res.ok) alert('Parámetros guardados correctamente en BDForceGVD.');
     }
 
+    // 6. Historial de Lotes con Formato Hora Perú y hh:mm:ss
     async function cargarLotes() {
         try {
             const res = await fetch('/api/sync/batches?top=100');
@@ -1028,7 +1646,7 @@
 
         document.getElementById('lblPaginacionLotes').textContent = totalRegistros === 0
             ? 'Mostrando 0 de 0 lotes'
-            : `Mostrando ${inicioIdx + 1}–${finIdx} de ${totalRegistros} lotes`;
+            : `Mostrando ${inicioIdx + 1}–${finIdx} de ${totalRegistros} lotes ejecutados`;
 
         construirBotonesPaginacion('pagControlsLotes', paginaActualLotes, totalPaginas, 'irPaginaLotes');
 
@@ -1039,12 +1657,15 @@
         }
         tbody.innerHTML = paginaItems.map(b => {
             let tagClass = b.estado === 'EXITOSO' ? 'pill-ok' : (b.estado === 'CON_ERRORES' ? 'pill-warn' : (b.estado === 'EN_PROCESO' ? 'pill-info' : 'pill-err'));
+            const horaPeruLote = formatearHoraPeru(b.fechaInicio);
+            const duracionHmsLote = b.duracionSegundos != null ? segundosAHms(b.duracionSegundos) : 'En curso';
+
             return `<tr>
-                <td class="mono">#${b.id}</td>
+                <td class="mono" style="font-weight:700;">#${b.id}</td>
                 <td><strong style="color:var(--text-main);">${b.entidad}</strong></td>
                 <td>${b.tipoEjecucion}</td>
-                <td>${new Date(b.fechaInicio).toLocaleString()}</td>
-                <td class="mono">${b.duracionSegundos != null ? b.duracionSegundos + ' s' : 'En curso'}</td>
+                <td class="mono">${horaPeruLote}</td>
+                <td class="mono" style="color:var(--brand-primary); font-weight:700;">${duracionHmsLote}</td>
                 <td class="num val-ins">${(b.totalNuevos || 0).toLocaleString()}</td>
                 <td class="num val-upd">${(b.totalModificados || 0).toLocaleString()}</td>
                 <td class="num ${b.totalErrores > 0 ? 'val-del' : ''}">${b.totalErrores || 0}</td>
@@ -1053,6 +1674,7 @@
         }).join('');
     }
 
+    // 7. Log de Eventos y Auditoría con Hora Perú
     async function cargarLogs() {
         try {
             const nivel = document.getElementById('selNivelLog').value;
@@ -1104,8 +1726,10 @@
         tbody.innerHTML = paginaItems.map((l, idx) => {
             const globalIdx = inicioIdx + idx;
             const tagClass = l.nivel === 'ERROR' || l.nivel === 'FATAL' ? 'pill-err' : 'pill-info';
+            const horaPeruLog = formatearHoraPeru(l.fecha);
+
             return `<tr>
-                <td>${new Date(l.fecha).toLocaleString()}</td>
+                <td class="mono">${horaPeruLog}</td>
                 <td><strong style="color:var(--text-main);">${l.entidad}</strong></td>
                 <td><span class="pill ${tagClass}">${l.nivel}</span></td>
                 <td class="mono">${l.idOrigen ?? '-'}</td>

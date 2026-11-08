@@ -25,6 +25,27 @@ namespace IntegradorFlexForce.Controllers
             status.SincronizacionActiva = config.SincronizacionActiva;
             status.IntervaloMinutos = config.IntervaloMinutos;
             status.VentanaHoraria = $"{config.HoraInicioVentana} - {config.HoraFinVentana}";
+
+            if (status.UltimaEjecucion == null)
+            {
+                var ultimosLotes = await _syncEngine.ObtenerUltimasTransaccionesAsync(1, ct);
+                if (ultimosLotes.Count > 0)
+                {
+                    var ultimo = ultimosLotes[0];
+                    status.UltimaEjecucion = ultimo.FechaFin ?? ultimo.FechaInicio;
+                    status.UltimaDuracionSegundos = ultimo.DuracionSegundos ?? 0;
+                    status.UltimoLoteProcesados = ultimo.TotalProcesados;
+                    status.UltimoLoteNuevos = ultimo.TotalNuevos;
+                    status.UltimoLoteModificados = ultimo.TotalModificados;
+                    status.UltimoLoteErrores = ultimo.TotalErrores;
+                    if (status.EstadoActual == "EN_ESPERA" && ultimo.Estado == "EXITOSO")
+                    {
+                        status.EstadoActual = "COMPLETADO";
+                        status.FaseDetalle = $"Lote #{ultimo.ID} finalizado con {ultimo.TotalProcesados:N0} registros procesados ({ultimo.TotalErrores} errores).";
+                    }
+                }
+            }
+
             return Ok(status);
         }
 
