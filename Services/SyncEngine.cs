@@ -197,7 +197,7 @@ namespace IntegradorFlexForce.Services
                         totalDirOrigen++;
 
                     bool existeCli = clientesForcePorIdExtra.TryGetValue(idCliente, out var cliForce);
-                    if (!existeCli && clientesForcePorCodigo.TryGetValue(codigo, out var cliPorCod) && !cliPorCod.IDExtra.HasValue)
+                    if (!existeCli && clientesForcePorCodigo.TryGetValue(codigo, out var cliPorCod))
                     {
                         existeCli = true;
                         cliForce = (cliPorCod.IDForce, codigo, cliPorCod.Nombre, cliPorCod.Estado);
@@ -440,21 +440,36 @@ namespace IntegradorFlexForce.Services
                     {
                         int idCli = r.GetInt32(0);
                         int? idCliExtra = r.IsDBNull(1) ? null : r.GetInt32(1);
-                        string codZona = r.GetString(2).Trim();
+                        string codZonaRaw = r.GetString(2).Trim();
                         string codVend = r.GetString(3).Trim();
                         int dia = r.GetInt32(4);
 
-                        listaCarteraForce.Add((idCli, idCliExtra, codZona, codVend, dia));
+                        // Si la zona en Force tiene sufijo de vendedor (ej: "02999-02OF66" creado para soportar múltiples vendedores),
+                        // extraemos el código base original para contrastar directamente con el ERP Antiguo ("02999")
+                        string codZonaBase = codZonaRaw.Contains('-') ? codZonaRaw.Substring(0, codZonaRaw.IndexOf('-')).Trim() : codZonaRaw;
+
+                        listaCarteraForce.Add((idCli, idCliExtra, codZonaBase, codVend, dia));
 
                         if (idCliExtra.HasValue)
                         {
-                            string keyEx = $"EX_{idCliExtra.Value}_{codZona}";
-                            if (!vendedoresForcePorCliDia.TryGetValue(keyEx, out var setVends))
+                            string keyExBase = $"EX_{idCliExtra.Value}_{codZonaBase}";
+                            if (!vendedoresForcePorCliDia.TryGetValue(keyExBase, out var setVendsBase))
                             {
-                                setVends = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                                vendedoresForcePorCliDia[keyEx] = setVends;
+                                setVendsBase = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                                vendedoresForcePorCliDia[keyExBase] = setVendsBase;
                             }
-                            setVends.Add(codVend);
+                            setVendsBase.Add(codVend);
+
+                            if (!string.Equals(codZonaBase, codZonaRaw, StringComparison.OrdinalIgnoreCase))
+                            {
+                                string keyExRaw = $"EX_{idCliExtra.Value}_{codZonaRaw}";
+                                if (!vendedoresForcePorCliDia.TryGetValue(keyExRaw, out var setVendsRaw))
+                                {
+                                    setVendsRaw = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                                    vendedoresForcePorCliDia[keyExRaw] = setVendsRaw;
+                                }
+                                setVendsRaw.Add(codVend);
+                            }
                         }
                     }
                     totalZonasDestino = listaCarteraForce.Count;

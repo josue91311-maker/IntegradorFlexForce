@@ -208,8 +208,9 @@ BEGIN
                 Exceptuadopercepcion = @ExceptuadoPercepcion,
                 Observacion          = ISNULL(@Observacion, Observacion),
                 Estado               = @EstadoCliente,
+                Eliminado            = 0,
                 FechaModificacion    = GETDATE(),
-                IDExtra              = ISNULL(IDExtra, @ID_Cliente_Origen)
+                IDExtra              = @ID_Cliente_Origen
             WHERE ID = @IDCliente OR IDExtra = @ID_Cliente_Origen;
         END
 
