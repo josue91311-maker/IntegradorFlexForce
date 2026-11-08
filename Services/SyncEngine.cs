@@ -397,7 +397,7 @@ namespace IntegradorFlexForce.Services
                 // Por cada (IDClienteExtra, DiaDeSemana) guardamos el conjunto de vendedores activos en Force
                 // (un mismo cliente puede tener más de una fuerza de ventas/zona en el mismo día)
                 var vendedoresForcePorCliDia = new Dictionary<string, HashSet<string>>(120000, StringComparer.OrdinalIgnoreCase);
-                var listaCarteraForce = new List<(int IDCliente, int? IDClienteExtra, string CodigoVendedor, int DiaDeSemana)>(120000);
+                var listaCarteraForce = new List<(int IDCliente, int? IDClienteExtra, string CodigoZona, string CodigoVendedor, int DiaDeSemana)>(120000);
 
                 using (var connForce = new SqlConnection(_connectionStringForce))
                 {
@@ -407,6 +407,7 @@ namespace IntegradorFlexForce.Services
                         SELECT DISTINCT
                             cli.ID AS IDCliente,
                             cli.IDExtra AS IDClienteExtra,
+                            z.Codigo AS CodigoZona,
                             RTRIM(v.Codigo) AS CodigoVendedor,
                             rzd.IDDia AS DiaDeSemana
                         FROM dbo.dir_EntidadDireccion ed WITH (NOLOCK)
@@ -439,14 +440,15 @@ namespace IntegradorFlexForce.Services
                     {
                         int idCli = r.GetInt32(0);
                         int? idCliExtra = r.IsDBNull(1) ? null : r.GetInt32(1);
-                        string codVend = r.GetString(2).Trim();
-                        int dia = r.GetInt32(3);
+                        string codZona = r.GetString(2).Trim();
+                        string codVend = r.GetString(3).Trim();
+                        int dia = r.GetInt32(4);
 
-                        listaCarteraForce.Add((idCli, idCliExtra, codVend, dia));
+                        listaCarteraForce.Add((idCli, idCliExtra, codZona, codVend, dia));
 
                         if (idCliExtra.HasValue)
                         {
-                            string keyEx = $"EX_{idCliExtra.Value}_{dia}";
+                            string keyEx = $"EX_{idCliExtra.Value}_{codZona}";
                             if (!vendedoresForcePorCliDia.TryGetValue(keyEx, out var setVends))
                             {
                                 setVends = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -520,13 +522,13 @@ namespace IntegradorFlexForce.Services
                         }
                         setDirs.Add(idDir);
 
-                        string keyOrigen = $"EX_{idCli}_{diaSemana}";
+                        string keyOrigen = $"EX_{idCli}_{codZona}";
                         asignacionesVistasEnOrigen.Add(keyOrigen);
-                        asignacionesExactasEnOrigen.Add($"EX_{idCli}_{diaSemana}_{codVend}");
+                        asignacionesExactasEnOrigen.Add($"EX_{idCli}_{codZona}_{codVend}");
 
                         if (!vendedoresForcePorCliDia.TryGetValue(keyOrigen, out var setVendsForce))
                         {
-                            // Es una asignación nueva (o día de visita nuevo)
+                            // Es una asignación nueva (o zona nueva)
                             zonasInserts++;
                             nuevosIdsZonas.Add(idDir);
                             if (preview.DetalleCambios.Count < 2500)
@@ -538,7 +540,7 @@ namespace IntegradorFlexForce.Services
                                     IDOrigen = idDir,
                                     CodigoCliente = codCli,
                                     NombreCliente = nomCli,
-                                    CampoModificado = $"Nueva Asignación Día {diaSemana}",
+                                    CampoModificado = $"Nueva Asignación Zona {codZona}",
                                     ValorActualForce = "Sin ruta en Force",
                                     ValorNuevoERP = $"Vend: {codVend} | Día: {diaSemana} | Zona: {codZona} | Ruta: {codRuta}"
                                 });
@@ -546,7 +548,7 @@ namespace IntegradorFlexForce.Services
                         }
                         else if (!setVendsForce.Contains(codVend))
                         {
-                            // Mismo día pero cambiaron de vendedor o falta esta fuerza de venta en ese día
+                            // Misma zona pero cambiaron de vendedor
                             string vendActual = string.Join(", ", setVendsForce);
                             zonasUpdates++;
                             diasConUpdate.Add(keyOrigen);
@@ -560,7 +562,7 @@ namespace IntegradorFlexForce.Services
                                     IDOrigen = idDir,
                                     CodigoCliente = codCli,
                                     NombreCliente = nomCli,
-                                    CampoModificado = $"Cambio de Vendedor (Día {diaSemana})",
+                                    CampoModificado = $"Cambio de Vendedor (Zona {codZona})",
                                     ValorActualForce = $"Vendedor: {vendActual}",
                                     ValorNuevoERP = $"Vendedor: {codVend} | Zona: {codZona} | Ruta: {codRuta}"
                                 });
@@ -569,48 +571,32 @@ namespace IntegradorFlexForce.Services
                     }
                 }
 
-                // Detectar eliminaciones / filas borradas o vendedores antiguos que quedaron activos en Force (DELETE)
+                // Detectar eliminaciones / filas borradas o zonas antiguas que quedaron activas en Force (DELETE)
                 foreach (var itemForce in listaCarteraForce)
                 {
                     if (!itemForce.IDClienteExtra.HasValue) continue;
 
                     int idCliExtra = itemForce.IDClienteExtra.Value;
-                    string keyDia = $"EX_{idCliExtra}_{itemForce.DiaDeSemana}";
-                    string keyExacta = $"EX_{idCliExtra}_{itemForce.DiaDeSemana}_{itemForce.CodigoVendedor}";
+                    string keyZona = $"EX_{idCliExtra}_{itemForce.CodigoZona}";
 
-                    if (!asignacionesExactasEnOrigen.Contains(keyExacta))
+                    // Contabilizar como BAJA / DELETE solo si esa zona ya no existe para el cliente en el ERP Antiguo
+                    if (!asignacionesVistasEnOrigen.Contains(keyZona))
                     {
+                        zonasDeletes++;
                         zonasQuitadasIds.Add(itemForce.IDCliente);
-
-                        // Si el cliente aún tiene otras zonas/días vigentes en el ERP Antiguo,
-                        // asegurar que se re-vinculen después de limpiar las zonas obsoletas
-                        if (direccionesActivasPorClienteOrigen.TryGetValue(idCliExtra, out var dirsVigentes))
+                        if (preview.DetalleCambios.Count < 2500)
                         {
-                            foreach (var dId in dirsVigentes)
+                            preview.DetalleCambios.Add(new CambioDetectadoItemDto
                             {
-                                nuevosIdsZonas.Add(dId);
-                            }
-                        }
-
-                        // Contabilizar como BAJA / DELETE si ese día ya no existe en el ERP Antiguo
-                        // o si quedó un vendedor obsoleto duplicado en Force (que no fue ya contado como UPDATE)
-                        if (!diasConUpdate.Contains(keyDia))
-                        {
-                            zonasDeletes++;
-                            if (preview.DetalleCambios.Count < 2500)
-                            {
-                                preview.DetalleCambios.Add(new CambioDetectadoItemDto
-                                {
-                                    Tabla = "ZONAS Y RUTAS",
-                                    TipoOperacion = "BAJA / DELETE",
-                                    IDOrigen = itemForce.IDCliente,
-                                    CodigoCliente = $"IDForce:{itemForce.IDCliente}",
-                                    NombreCliente = "Ruta eliminada en ERP Antiguo",
-                                    CampoModificado = $"Asignación Retirada (Día {itemForce.DiaDeSemana})",
-                                    ValorActualForce = $"Vendedor Activo: {itemForce.CodigoVendedor} (Día {itemForce.DiaDeSemana})",
-                                    ValorNuevoERP = "Fila eliminada en tabla de rutas del ERP Antiguo"
-                                });
-                            }
+                                Tabla = "ZONAS Y RUTAS",
+                                TipoOperacion = "BAJA / DELETE",
+                                IDOrigen = itemForce.IDCliente,
+                                CodigoCliente = $"IDForce:{itemForce.IDCliente}",
+                                NombreCliente = "Zona/Ruta retirada en ERP Antiguo",
+                                CampoModificado = $"Zona Retirada ({itemForce.CodigoZona})",
+                                ValorActualForce = $"Zona: {itemForce.CodigoZona} | Vendedor: {itemForce.CodigoVendedor}",
+                                ValorNuevoERP = "Cliente ya no tiene asignada esta zona en el ERP Antiguo"
+                            });
                         }
                     }
                 }
