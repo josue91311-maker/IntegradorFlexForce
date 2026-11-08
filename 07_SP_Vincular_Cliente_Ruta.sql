@@ -17,6 +17,7 @@ GO
 CREATE OR ALTER PROCEDURE dbo.usp_Sync_VincularCarteraRuta
     @ID_Cliente_Origen          int,            -- p.PKID del ERP viejo
     @ID_Direccion_Origen        int,            -- dc.PKID / dd.PKID del ERP viejo
+    @CodigoCliente              nvarchar(50) = NULL, -- p.Codigo del ERP viejo
     @CodigoZonaVenta            nvarchar(50),   -- z.Codigo (ej: 0101LJA)
     @NombreZonaVenta            nvarchar(150),  -- z.Descripcion
     @CodigoZonaReparto          nvarchar(50) = NULL, -- zr.Codigo
@@ -35,11 +36,23 @@ BEGIN
         BEGIN TRANSACTION;
 
         -- -------------------------------------------------------------
-        -- 1. OBTENER ID CLIENTE E ID DIRECCION EN FORCE POR SUS IDExtra
+        -- 1. OBTENER ID CLIENTE E ID DIRECCION EN FORCE POR SUS IDExtra O CODIGO
         -- -------------------------------------------------------------
         DECLARE @IDCliente int, @IDDireccion int;
         SELECT TOP 1 @IDCliente = ID FROM cli_Cliente WHERE IDExtra = @ID_Cliente_Origen;
         SELECT TOP 1 @IDDireccion = ID FROM dir_Direccion WHERE IDExtra = @ID_Direccion_Origen;
+
+        -- Si no se encontró por IDExtra, buscar por CodigoCliente
+        IF @IDCliente IS NULL AND @CodigoCliente IS NOT NULL AND LTRIM(RTRIM(@CodigoCliente)) <> ''
+        BEGIN
+            SELECT TOP 1 @IDCliente = ID FROM cli_Cliente WHERE Codigo = LTRIM(RTRIM(@CodigoCliente));
+            IF @IDCliente IS NOT NULL
+            BEGIN
+                UPDATE cli_Cliente
+                SET IDExtra = @ID_Cliente_Origen, FechaModificacion = GETDATE()
+                WHERE ID = @IDCliente;
+            END
+        END
 
         -- Si se encontró la dirección pero el cliente tenía IDExtra NULL en cli_Cliente, resolverlo desde dir_EntidadDireccion
         IF @IDCliente IS NULL AND @IDDireccion IS NOT NULL
@@ -89,10 +102,18 @@ BEGIN
             RETURN;
         END
 
-        -- Garantizar que la dirección no esté marcada como eliminada y que exista el vínculo activo en dir_EntidadDireccion
+        -- Garantizar que la dirección no esté marcada como eliminada y que su IDExtra apunte a @ID_Direccion_Origen
         UPDATE dir_Direccion 
-        SET Estado = 1, Eliminado = 0, FechaModificacion = GETDATE()
-        WHERE ID = @IDDireccion AND (Estado = 0 OR Eliminado = 1);
+        SET Estado = 1, Eliminado = 0, IDExtra = ISNULL(IDExtra, @ID_Direccion_Origen), FechaModificacion = GETDATE()
+        WHERE ID = @IDDireccion AND (Estado = 0 OR Eliminado = 1 OR IDExtra IS NULL);
+
+        -- Desactivar cualquier otro cliente distinto que haya quedado vinculado por colisión de ID a esta misma dirección
+        UPDATE dir_EntidadDireccion
+        SET Estado = 0, EsPrincipal = 0, FechaModificacion = GETDATE()
+        WHERE TipoEntidad = 'CLIENTE'
+          AND IDDireccion = @IDDireccion
+          AND IDEntidad <> @IDCliente
+          AND Estado = 1;
 
         IF NOT EXISTS (SELECT 1 FROM dir_EntidadDireccion WHERE TipoEntidad = 'CLIENTE' AND IDEntidad = @IDCliente AND IDDireccion = @IDDireccion)
         BEGIN

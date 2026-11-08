@@ -72,7 +72,7 @@ namespace IntegradorFlexForce.Services
                     }
                 }
 
-                // 2. Corregir conteo histórico del Lote masivo (#6) que solo había sumado clientes sin las ~235,000 rutas
+                // 2. Corregir conteo histórico del Lote masivo (#6) y limpiar colisiones de direcciones compartidas en dir_EntidadDireccion
                 const string sqlFixLote = @"
                     IF OBJECT_ID('dbo.int_SyncTransacciones', 'U') IS NOT NULL
                     BEGIN
@@ -84,8 +84,27 @@ namespace IntegradorFlexForce.Services
                           AND TotalNuevos = 13
                           AND TotalModificados = 14
                           AND DuracionSegundos > 5000;
-                    END";
-                using (var cmdFix = new SqlCommand(sqlFixLote, conn) { CommandTimeout = 30 })
+                    END;
+
+                    -- Desvincular en dir_EntidadDireccion los clientes sin dirección cuyo IDExtra de cliente
+                    -- colisionó con el IDExtra de la dirección física perteneciente a otro cliente real
+                    UPDATE edFalso
+                    SET edFalso.Estado = 0, edFalso.EsPrincipal = 0, edFalso.FechaModificacion = GETDATE()
+                    FROM dbo.dir_EntidadDireccion edFalso
+                    INNER JOIN dbo.cli_Cliente cliFalso ON cliFalso.ID = edFalso.IDEntidad AND edFalso.TipoEntidad = 'CLIENTE'
+                    INNER JOIN dbo.dir_Direccion dd ON dd.ID = edFalso.IDDireccion
+                    WHERE edFalso.Estado = 1
+                      AND cliFalso.IDExtra = dd.IDExtra
+                      AND EXISTS (
+                          SELECT 1
+                          FROM dbo.dir_EntidadDireccion edReal
+                          INNER JOIN dbo.cli_Cliente cliReal ON cliReal.ID = edReal.IDEntidad AND edReal.TipoEntidad = 'CLIENTE'
+                          WHERE edReal.IDDireccion = dd.ID
+                            AND edReal.Estado = 1
+                            AND edReal.IDEntidad <> edFalso.IDEntidad
+                            AND ISNULL(cliReal.IDExtra, -1) <> dd.IDExtra
+                      );";
+                using (var cmdFix = new SqlCommand(sqlFixLote, conn) { CommandTimeout = 60 })
                 {
                     await cmdFix.ExecuteNonQueryAsync(ct);
                 }
@@ -394,10 +413,18 @@ namespace IntegradorFlexForce.Services
 
             try
             {
-                // Por cada (IDClienteExtra, DiaDeSemana) guardamos el conjunto de vendedores activos en Force
-                // (un mismo cliente puede tener más de una fuerza de ventas/zona en el mismo día)
-                var vendedoresForcePorCliDia = new Dictionary<string, HashSet<string>>(120000, StringComparer.OrdinalIgnoreCase);
-                var listaCarteraForce = new List<(int IDCliente, int? IDClienteExtra, string CodigoZona, string CodigoVendedor, int DiaDeSemana)>(120000);
+                var vendedoresForcePorCliDia = new Dictionary<string, HashSet<string>>(250000, StringComparer.OrdinalIgnoreCase);
+                var listaCarteraForce = new List<(int IDCliente, int? IDClienteExtra, string CodigoCliente, string CodigoZona, string CodigoVendedor, int DiaDeSemana, int? IDDireccionExtra, int IDEntidadDireccion, int IDDireccionZona)>(120000);
+
+                static void AgregarVendedorAlIndice(Dictionary<string, HashSet<string>> dict, string key, string vendedor)
+                {
+                    if (!dict.TryGetValue(key, out var set))
+                    {
+                        set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        dict[key] = set;
+                    }
+                    set.Add(vendedor);
+                }
 
                 using (var connForce = new SqlConnection(_connectionStringForce))
                 {
@@ -407,9 +434,13 @@ namespace IntegradorFlexForce.Services
                         SELECT DISTINCT
                             cli.ID AS IDCliente,
                             cli.IDExtra AS IDClienteExtra,
+                            LTRIM(RTRIM(ISNULL(cli.Codigo, ''))) AS CodigoCliente,
                             z.Codigo AS CodigoZona,
                             RTRIM(v.Codigo) AS CodigoVendedor,
-                            rzd.IDDia AS DiaDeSemana
+                            rzd.IDDia AS DiaDeSemana,
+                            dd.IDExtra AS IDDireccionExtra,
+                            ed.ID AS IDEntidadDireccion,
+                            dz.ID AS IDDireccionZona
                         FROM dbo.dir_EntidadDireccion ed WITH (NOLOCK)
                         INNER JOIN dbo.cli_Cliente cli WITH (NOLOCK)
                             ON cli.ID = ed.IDEntidad AND ed.TipoEntidad = 'CLIENTE'
@@ -440,36 +471,36 @@ namespace IntegradorFlexForce.Services
                     {
                         int idCli = r.GetInt32(0);
                         int? idCliExtra = r.IsDBNull(1) ? null : r.GetInt32(1);
-                        string codZonaRaw = r.GetString(2).Trim();
-                        string codVend = r.GetString(3).Trim();
-                        int dia = r.GetInt32(4);
+                        string codCliForce = r.GetString(2).Trim();
+                        string codZonaRaw = r.GetString(3).Trim();
+                        string codVend = r.GetString(4).Trim();
+                        int dia = r.GetInt32(5);
+                        int? idDirExtra = r.IsDBNull(6) ? null : r.GetInt32(6);
+                        int idEd = r.GetInt32(7);
+                        int idDz = r.GetInt32(8);
 
-                        // Si la zona en Force tiene sufijo de vendedor (ej: "02999-02OF66" creado para soportar múltiples vendedores),
-                        // extraemos el código base original para contrastar directamente con el ERP Antiguo ("02999")
+                        // Extraer el código base original si tiene sufijo de vendedor (ej: "02999-02OF66" -> "02999")
                         string codZonaBase = codZonaRaw.Contains('-') ? codZonaRaw.Substring(0, codZonaRaw.IndexOf('-')).Trim() : codZonaRaw;
 
-                        listaCarteraForce.Add((idCli, idCliExtra, codZonaBase, codVend, dia));
+                        listaCarteraForce.Add((idCli, idCliExtra, codCliForce, codZonaBase, codVend, dia, idDirExtra, idEd, idDz));
 
                         if (idCliExtra.HasValue)
                         {
-                            string keyExBase = $"EX_{idCliExtra.Value}_{codZonaBase}";
-                            if (!vendedoresForcePorCliDia.TryGetValue(keyExBase, out var setVendsBase))
-                            {
-                                setVendsBase = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                                vendedoresForcePorCliDia[keyExBase] = setVendsBase;
-                            }
-                            setVendsBase.Add(codVend);
-
+                            AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"EX_{idCliExtra.Value}_{codZonaBase}", codVend);
                             if (!string.Equals(codZonaBase, codZonaRaw, StringComparison.OrdinalIgnoreCase))
-                            {
-                                string keyExRaw = $"EX_{idCliExtra.Value}_{codZonaRaw}";
-                                if (!vendedoresForcePorCliDia.TryGetValue(keyExRaw, out var setVendsRaw))
-                                {
-                                    setVendsRaw = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                                    vendedoresForcePorCliDia[keyExRaw] = setVendsRaw;
-                                }
-                                setVendsRaw.Add(codVend);
-                            }
+                                AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"EX_{idCliExtra.Value}_{codZonaRaw}", codVend);
+                        }
+                        if (!string.IsNullOrEmpty(codCliForce))
+                        {
+                            AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"COD_{codCliForce}_{codZonaBase}", codVend);
+                            if (!string.Equals(codZonaBase, codZonaRaw, StringComparison.OrdinalIgnoreCase))
+                                AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"COD_{codCliForce}_{codZonaRaw}", codVend);
+                        }
+                        if (idDirExtra.HasValue)
+                        {
+                            AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"DIR_{idDirExtra.Value}_{codZonaBase}", codVend);
+                            if (!string.Equals(codZonaBase, codZonaRaw, StringComparison.OrdinalIgnoreCase))
+                                AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"DIR_{idDirExtra.Value}_{codZonaRaw}", codVend);
                         }
                     }
                     totalZonasDestino = listaCarteraForce.Count;
@@ -479,6 +510,7 @@ namespace IntegradorFlexForce.Services
                 var asignacionesExactasEnOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var diasConUpdate = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var direccionesActivasPorClienteOrigen = new Dictionary<int, HashSet<int>>();
+                var duenoRealPorIdDirExtra = new Dictionary<int, int>();
 
                 using (var connAntiguo = new SqlConnection(_connectionStringAntiguo))
                 {
@@ -530,6 +562,8 @@ namespace IntegradorFlexForce.Services
                         string codVend = r.IsDBNull(6) ? "" : r.GetString(6).Trim();
                         int diaSemana = r.GetInt32(7);
 
+                        duenoRealPorIdDirExtra[idDir] = idCli;
+
                         if (!direccionesActivasPorClienteOrigen.TryGetValue(idCli, out var setDirs))
                         {
                             setDirs = new HashSet<int>();
@@ -539,9 +573,13 @@ namespace IntegradorFlexForce.Services
 
                         string keyOrigen = $"EX_{idCli}_{codZona}";
                         asignacionesVistasEnOrigen.Add(keyOrigen);
+                        asignacionesVistasEnOrigen.Add($"COD_{codCli}_{codZona}");
+                        asignacionesVistasEnOrigen.Add($"DIR_{idDir}_{codZona}");
                         asignacionesExactasEnOrigen.Add($"EX_{idCli}_{codZona}_{codVend}");
 
-                        if (!vendedoresForcePorCliDia.TryGetValue(keyOrigen, out var setVendsForce))
+                        if (!vendedoresForcePorCliDia.TryGetValue(keyOrigen, out var setVendsForce)
+                            && !vendedoresForcePorCliDia.TryGetValue($"COD_{codCli}_{codZona}", out setVendsForce)
+                            && !vendedoresForcePorCliDia.TryGetValue($"DIR_{idDir}_{codZona}", out setVendsForce))
                         {
                             // Es una asignación nueva (o zona nueva)
                             zonasInserts++;
@@ -586,19 +624,31 @@ namespace IntegradorFlexForce.Services
                     }
                 }
 
+                var idsEdColisionados = new HashSet<int>();
+
                 // Detectar eliminaciones / filas borradas o zonas antiguas que quedaron activas en Force (DELETE)
                 foreach (var itemForce in listaCarteraForce)
                 {
-                    if (!itemForce.IDClienteExtra.HasValue) continue;
+                    // Si esta dirección física en el ERP Antiguo pertenece a otro cliente real distinto,
+                    // este vínculo en dir_EntidadDireccion fue producto de colisión de ID ('SIN DIRECCION'); lo auto-depuramos
+                    if (itemForce.IDDireccionExtra.HasValue
+                        && duenoRealPorIdDirExtra.TryGetValue(itemForce.IDDireccionExtra.Value, out int idCliDuenoReal)
+                        && itemForce.IDClienteExtra.HasValue
+                        && itemForce.IDClienteExtra.Value != idCliDuenoReal)
+                    {
+                        idsEdColisionados.Add(itemForce.IDEntidadDireccion);
+                        continue;
+                    }
 
-                    int idCliExtra = itemForce.IDClienteExtra.Value;
-                    string keyZona = $"EX_{idCliExtra}_{itemForce.CodigoZona}";
+                    bool existeEnOrigen = (itemForce.IDClienteExtra.HasValue && asignacionesVistasEnOrigen.Contains($"EX_{itemForce.IDClienteExtra.Value}_{itemForce.CodigoZona}"))
+                                       || (!string.IsNullOrEmpty(itemForce.CodigoCliente) && asignacionesVistasEnOrigen.Contains($"COD_{itemForce.CodigoCliente}_{itemForce.CodigoZona}"))
+                                       || (itemForce.IDDireccionExtra.HasValue && asignacionesVistasEnOrigen.Contains($"DIR_{itemForce.IDDireccionExtra.Value}_{itemForce.CodigoZona}"));
 
-                    // Contabilizar como BAJA / DELETE solo si esa zona ya no existe para el cliente en el ERP Antiguo
-                    if (!asignacionesVistasEnOrigen.Contains(keyZona))
+                    // Contabilizar como BAJA / DELETE solo si esa zona ya no existe para el cliente/dirección en el ERP Antiguo
+                    if (!existeEnOrigen)
                     {
                         zonasDeletes++;
-                        zonasQuitadasIds.Add(itemForce.IDCliente);
+                        zonasQuitadasIds.Add(itemForce.IDDireccionZona);
                         if (preview.DetalleCambios.Count < 2500)
                         {
                             preview.DetalleCambios.Add(new CambioDetectadoItemDto
@@ -606,7 +656,7 @@ namespace IntegradorFlexForce.Services
                                 Tabla = "ZONAS Y RUTAS",
                                 TipoOperacion = "BAJA / DELETE",
                                 IDOrigen = itemForce.IDCliente,
-                                CodigoCliente = $"IDForce:{itemForce.IDCliente}",
+                                CodigoCliente = !string.IsNullOrEmpty(itemForce.CodigoCliente) ? itemForce.CodigoCliente : $"IDForce:{itemForce.IDCliente}",
                                 NombreCliente = "Zona/Ruta retirada en ERP Antiguo",
                                 CampoModificado = $"Zona Retirada ({itemForce.CodigoZona})",
                                 ValorActualForce = $"Zona: {itemForce.CodigoZona} | Vendedor: {itemForce.CodigoVendedor}",
@@ -614,6 +664,18 @@ namespace IntegradorFlexForce.Services
                             });
                         }
                     }
+                }
+
+                // Auto-depurar en BDForceGVD los vínculos de dir_EntidadDireccion colisionados
+                if (idsEdColisionados.Count > 0)
+                {
+                    using var connForceClean = new SqlConnection(_connectionStringForce);
+                    await connForceClean.OpenAsync(ct);
+                    var inEd = string.Join(",", idsEdColisionados);
+                    var sqlCleanEd = $"UPDATE dbo.dir_EntidadDireccion SET Estado = 0, EsPrincipal = 0, FechaModificacion = GETDATE() WHERE ID IN ({inEd});";
+                    using var cmdCleanEd = new SqlCommand(sqlCleanEd, connForceClean) { CommandTimeout = 60 };
+                    await cmdCleanEd.ExecuteNonQueryAsync(ct);
+                    totalZonasDestino = Math.Max(0, totalZonasDestino - idsEdColisionados.Count);
                 }
 
                 obsZonas = (zonasInserts + zonasUpdates + zonasDeletes) == 0 ? "Al día (Sin diferencias)" : "Cambios de zona/ruta detectados";
@@ -871,7 +933,9 @@ namespace IntegradorFlexForce.Services
                         var loteIds = idsPendientes.Skip(i).Take(batchSize).ToList();
                         _currentStatus.FaseDetalle = $"Sincronizando Clientes y Direcciones: {Math.Min(i + batchSize, idsPendientes.Count):N0} de {idsPendientes.Count:N0}";
 
-                        var clientesDetalle = await ObtenerDetalleClientesAsync(loteIds, ct);
+                        var clientesDetalle = (await ObtenerDetalleClientesAsync(loteIds, ct))
+                            .OrderBy(c => c.EstadoCliente)
+                            .ToList();
 
                         foreach (var cliente in clientesDetalle)
                         {
@@ -1041,11 +1105,9 @@ namespace IntegradorFlexForce.Services
                         {
                             var inClause = string.Join(",", loteQuitados);
                             var sqlDesactivar = $@"
-                                UPDATE dz
-                                SET dz.Estado = 0, dz.EsPrincipalVenta = 0, dz.FechaModificacion = GETDATE()
-                                FROM dbo.dir_DireccionZona dz
-                                INNER JOIN dbo.dir_EntidadDireccion ed ON ed.IDDireccion = dz.IDDireccion AND ed.TipoEntidad = 'CLIENTE'
-                                WHERE ed.IDEntidad IN ({inClause}) AND (dz.Estado = 1 OR dz.EsPrincipalVenta = 1);";
+                                UPDATE dbo.dir_DireccionZona
+                                SET Estado = 0, EsPrincipalVenta = 0, FechaModificacion = GETDATE()
+                                WHERE ID IN ({inClause}) AND (Estado = 1 OR EsPrincipalVenta = 1);";
 
                             using var cmd = new SqlCommand(sqlDesactivar, connForce) { CommandTimeout = 120 };
                             await cmd.ExecuteNonQueryAsync(ct);
@@ -1424,6 +1486,7 @@ namespace IntegradorFlexForce.Services
 
             cmd.Parameters.AddWithValue("@ID_Cliente_Origen", r.ID_Cliente);
             cmd.Parameters.AddWithValue("@ID_Direccion_Origen", r.ID_Direccion);
+            cmd.Parameters.AddWithValue("@CodigoCliente", r.CodigoCliente);
             cmd.Parameters.AddWithValue("@CodigoZonaVenta", r.CodigoZonaVenta);
             cmd.Parameters.AddWithValue("@NombreZonaVenta", r.NombreZonaVenta);
             cmd.Parameters.AddWithValue("@CodigoZonaReparto", (object?)r.CodigoZonaReparto ?? DBNull.Value);

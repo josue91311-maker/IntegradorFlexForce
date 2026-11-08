@@ -191,8 +191,19 @@ BEGIN
                 SELECT @DocIdentidadSeguro = DocIdentidad FROM cli_Cliente WHERE ID = @IDCliente;
             END
 
+            DECLARE @CodigoSeguro nvarchar(50) = @CodigoCliente;
+            IF EXISTS (SELECT 1 FROM cli_Cliente WHERE Codigo = @CodigoCliente AND ID <> @IDCliente)
+            BEGIN
+                SELECT @CodigoSeguro = Codigo FROM cli_Cliente WHERE ID = @IDCliente;
+            END
+
+            UPDATE cli_Cliente
+            SET IDExtra = NULL
+            WHERE IDExtra = @ID_Cliente_Origen AND ID <> @IDCliente;
+
             UPDATE cli_Cliente
             SET 
+                Codigo               = @CodigoSeguro,
                 IDTipoPersona        = ISNULL(@IDTipoPersona, IDTipoPersona),
                 IDTipoDocIdentidad   = ISNULL(@IDTipoDocIdentidad, IDTipoDocIdentidad),
                 DocIdentidad         = @DocIdentidadSeguro,
@@ -211,7 +222,7 @@ BEGIN
                 Eliminado            = 0,
                 FechaModificacion    = GETDATE(),
                 IDExtra              = @ID_Cliente_Origen
-            WHERE ID = @IDCliente OR IDExtra = @ID_Cliente_Origen;
+            WHERE ID = @IDCliente;
         END
 
         SET @IDClienteGenerado = @IDCliente;
@@ -249,6 +260,13 @@ BEGIN
         -- -------------------------------------------------------------
         -- PASO 3: INSERT O UPDATE EN dir_Direccion (POR IDExtra)
         -- -------------------------------------------------------------
+        -- Si el cliente no tiene dirección física real ('SIN DIRECCION') y la vista le asignó su mismo ID_Cliente_Origen,
+        -- usar el valor en negativo (-@ID_Cliente_Origen) para jamás colisionar con el PKID de la dirección real de otro cliente.
+        IF @Direccion = 'SIN DIRECCION' AND @ID_Direccion_Origen = @ID_Cliente_Origen AND @ID_Direccion_Origen > 0
+        BEGIN
+            SET @ID_Direccion_Origen = -@ID_Cliente_Origen;
+        END
+
         DECLARE @IDDireccion int;
         SELECT TOP 1 @IDDireccion = ID 
         FROM dir_Direccion 
