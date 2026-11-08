@@ -33,15 +33,17 @@ namespace IntegradorFlexForce.Controllers
                 {
                     var ultimo = ultimosLotes[0];
                     status.UltimaEjecucion = ultimo.FechaFin ?? ultimo.FechaInicio;
-                    status.UltimaDuracionSegundos = ultimo.DuracionSegundos ?? 0;
-                    status.UltimoLoteProcesados = ultimo.TotalProcesados;
+                    status.UltimaDuracionSegundos = (double)(ultimo.DuracionSegundos ?? 0);
+                    status.UltimoLoteProcesados = (ultimo.TotalNuevos + ultimo.TotalModificados > 0)
+                        ? (ultimo.TotalNuevos + ultimo.TotalModificados)
+                        : ultimo.TotalEscaneados;
                     status.UltimoLoteNuevos = ultimo.TotalNuevos;
                     status.UltimoLoteModificados = ultimo.TotalModificados;
                     status.UltimoLoteErrores = ultimo.TotalErrores;
                     if (status.EstadoActual == "EN_ESPERA" && ultimo.Estado == "EXITOSO")
                     {
                         status.EstadoActual = "COMPLETADO";
-                        status.FaseDetalle = $"Lote #{ultimo.ID} finalizado con {ultimo.TotalProcesados:N0} registros procesados ({ultimo.TotalErrores} errores).";
+                        status.FaseDetalle = $"Lote #{ultimo.ID} finalizado con {status.UltimoLoteProcesados:N0} registros procesados ({ultimo.TotalErrores} errores).";
                     }
                 }
             }
