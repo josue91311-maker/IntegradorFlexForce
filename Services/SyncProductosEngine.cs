@@ -65,6 +65,12 @@ namespace IntegradorFlexForce.Services
             var nuevosIdsEscala = new HashSet<int>();
             var inactivarIdsEscalaForce = new HashSet<int>();
 
+            const int maxDetallePorSubmodulo = 800;
+            int prodDetalleCount = 0;
+            int unidDetalleCount = 0;
+            int catDetalleCount = 0;
+            int prcDetalleCount = 0;
+
             // ---------------------------------------------------------------------
             // A. COMPARAR CATÁLOGO MAESTRO DE PRODUCTOS, MARCAS, LÍNEAS Y PROVEEDORES
             // ---------------------------------------------------------------------
@@ -195,8 +201,9 @@ namespace IntegradorFlexForce.Services
 
                             prodInserts++;
                             nuevosIdsProd.Add(idProd);
-                            if (preview.DetalleCambios.Count < 2500)
+                            if (prodDetalleCount < maxDetallePorSubmodulo)
                             {
+                                prodDetalleCount++;
                                 preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                 {
                                     Tabla = "PRODUCTOS",
@@ -218,8 +225,9 @@ namespace IntegradorFlexForce.Services
                                 prodDeletes++;
                                 nuevosIdsProd.Add(idProd);
                                 inactivarIdsProdForce.Add(pf.IDForce);
-                                if (preview.DetalleCambios.Count < 2500)
+                                if (prodDetalleCount < maxDetallePorSubmodulo)
                                 {
+                                    prodDetalleCount++;
                                     preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                     {
                                         Tabla = "PRODUCTOS",
@@ -275,8 +283,9 @@ namespace IntegradorFlexForce.Services
                             {
                                 prodUpdates++;
                                 nuevosIdsProd.Add(idProd);
-                                if (preview.DetalleCambios.Count < 2500)
+                                if (prodDetalleCount < maxDetallePorSubmodulo)
                                 {
+                                    prodDetalleCount++;
                                     preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                     {
                                         Tabla = "PRODUCTOS",
@@ -397,8 +406,9 @@ namespace IntegradorFlexForce.Services
 
                             unidInserts++;
                             nuevosIdsUnid.Add(idUnid);
-                            if (preview.DetalleCambios.Count < 2500)
+                            if (unidDetalleCount < maxDetallePorSubmodulo)
                             {
+                                unidDetalleCount++;
                                 preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                 {
                                     Tabla = "UNIDADES Y FACTORES",
@@ -419,8 +429,9 @@ namespace IntegradorFlexForce.Services
                                 unidDeletes++;
                                 nuevosIdsUnid.Add(idUnid);
                                 inactivarIdsUnidForce.Add(uf.IDForce);
-                                if (preview.DetalleCambios.Count < 2500)
+                                if (unidDetalleCount < maxDetallePorSubmodulo)
                                 {
+                                    unidDetalleCount++;
                                     preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                     {
                                         Tabla = "UNIDADES Y FACTORES",
@@ -446,8 +457,9 @@ namespace IntegradorFlexForce.Services
                             {
                                 unidUpdates++;
                                 nuevosIdsUnid.Add(idUnid);
-                                if (preview.DetalleCambios.Count < 2500)
+                                if (unidDetalleCount < maxDetallePorSubmodulo)
                                 {
+                                    unidDetalleCount++;
                                     preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                     {
                                         Tabla = "UNIDADES Y FACTORES",
@@ -574,8 +586,9 @@ namespace IntegradorFlexForce.Services
                         {
                             catInserts++;
                             nuevosIdsPort.Add(idItem);
-                            if (preview.DetalleCambios.Count < 2500)
+                            if (catDetalleCount < maxDetallePorSubmodulo)
                             {
+                                catDetalleCount++;
                                 preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                 {
                                     Tabla = "CATALOGOS",
@@ -593,8 +606,9 @@ namespace IntegradorFlexForce.Services
                         {
                             catUpdates++;
                             nuevosIdsPort.Add(idItem);
-                            if (preview.DetalleCambios.Count < 2500)
+                            if (catDetalleCount < maxDetallePorSubmodulo)
                             {
+                                catDetalleCount++;
                                 preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                 {
                                     Tabla = "CATALOGOS",
@@ -618,8 +632,9 @@ namespace IntegradorFlexForce.Services
                     {
                         catDeletes++;
                         inactivarIdsCatProdForce.Add(kvp.Value.IDForce);
-                        if (preview.DetalleCambios.Count < 2500)
+                        if (catDetalleCount < maxDetallePorSubmodulo)
                         {
+                            catDetalleCount++;
                             preview.DetalleCambios.Add(new CambioDetectadoItemDto
                             {
                                 Tabla = "CATALOGOS",
@@ -756,8 +771,9 @@ namespace IntegradorFlexForce.Services
                         {
                             prcInserts++;
                             nuevosIdsEscala.Add(idEscala);
-                            if (preview.DetalleCambios.Count < 2500)
+                            if (prcDetalleCount < maxDetallePorSubmodulo)
                             {
+                                prcDetalleCount++;
                                 preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                 {
                                     Tabla = "PRECIOS Y ESCALAS",
@@ -780,8 +796,9 @@ namespace IntegradorFlexForce.Services
                             {
                                 prcUpdates++;
                                 nuevosIdsEscala.Add(idEscala);
-                                if (preview.DetalleCambios.Count < 2500)
+                                if (prcDetalleCount < maxDetallePorSubmodulo)
                                 {
+                                    prcDetalleCount++;
                                     preview.DetalleCambios.Add(new CambioDetectadoItemDto
                                     {
                                         Tabla = "PRECIOS Y ESCALAS",
@@ -806,8 +823,9 @@ namespace IntegradorFlexForce.Services
                     {
                         prcDeletes++;
                         inactivarIdsEscalaForce.Add(kvp.Value.IDForce);
-                        if (preview.DetalleCambios.Count < 2500)
+                        if (prcDetalleCount < maxDetallePorSubmodulo)
                         {
+                            prcDetalleCount++;
                             preview.DetalleCambios.Add(new CambioDetectadoItemDto
                             {
                                 Tabla = "PRECIOS Y ESCALAS",
