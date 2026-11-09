@@ -1023,8 +1023,10 @@ namespace IntegradorFlexForce.Services
                         creditosActualizados = cCambios;
                         erroresCount += cErrores;
                     }
-                }
-                    erroresCount += cErrores;
+                    else
+                    {
+                        _currentStatus.FaseDetalle = "Líneas de Crédito al día (0 diferencias). Finalizando módulo...";
+                    }
                 }
 
                 swTotal.Stop();
