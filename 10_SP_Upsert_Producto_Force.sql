@@ -646,7 +646,17 @@ BEGIN
         IF @PrecioIncImpto < 0 SET @PrecioIncImpto = 0;
 
         DECLARE @IDEscala int;
-        SELECT TOP 1 @IDEscala = ID FROM dbo.prc_PrecioEscala WHERE IDExtra = @ID_Escala_Origen;
+        -- A. Buscar primero por clave natural de negocio (Unidad del Item + Rango de Escala Desde-Hasta)
+        SELECT TOP 1 @IDEscala = ID 
+        FROM dbo.prc_PrecioEscala 
+        WHERE IDUnidadItemListaPrecios = @IDPrecioUnidad 
+          AND Desde = @Desde 
+          AND Hasta = @Hasta 
+          AND Eliminado = 0;
+
+        -- B. Fallback: Buscar por IDExtra origen si no existía por rango
+        IF @IDEscala IS NULL
+            SELECT TOP 1 @IDEscala = ID FROM dbo.prc_PrecioEscala WHERE IDExtra = @ID_Escala_Origen;
 
         IF @IDEscala IS NULL
         BEGIN
@@ -672,6 +682,7 @@ BEGIN
                 UtilidadMonto = @UtilidadMonto,
                 UtilidadPorcentual = @UtilidadPorcentual,
                 Esvigente = @EsVigente,
+                IDExtra = @ID_Escala_Origen,
                 Eliminado = 0,
                 FechaUltimaModificacion = GETDATE(),
                 FechaModificacion = GETDATE()
