@@ -262,6 +262,12 @@ BEGIN
         --       cada vendedor usa su propia instancia de zona para no desactivar a los demás.
         -- -------------------------------------------------------------
         IF @DiaDeSemana < 1 OR @DiaDeSemana > 7 SET @DiaDeSemana = 1;
+        IF @DiaDeSemana = 1 AND (@CodigoZonaVenta LIKE '%SAB%' OR @CodigoRuta LIKE '%SAB%') SET @DiaDeSemana = 6;
+        IF @DiaDeSemana = 1 AND (@CodigoZonaVenta LIKE '%DOM%' OR @CodigoRuta LIKE '%DOM%') SET @DiaDeSemana = 7;
+        IF @DiaDeSemana = 1 AND (@CodigoZonaVenta LIKE '%VIE%' OR @CodigoRuta LIKE '%VIE%') SET @DiaDeSemana = 5;
+        IF @DiaDeSemana = 1 AND (@CodigoZonaVenta LIKE '%JUE%' OR @CodigoRuta LIKE '%JUE%') SET @DiaDeSemana = 4;
+        IF @DiaDeSemana = 1 AND (@CodigoZonaVenta LIKE '%MIE%' OR @CodigoRuta LIKE '%MIE%') SET @DiaDeSemana = 3;
+        IF @DiaDeSemana = 1 AND (@CodigoZonaVenta LIKE '%MAR%' OR @CodigoRuta LIKE '%MAR%') SET @DiaDeSemana = 2;
 
         DECLARE @IDZona int;
         DECLARE @CodZonaVend nvarchar(50) = LEFT(LTRIM(RTRIM(@CodigoZonaVenta)) + '-' + LTRIM(RTRIM(@CodigoVendedor)), 50);
