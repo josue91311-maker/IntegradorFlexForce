@@ -486,21 +486,21 @@ namespace IntegradorFlexForce.Services
 
                         if (idCliExtra.HasValue)
                         {
-                            AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"EX_{idCliExtra.Value}_{codZonaBase}", codVend);
+                            AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"EX_{idCliExtra.Value}_{codZonaBase}_{dia}", codVend);
                             if (!string.Equals(codZonaBase, codZonaRaw, StringComparison.OrdinalIgnoreCase))
-                                AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"EX_{idCliExtra.Value}_{codZonaRaw}", codVend);
+                                AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"EX_{idCliExtra.Value}_{codZonaRaw}_{dia}", codVend);
                         }
                         if (!string.IsNullOrEmpty(codCliForce))
                         {
-                            AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"COD_{codCliForce}_{codZonaBase}", codVend);
+                            AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"COD_{codCliForce}_{codZonaBase}_{dia}", codVend);
                             if (!string.Equals(codZonaBase, codZonaRaw, StringComparison.OrdinalIgnoreCase))
-                                AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"COD_{codCliForce}_{codZonaRaw}", codVend);
+                                AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"COD_{codCliForce}_{codZonaRaw}_{dia}", codVend);
                         }
                         if (idDirExtra.HasValue)
                         {
-                            AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"DIR_{idDirExtra.Value}_{codZonaBase}", codVend);
+                            AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"DIR_{idDirExtra.Value}_{codZonaBase}_{dia}", codVend);
                             if (!string.Equals(codZonaBase, codZonaRaw, StringComparison.OrdinalIgnoreCase))
-                                AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"DIR_{idDirExtra.Value}_{codZonaRaw}", codVend);
+                                AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"DIR_{idDirExtra.Value}_{codZonaRaw}_{dia}", codVend);
                         }
                     }
                     totalZonasDestino = listaCarteraForce.Count;
@@ -508,6 +508,7 @@ namespace IntegradorFlexForce.Services
 
                 var asignacionesVistasEnOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var asignacionesExactasEnOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var zonasVistasPorClienteOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var diasConUpdate = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var direccionesActivasPorClienteOrigen = new Dictionary<int, HashSet<int>>();
                 var duenoRealPorIdDirExtra = new Dictionary<int, int>();
@@ -516,7 +517,7 @@ namespace IntegradorFlexForce.Services
                 {
                     await connAntiguo.OpenAsync(ct);
 
-                    // Consultar directamente todas las rutas, zonas y vendedores activos sin filtros de fuerza de ventas
+                    // Consultar directamente todas las rutas, zonas, vendedores y días de visita activos
                     const string sqlZonasAntiguo = @"
                         SELECT 
                             dc.PKID AS ID_Direccion,
@@ -524,14 +525,12 @@ namespace IntegradorFlexForce.Services
                             LTRIM(RTRIM(p.Codigo)) AS CodigoCliente,
                             LTRIM(RTRIM(p.Nombre)) AS NombreCliente,
                             z.Codigo AS CodigoZonaVenta,
-                            MAX(rr.Codigo) AS CodigoRuta,
-                            MAX(RTRIM(pv.Codigo)) AS CodigoVendedor,
-                            MAX(
-                                CASE LOWER(LTRIM(RTRIM(rr.DiaDeSemana)))
-                                    WHEN 'lunes' THEN 1 WHEN 'martes' THEN 2 WHEN 'miercoles' THEN 3 WHEN 'miércoles' THEN 3
-                                    WHEN 'jueves' THEN 4 WHEN 'viernes' THEN 5 WHEN 'sabado' THEN 6 WHEN 'sábado' THEN 6 WHEN 'domingo' THEN 7 ELSE 1
-                                END
-                            ) AS DiaDeSemana
+                            rr.Codigo AS CodigoRuta,
+                            RTRIM(pv.Codigo) AS CodigoVendedor,
+                            CASE LOWER(LTRIM(RTRIM(rr.DiaDeSemana)))
+                                WHEN 'lunes' THEN 1 WHEN 'martes' THEN 2 WHEN 'miercoles' THEN 3 WHEN 'miércoles' THEN 3
+                                WHEN 'jueves' THEN 4 WHEN 'viernes' THEN 5 WHEN 'sabado' THEN 6 WHEN 'sábado' THEN 6 WHEN 'domingo' THEN 7 ELSE 1
+                            END AS DiaDeSemana
                         FROM dbo.DireccionZona dz WITH (NOLOCK)
                         INNER JOIN dbo.Persona p WITH (NOLOCK) ON dz.IDCliente = p.PKID
                         INNER JOIN dbo.DireccionCliente dc WITH (NOLOCK) ON dc.PKID = dz.IDDireccion
@@ -546,7 +545,7 @@ namespace IntegradorFlexForce.Services
                         LEFT JOIN dbo.GrupoVentas gv WITH (NOLOCK) ON gv.PKID = v.IDGrupoVentas
                         LEFT JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
                         WHERE dd.Activo = 1 AND p.Activo = 1
-                        GROUP BY dc.PKID, p.PKID, p.Codigo, p.Nombre, z.Codigo;";
+                        GROUP BY dc.PKID, p.PKID, p.Codigo, p.Nombre, z.Codigo, rr.Codigo, pv.Codigo, rr.DiaDeSemana;";
 
                     using var cmd = new SqlCommand(sqlZonasAntiguo, connAntiguo) { CommandTimeout = 180 };
                     using var r = await cmd.ExecuteReaderAsync(ct);
@@ -571,17 +570,22 @@ namespace IntegradorFlexForce.Services
                         }
                         setDirs.Add(idDir);
 
-                        string keyOrigen = $"EX_{idCli}_{codZona}";
+                        string keyOrigen = $"EX_{idCli}_{codZona}_{diaSemana}";
                         asignacionesVistasEnOrigen.Add(keyOrigen);
-                        asignacionesVistasEnOrigen.Add($"COD_{codCli}_{codZona}");
-                        asignacionesVistasEnOrigen.Add($"DIR_{idDir}_{codZona}");
-                        asignacionesExactasEnOrigen.Add($"EX_{idCli}_{codZona}_{codVend}");
+                        asignacionesVistasEnOrigen.Add($"COD_{codCli}_{codZona}_{diaSemana}");
+                        asignacionesVistasEnOrigen.Add($"DIR_{idDir}_{codZona}_{diaSemana}");
+                        asignacionesExactasEnOrigen.Add($"EX_{idCli}_{codZona}_{diaSemana}_{codVend}");
+
+                        // Registrar presencia de zona para control de bajas de dir_DireccionZona
+                        zonasVistasPorClienteOrigen.Add($"EX_{idCli}_{codZona}");
+                        zonasVistasPorClienteOrigen.Add($"COD_{codCli}_{codZona}");
+                        zonasVistasPorClienteOrigen.Add($"DIR_{idDir}_{codZona}");
 
                         if (!vendedoresForcePorCliDia.TryGetValue(keyOrigen, out var setVendsForce)
-                            && !vendedoresForcePorCliDia.TryGetValue($"COD_{codCli}_{codZona}", out setVendsForce)
-                            && !vendedoresForcePorCliDia.TryGetValue($"DIR_{idDir}_{codZona}", out setVendsForce))
+                            && !vendedoresForcePorCliDia.TryGetValue($"COD_{codCli}_{codZona}_{diaSemana}", out setVendsForce)
+                            && !vendedoresForcePorCliDia.TryGetValue($"DIR_{idDir}_{codZona}_{diaSemana}", out setVendsForce))
                         {
-                            // Es una asignación nueva (o zona nueva)
+                            // Es una asignación nueva (o día/ruta nuevo)
                             zonasInserts++;
                             nuevosIdsZonas.Add(idDir);
                             if (preview.DetalleCambios.Count < 2500)
@@ -593,15 +597,15 @@ namespace IntegradorFlexForce.Services
                                     IDOrigen = idDir,
                                     CodigoCliente = codCli,
                                     NombreCliente = nomCli,
-                                    CampoModificado = $"Nueva Asignación Zona {codZona}",
-                                    ValorActualForce = "Sin ruta en Force",
+                                    CampoModificado = $"Nueva Asignación Zona {codZona} (Día {diaSemana})",
+                                    ValorActualForce = "Sin ruta activa en Force para este día",
                                     ValorNuevoERP = $"Vend: {codVend} | Día: {diaSemana} | Zona: {codZona} | Ruta: {codRuta}"
                                 });
                             }
                         }
                         else if (!setVendsForce.Contains(codVend))
                         {
-                            // Misma zona pero cambiaron de vendedor
+                            // Misma zona y día pero cambiaron de vendedor
                             string vendActual = string.Join(", ", setVendsForce);
                             zonasUpdates++;
                             diasConUpdate.Add(keyOrigen);
@@ -615,9 +619,9 @@ namespace IntegradorFlexForce.Services
                                     IDOrigen = idDir,
                                     CodigoCliente = codCli,
                                     NombreCliente = nomCli,
-                                    CampoModificado = $"Cambio de Vendedor (Zona {codZona})",
+                                    CampoModificado = $"Cambio de Vendedor (Zona {codZona}, Día {diaSemana})",
                                     ValorActualForce = $"Vendedor: {vendActual}",
-                                    ValorNuevoERP = $"Vendedor: {codVend} | Zona: {codZona} | Ruta: {codRuta}"
+                                    ValorNuevoERP = $"Vendedor: {codVend} | Día: {diaSemana} | Zona: {codZona} | Ruta: {codRuta}"
                                 });
                             }
                         }
@@ -640,12 +644,12 @@ namespace IntegradorFlexForce.Services
                         continue;
                     }
 
-                    bool existeEnOrigen = (itemForce.IDClienteExtra.HasValue && asignacionesVistasEnOrigen.Contains($"EX_{itemForce.IDClienteExtra.Value}_{itemForce.CodigoZona}"))
-                                       || (!string.IsNullOrEmpty(itemForce.CodigoCliente) && asignacionesVistasEnOrigen.Contains($"COD_{itemForce.CodigoCliente}_{itemForce.CodigoZona}"))
-                                       || (itemForce.IDDireccionExtra.HasValue && asignacionesVistasEnOrigen.Contains($"DIR_{itemForce.IDDireccionExtra.Value}_{itemForce.CodigoZona}"));
+                    bool tieneZonaEnOrigen = (itemForce.IDClienteExtra.HasValue && zonasVistasPorClienteOrigen.Contains($"EX_{itemForce.IDClienteExtra.Value}_{itemForce.CodigoZona}"))
+                                          || (!string.IsNullOrEmpty(itemForce.CodigoCliente) && zonasVistasPorClienteOrigen.Contains($"COD_{itemForce.CodigoCliente}_{itemForce.CodigoZona}"))
+                                          || (itemForce.IDDireccionExtra.HasValue && zonasVistasPorClienteOrigen.Contains($"DIR_{itemForce.IDDireccionExtra.Value}_{itemForce.CodigoZona}"));
 
                     // Contabilizar como BAJA / DELETE solo si esa zona ya no existe para el cliente/dirección en el ERP Antiguo
-                    if (!existeEnOrigen)
+                    if (!tieneZonaEnOrigen)
                     {
                         zonasDeletes++;
                         zonasQuitadasIds.Add(itemForce.IDDireccionZona);
@@ -1364,14 +1368,12 @@ namespace IntegradorFlexForce.Services
                     LTRIM(RTRIM(p.Codigo)) AS CodigoCliente,
                     LTRIM(RTRIM(p.Nombre)) AS NombreCliente,
                     z.Codigo AS CodigoZonaVenta,
-                    MAX(rr.Codigo) AS CodigoRuta,
-                    MAX(RTRIM(pv.Codigo)) AS CodigoVendedor,
-                    MAX(
-                        CASE LOWER(LTRIM(RTRIM(rr.DiaDeSemana)))
-                            WHEN 'lunes' THEN 1 WHEN 'martes' THEN 2 WHEN 'miercoles' THEN 3 WHEN 'miércoles' THEN 3
-                            WHEN 'jueves' THEN 4 WHEN 'viernes' THEN 5 WHEN 'sabado' THEN 6 WHEN 'sábado' THEN 6 WHEN 'domingo' THEN 7 ELSE 1
-                        END
-                    ) AS DiaDeSemana
+                    rr.Codigo AS CodigoRuta,
+                    RTRIM(pv.Codigo) AS CodigoVendedor,
+                    CASE LOWER(LTRIM(RTRIM(rr.DiaDeSemana)))
+                        WHEN 'lunes' THEN 1 WHEN 'martes' THEN 2 WHEN 'miercoles' THEN 3 WHEN 'miércoles' THEN 3
+                        WHEN 'jueves' THEN 4 WHEN 'viernes' THEN 5 WHEN 'sabado' THEN 6 WHEN 'sábado' THEN 6 WHEN 'domingo' THEN 7 ELSE 1
+                    END AS DiaDeSemana
                 FROM dbo.DireccionZona dz WITH (NOLOCK)
                 INNER JOIN dbo.Persona p WITH (NOLOCK) ON dz.IDCliente = p.PKID
                 INNER JOIN dbo.DireccionCliente dc WITH (NOLOCK) ON dc.PKID = dz.IDDireccion
@@ -1387,7 +1389,7 @@ namespace IntegradorFlexForce.Services
                 LEFT JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
                 WHERE dd.Activo = 1 AND p.Activo = 1 
                   AND dc.PKID IN ({inClause})
-                GROUP BY dc.PKID, p.PKID, p.Codigo, p.Nombre, z.Codigo;";
+                GROUP BY dc.PKID, p.PKID, p.Codigo, p.Nombre, z.Codigo, rr.Codigo, pv.Codigo, rr.DiaDeSemana;";
 
             using var cmd = new SqlCommand(sql, conn);
             cmd.CommandTimeout = 120;

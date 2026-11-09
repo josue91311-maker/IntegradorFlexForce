@@ -295,16 +295,16 @@ BEGIN
             END
             ELSE IF @IDZonaBase IS NOT NULL
             BEGIN
-                -- Verificar si @IDZonaBase está siendo usada activamente por OTRA dirección con OTRA ruta
+                -- Verificar si @IDZonaBase está siendo usada activamente por OTRO VENDEDOR distinto
                 IF NOT EXISTS (
                     SELECT 1
                     FROM dir_DireccionZona dz
                     INNER JOIN rut_RutaZonaDia rzd ON rzd.IDZona = dz.IDZona
+                    INNER JOIN rut_Ruta rr ON rr.ID = rzd.IDRuta
                     WHERE dz.IDZona = @IDZonaBase
-                      AND dz.IDDireccion <> @IDDireccion
                       AND dz.Estado = 1
                       AND rzd.Estado = 1
-                      AND (rzd.IDRuta <> @IDRuta OR rzd.IDDia <> @DiaDeSemana)
+                      AND rr.IDVendedor <> @IDVendedor
                 )
                 BEGIN
                     SET @IDZona = @IDZonaBase;
@@ -341,15 +341,17 @@ BEGIN
 
         -- -------------------------------------------------------------
         -- 5. VINCULAR ZONA + RUTA + DÍA EN rut_RutaZonaDia
-        -- NOTA: rut_RutaZonaDia usa 'OrdenVisita' (NO 'Secuencia')
+        -- NOTA: Una zona puede visitarse en varios días (ej. Lunes y Jueves).
+        --       Solo se desactiva otra ruta asignada para este MISMO día.
         -- -------------------------------------------------------------
         IF @IDZona IS NOT NULL AND @IDRuta IS NOT NULL
         BEGIN
-            -- Desactivar cualquier otra ruta o día antiguo que haya tenido esta misma Zona exclusiva
+            -- Desactivar cualquier otra ruta distinta asignada a esta zona exclusivamente en ESTE MISMO DÍA
             UPDATE rut_RutaZonaDia
             SET Estado = 0, FechaModificacion = GETDATE()
             WHERE IDZona = @IDZona
-              AND (IDRuta <> @IDRuta OR IDDia <> @DiaDeSemana)
+              AND IDRuta <> @IDRuta
+              AND IDDia = @DiaDeSemana
               AND Estado = 1;
 
             IF NOT EXISTS (SELECT 1 FROM rut_RutaZonaDia WHERE IDZona = @IDZona AND IDRuta = @IDRuta AND IDDia = @DiaDeSemana)
