@@ -26,13 +26,6 @@ WITH CTE_Cartera AS (
         LTRIM(RTRIM(zr.Codigo))                 AS CodigoZonaReparto,
         LTRIM(RTRIM(rr.Codigo))                 AS CodigoRuta,
         CASE 
-            WHEN LOWER(LTRIM(RTRIM(rr.DiaDeSemana))) LIKE 'lun%' OR rr.DiaDeSemana = '1' THEN 1
-            WHEN LOWER(LTRIM(RTRIM(rr.DiaDeSemana))) LIKE 'mar%' OR rr.DiaDeSemana = '2' THEN 2
-            WHEN LOWER(LTRIM(RTRIM(rr.DiaDeSemana))) LIKE 'mi%'  OR rr.DiaDeSemana = '3' THEN 3
-            WHEN LOWER(LTRIM(RTRIM(rr.DiaDeSemana))) LIKE 'jue%' OR rr.DiaDeSemana = '4' THEN 4
-            WHEN LOWER(LTRIM(RTRIM(rr.DiaDeSemana))) LIKE 'vie%' OR rr.DiaDeSemana = '5' THEN 5
-            WHEN LOWER(LTRIM(RTRIM(rr.DiaDeSemana))) LIKE 's%b%' OR rr.DiaDeSemana = '6' THEN 6
-            WHEN LOWER(LTRIM(RTRIM(rr.DiaDeSemana))) LIKE 'dom%' OR rr.DiaDeSemana = '7' THEN 7
             WHEN z.Codigo LIKE '%SAB%' OR rr.Codigo LIKE '%SAB%' THEN 6
             WHEN z.Codigo LIKE '%DOM%' OR rr.Codigo LIKE '%DOM%' THEN 7
             WHEN z.Codigo LIKE '%VIE%' OR rr.Codigo LIKE '%VIE%' THEN 5
@@ -40,6 +33,13 @@ WITH CTE_Cartera AS (
             WHEN z.Codigo LIKE '%MIE%' OR rr.Codigo LIKE '%MIE%' THEN 3
             WHEN z.Codigo LIKE '%MAR%' OR rr.Codigo LIKE '%MAR%' THEN 2
             WHEN z.Codigo LIKE '%LUN%' OR rr.Codigo LIKE '%LUN%' THEN 1
+            WHEN LOWER(LTRIM(RTRIM(rr.DiaDeSemana))) LIKE 's%b%' OR rr.DiaDeSemana = '6' THEN 6
+            WHEN LOWER(LTRIM(RTRIM(rr.DiaDeSemana))) LIKE 'dom%' OR rr.DiaDeSemana = '7' THEN 7
+            WHEN LOWER(LTRIM(RTRIM(rr.DiaDeSemana))) LIKE 'vie%' OR rr.DiaDeSemana = '5' THEN 5
+            WHEN LOWER(LTRIM(RTRIM(rr.DiaDeSemana))) LIKE 'jue%' OR rr.DiaDeSemana = '4' THEN 4
+            WHEN LOWER(LTRIM(RTRIM(rr.DiaDeSemana))) LIKE 'mi%'  OR rr.DiaDeSemana = '3' THEN 3
+            WHEN LOWER(LTRIM(RTRIM(rr.DiaDeSemana))) LIKE 'mar%' OR rr.DiaDeSemana = '2' THEN 2
+            WHEN LOWER(LTRIM(RTRIM(rr.DiaDeSemana))) LIKE 'lun%' OR rr.DiaDeSemana = '1' THEN 1
             ELSE 1
         END                                     AS DiaDeSemana,
         ROW_NUMBER() OVER (
