@@ -951,6 +951,280 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 13px;
         }
+
+        /* ==============================================================
+           ESTILOS CONSOLA DE MÓDULOS (REFERENCIA: FORCE DISTRIBUCIÓN)
+           ============================================================== */
+        .module-header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+        .module-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .brand-ff-logo {
+            background: #0b2545;
+            color: #ffffff;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 19px;
+            letter-spacing: -0.5px;
+            box-shadow: 0 4px 12px rgba(11, 37, 69, 0.28);
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: transform 0.18s ease;
+        }
+        .brand-ff-logo:hover {
+            transform: scale(1.05);
+        }
+        .module-brand-info h1 {
+            font-size: 19px;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0 0 4px 0;
+            letter-spacing: -0.02em;
+            line-height: 1.25;
+        }
+        .module-breadcrumb {
+            font-size: 12.5px;
+            color: #64748b;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .module-breadcrumb a {
+            color: #1877f2;
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+        }
+        .module-breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        .module-breadcrumb .sep {
+            color: #cbd5e1;
+            font-size: 11px;
+        }
+        .module-breadcrumb .current {
+            color: #0f172a;
+            font-weight: 700;
+        }
+        .module-clock-pill {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 999px;
+            padding: 8px 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+            box-shadow: var(--shadow-card);
+        }
+        .module-actions-row {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .btn-pill-outline {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #334155;
+            border-radius: 999px;
+            padding: 8px 18px;
+            font-size: 12.5px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: inherit;
+        }
+        .btn-pill-outline:hover:not(:disabled) {
+            background: #f8fafc;
+            border-color: #94a3b8;
+            color: #0f172a;
+        }
+        .btn-pill-primary {
+            background: #1877f2;
+            border: 1px solid #1877f2;
+            color: #ffffff;
+            border-radius: 999px;
+            padding: 8px 20px;
+            font-size: 12.5px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(24,119,242,0.3);
+            transition: all 0.18s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: inherit;
+        }
+        .btn-pill-primary:hover:not(:disabled) {
+            background: #0d6efd;
+            box-shadow: 0 6px 14px rgba(24,119,242,0.4);
+        }
+        .btn-pill-success {
+            background: #10b981;
+            border: 1px solid #059669;
+            color: #ffffff;
+            border-radius: 999px;
+            padding: 8px 22px;
+            font-size: 12.5px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(16,185,129,0.3);
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            transition: all 0.18s ease;
+            font-family: inherit;
+        }
+        .btn-pill-success:hover:not(:disabled) {
+            background: #059669;
+            box-shadow: 0 6px 14px rgba(16,185,129,0.4);
+        }
+        .btn-pill-outline:disabled, .btn-pill-primary:disabled, .btn-pill-success:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* Banner de Estado con Icono Cilíndrico */
+        .status-banner-card {
+            background: #ffffff;
+            border-radius: var(--radius-xl);
+            border: 1px solid #e2e8f0;
+            box-shadow: var(--shadow-card);
+            padding: 18px 24px 20px;
+            margin-bottom: 22px;
+        }
+        .status-banner-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .status-banner-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .cylinder-icon-box {
+            width: 44px;
+            height: 44px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .status-pct-bold {
+            font-size: 17px;
+            font-weight: 800;
+            color: #0f172a;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Pills de Diagnóstico y Operaciones */
+        .pill-diag-warn {
+            background: #fff7ed;
+            color: #c2410c;
+            border: 1px solid #ffedd5;
+            padding: 5px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .pill-diag-ok {
+            background: #ecfdf5;
+            color: #047857;
+            border: 1px solid #d1fae5;
+            padding: 5px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .pill-upd-mock {
+            background: #fef3c7;
+            color: #b45309;
+            border: 1px solid #fde68a;
+            padding: 3px 12px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            display: inline-block;
+            text-align: center;
+        }
+        .pill-ins-mock {
+            background: #dcfce7;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+            padding: 3px 12px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            display: inline-block;
+            text-align: center;
+        }
+        .pill-del-mock {
+            background: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+            padding: 3px 12px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            display: inline-block;
+            text-align: center;
+        }
+        .module-dropdown-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: calc(100% + 6px);
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15);
+            min-width: 220px;
+            z-index: 100;
+            padding: 6px 0;
+        }
     </style>
 </head>
 <body>
@@ -1023,112 +1297,119 @@
      ============================================================== -->
 <main class="app-content">
 
-    <!-- CABECERA SUPERIOR -->
-    <header class="top-bar">
-        <div class="top-title-group">
-            <h1>Control de Procesos</h1>
-            <p>
-                <span>Supervisión en tiempo real de tus procesos ETL y BI</span>
-                <span class="server-chip">Origen: 192.168.2.16 (digalimenta41)</span>
-                <span>→</span>
-                <span class="server-chip">Destino: 192.168.2.93 (BDForceGVD)</span>
-            </p>
-        </div>
-
-        <div class="top-controls">
-            <div class="period-pill">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1877f2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                <span id="lblUltimaConsultaTop">Últimas 24 horas · Hora Perú</span>
-            </div>
-            <button class="btn-circle-refresh" onclick="refrescarTodoElSistema()" title="Escanear y Refrescar Todo">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            </button>
-        </div>
-    </header>
-
-    <!-- 4 TARJETAS KPI SUPERIORES -->
-    <section class="kpi-row">
-        <!-- KPI 1: Sub-Procesos Totales -->
-        <div class="kpi-card">
-            <div class="kpi-left">
-                <div class="kpi-icon blue">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-                </div>
-                <div class="kpi-numbers">
-                    <span class="kpi-val" id="kpiTotalProcesos">8</span>
-                    <span class="kpi-label">Sub-Módulos ETL</span>
-                </div>
-            </div>
-            <div class="kpi-spark">
-                <svg width="88" height="36" viewBox="0 0 88 36" fill="none">
-                    <path d="M2 28C14 26 20 18 32 20C44 22 50 10 62 14C72 17 78 6 86 10" stroke="#1877f2" stroke-width="2.2" stroke-linecap="round"/>
-                </svg>
-                <span class="kpi-pct blue">2 Módulos</span>
-            </div>
-        </div>
-
-        <!-- KPI 2: En Éxito / Al Día -->
-        <div class="kpi-card">
-            <div class="kpi-left">
-                <div class="kpi-icon green">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                </div>
-                <div class="kpi-numbers">
-                    <span class="kpi-val" id="kpiExito">6</span>
-                    <span class="kpi-label">En Éxito / Al Día</span>
-                </div>
-            </div>
-            <div class="kpi-spark">
-                <svg width="88" height="36" viewBox="0 0 88 36" fill="none">
-                    <path d="M2 30C16 26 24 22 36 18C48 14 58 20 70 10C76 6 82 8 86 5" stroke="#10b981" stroke-width="2.2" stroke-linecap="round"/>
-                </svg>
-                <span class="kpi-pct green" id="kpiExitoPct">83.3%</span>
-            </div>
-        </div>
-
-        <!-- KPI 3: Con Diferencias / En Proceso -->
-        <div class="kpi-card">
-            <div class="kpi-left">
-                <div class="kpi-icon indigo">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                </div>
-                <div class="kpi-numbers">
-                    <span class="kpi-val" id="kpiEnProceso">2</span>
-                    <span class="kpi-label">Con Cambios / Proceso</span>
-                </div>
-            </div>
-            <div class="kpi-spark">
-                <svg width="88" height="36" viewBox="0 0 88 36" fill="none">
-                    <path d="M2 26C18 24 26 14 40 18C54 22 64 8 76 12C82 14 84 8 86 6" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round"/>
-                </svg>
-                <span class="kpi-pct blue" id="kpiEnProcesoPct">16.7%</span>
-            </div>
-        </div>
-
-        <!-- KPI 4: Con Errores -->
-        <div class="kpi-card">
-            <div class="kpi-left">
-                <div class="kpi-icon orange">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                </div>
-                <div class="kpi-numbers">
-                    <span class="kpi-val" id="kpiErrores">0</span>
-                    <span class="kpi-label">Con Errores</span>
-                </div>
-            </div>
-            <div class="kpi-spark">
-                <svg width="88" height="36" viewBox="0 0 88 36" fill="none">
-                    <path d="M2 28C16 20 28 28 42 16C56 6 68 22 78 12C82 8 85 12 86 14" stroke="#f97316" stroke-width="2.2" stroke-linecap="round"/>
-                </svg>
-                <span class="kpi-pct orange" id="kpiErroresPct">0%</span>
-            </div>
-        </div>
-    </section>
-
     <!-- ==============================================================
          VISTA 1: INICIO / HUB DE CONTROL DE PROCESOS
          ============================================================== -->
     <section id="vistaHub" class="view-section active">
+
+        <!-- CABECERA SUPERIOR DEL HUB -->
+        <header class="top-bar">
+            <div class="top-title-group">
+                <h1>Control de Procesos</h1>
+                <p>
+                    <span>Supervisión en tiempo real de tus procesos ETL y BI</span>
+                    <span class="server-chip">Origen: 192.168.2.16 (digalimenta41)</span>
+                    <span>→</span>
+                    <span class="server-chip">Destino: 192.168.2.93 (BDForceGVD)</span>
+                </p>
+            </div>
+
+            <div class="top-controls">
+                <div class="period-pill" style="cursor:pointer; position:relative;" onclick="togglePeriodTopDropdown(event)" title="Cambiar rango de visualización">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1877f2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span id="lblUltimaConsultaTop">Mensual · Hora Perú</span>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                    <div id="periodTopDropdown" class="module-dropdown-menu">
+                        <a href="javascript:void(0)" onclick="cambiarPeriodoRendimiento('mensual');" style="display:flex; align-items:center; gap:8px; padding:9px 16px; font-size:12.5px; font-weight:700; color:#1877f2; text-decoration:none; background:#f8fbff;">✓ Mensual (Nov. 2026)</a>
+                        <a href="javascript:void(0)" onclick="cambiarPeriodoRendimiento('7d');" style="display:flex; align-items:center; gap:8px; padding:9px 16px; font-size:12.5px; font-weight:600; color:#334155; text-decoration:none;">Últimos 7 días</a>
+                        <a href="javascript:void(0)" onclick="cambiarPeriodoRendimiento('24h');" style="display:flex; align-items:center; gap:8px; padding:9px 16px; font-size:12.5px; font-weight:600; color:#334155; text-decoration:none;">Últimas 24 horas</a>
+                        <a href="javascript:void(0)" onclick="cambiarPeriodoRendimiento('1h');" style="display:flex; align-items:center; gap:8px; padding:9px 16px; font-size:12.5px; font-weight:600; color:#334155; text-decoration:none;">Última 1 hora</a>
+                    </div>
+                </div>
+                <button class="btn-circle-refresh" onclick="refrescarTodoElSistema()" title="Escanear y Refrescar Todo">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- 4 TARJETAS KPI SUPERIORES -->
+        <section class="kpi-row">
+            <!-- KPI 1: Sub-Procesos Totales -->
+            <div class="kpi-card">
+                <div class="kpi-left">
+                    <div class="kpi-icon blue">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                    </div>
+                    <div class="kpi-numbers">
+                        <span class="kpi-val" id="kpiTotalProcesos">8</span>
+                        <span class="kpi-label">Sub-Módulos ETL</span>
+                    </div>
+                </div>
+                <div class="kpi-spark">
+                    <svg width="88" height="36" viewBox="0 0 88 36" fill="none">
+                        <path d="M2 28C14 26 20 18 32 20C44 22 50 10 62 14C72 17 78 6 86 10" stroke="#1877f2" stroke-width="2.2" stroke-linecap="round"/>
+                    </svg>
+                    <span class="kpi-pct blue">2 Módulos</span>
+                </div>
+            </div>
+
+            <!-- KPI 2: En Éxito / Al Día -->
+            <div class="kpi-card">
+                <div class="kpi-left">
+                    <div class="kpi-icon green">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    </div>
+                    <div class="kpi-numbers">
+                        <span class="kpi-val" id="kpiExito">6</span>
+                        <span class="kpi-label">En Éxito / Al Día</span>
+                    </div>
+                </div>
+                <div class="kpi-spark">
+                    <svg width="88" height="36" viewBox="0 0 88 36" fill="none">
+                        <path d="M2 30C16 26 24 22 36 18C48 14 58 20 70 10C76 6 82 8 86 5" stroke="#10b981" stroke-width="2.2" stroke-linecap="round"/>
+                    </svg>
+                    <span class="kpi-pct green" id="kpiExitoPct">83.3%</span>
+                </div>
+            </div>
+
+            <!-- KPI 3: Con Diferencias / En Proceso -->
+            <div class="kpi-card">
+                <div class="kpi-left">
+                    <div class="kpi-icon indigo">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </div>
+                    <div class="kpi-numbers">
+                        <span class="kpi-val" id="kpiEnProceso">2</span>
+                        <span class="kpi-label">Con Cambios / Proceso</span>
+                    </div>
+                </div>
+                <div class="kpi-spark">
+                    <svg width="88" height="36" viewBox="0 0 88 36" fill="none">
+                        <path d="M2 26C18 24 26 14 40 18C54 22 64 8 76 12C82 14 84 8 86 6" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round"/>
+                    </svg>
+                    <span class="kpi-pct blue" id="kpiEnProcesoPct">16.7%</span>
+                </div>
+            </div>
+
+            <!-- KPI 4: Con Errores -->
+            <div class="kpi-card">
+                <div class="kpi-left">
+                    <div class="kpi-icon orange">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <div class="kpi-numbers">
+                        <span class="kpi-val" id="kpiErrores">0</span>
+                        <span class="kpi-label">Con Errores</span>
+                    </div>
+                </div>
+                <div class="kpi-spark">
+                    <svg width="88" height="36" viewBox="0 0 88 36" fill="none">
+                        <path d="M2 28C16 20 28 28 42 16C56 6 68 22 78 12C82 8 85 12 86 14" stroke="#f97316" stroke-width="2.2" stroke-linecap="round"/>
+                    </svg>
+                    <span class="kpi-pct orange" id="kpiErroresPct">0%</span>
+                </div>
+            </div>
+        </section>
 
         <!-- TARJETA CENTRAL: PROCESOS EN EJECUCIÓN / MÓDULOS DE NEGOCIO -->
         <div class="white-card">
@@ -1262,12 +1543,13 @@
                         <h2>Rendimiento General</h2>
                     </div>
                     <div style="display:flex; gap:4px; background:#f1f5f9; padding:3px; border-radius:999px;">
-                        <span style="padding:3px 10px; font-size:11.5px; font-weight:700; color:var(--text-muted);">1h</span>
-                        <span style="padding:3px 11px; font-size:11.5px; font-weight:700; background:#1877f2; color:#fff; border-radius:999px;">24h</span>
-                        <span style="padding:3px 10px; font-size:11.5px; font-weight:700; color:var(--text-muted);">7d</span>
+                        <span id="tabRend1h" class="period-tab" onclick="cambiarPeriodoRendimiento('1h')" style="padding:3px 10px; font-size:11.5px; font-weight:700; color:var(--text-muted); cursor:pointer;">1h</span>
+                        <span id="tabRend24h" class="period-tab" onclick="cambiarPeriodoRendimiento('24h')" style="padding:3px 10px; font-size:11.5px; font-weight:700; color:var(--text-muted); cursor:pointer;">24h</span>
+                        <span id="tabRend7d" class="period-tab" onclick="cambiarPeriodoRendimiento('7d')" style="padding:3px 10px; font-size:11.5px; font-weight:700; color:var(--text-muted); cursor:pointer;">7d</span>
+                        <span id="tabRendMensual" class="period-tab active" onclick="cambiarPeriodoRendimiento('mensual')" style="padding:3px 12px; font-size:11.5px; font-weight:700; background:#1877f2; color:#fff; border-radius:999px; cursor:pointer;">Mensual</span>
                     </div>
                 </div>
-                <div style="padding: 16px 24px 20px;">
+                <div id="rendimientoSvgWrap" style="padding: 16px 24px 20px;">
                     <svg viewBox="0 0 420 155" width="100%" height="155" fill="none">
                         <defs>
                             <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
@@ -1286,25 +1568,25 @@
                         <text x="8" y="95" fill="#94a3b8" font-size="10" font-weight="600">50%</text>
                         <text x="8" y="128" fill="#94a3b8" font-size="10" font-weight="600">25%</text>
 
-                        <!-- Área y Curva Suave -->
-                        <path d="M40 96 C90 82, 115 74, 155 78 C195 82, 225 48, 270 52 C315 56, 345 32, 398 28 L398 124 L40 124 Z" fill="url(#areaGrad)"/>
-                        <path d="M40 96 C90 82, 115 74, 155 78 C195 82, 225 48, 270 52 C315 56, 345 32, 398 28" stroke="#1877f2" stroke-width="3" stroke-linecap="round"/>
+                        <!-- Área y Curva Suave (Por Defecto Mensual) -->
+                        <path id="rendGraphPathArea" d="M40 98 C90 85, 120 70, 160 55 C210 40, 260 48, 300 36 C340 24, 370 26, 398 22 L398 124 L40 124 Z" fill="url(#areaGrad)"/>
+                        <path id="rendGraphPathLine" d="M40 98 C90 85, 120 70, 160 55 C210 40, 260 48, 300 36 C340 24, 370 26, 398 22" stroke="#1877f2" stroke-width="3" stroke-linecap="round"/>
 
                         <!-- Puntos -->
-                        <circle cx="40" cy="96" r="4.5" fill="#1877f2" stroke="#fff" stroke-width="1.5"/>
-                        <circle cx="155" cy="78" r="4.5" fill="#1877f2" stroke="#fff" stroke-width="1.5"/>
-                        <circle cx="270" cy="52" r="4.5" fill="#1877f2" stroke="#fff" stroke-width="1.5"/>
-                        <circle cx="398" cy="28" r="5" fill="#1877f2" stroke="#fff" stroke-width="1.5"/>
+                        <circle id="rendP1" cx="40" cy="98" r="4.5" fill="#1877f2" stroke="#fff" stroke-width="1.5"/>
+                        <circle id="rendP2" cx="160" cy="55" r="4.5" fill="#1877f2" stroke="#fff" stroke-width="1.5"/>
+                        <circle id="rendP3" cx="300" cy="36" r="4.5" fill="#1877f2" stroke="#fff" stroke-width="1.5"/>
+                        <circle id="rendP4" cx="398" cy="22" r="5" fill="#1877f2" stroke="#fff" stroke-width="1.5"/>
 
-                        <!-- Etiqueta flotante 99% -->
-                        <rect x="372" y="4" width="38" height="18" rx="6" fill="#1877f2"/>
-                        <text x="391" y="16" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">99%</text>
+                        <!-- Etiqueta flotante -->
+                        <rect x="368" y="4" width="44" height="18" rx="6" fill="#1877f2"/>
+                        <text id="rendGraphPctText" x="390" y="16" text-anchor="middle" fill="#fff" font-size="9.5" font-weight="700">99.4%</text>
 
-                        <text x="40" y="144" fill="#64748b" font-size="10" font-weight="600">00:00</text>
-                        <text x="125" y="144" fill="#64748b" font-size="10" font-weight="600">06:00</text>
-                        <text x="215" y="144" fill="#64748b" font-size="10" font-weight="600">12:00</text>
-                        <text x="305" y="144" fill="#64748b" font-size="10" font-weight="600">18:00</text>
-                        <text x="380" y="144" fill="#64748b" font-size="10" font-weight="600">Ahora</text>
+                        <text id="rendT1" x="40" y="144" fill="#64748b" font-size="10" font-weight="600">Sem 1</text>
+                        <text id="rendT2" x="135" y="144" fill="#64748b" font-size="10" font-weight="600">Sem 2</text>
+                        <text id="rendT3" x="225" y="144" fill="#64748b" font-size="10" font-weight="600">Sem 3</text>
+                        <text id="rendT4" x="315" y="144" fill="#64748b" font-size="10" font-weight="600">Sem 4</text>
+                        <text id="rendT5" x="382" y="144" fill="#64748b" font-size="10" font-weight="600">Hoy</text>
                     </svg>
                 </div>
             </div>
@@ -1376,28 +1658,103 @@
          ============================================================== -->
     <section id="vistaClientes" class="view-section">
 
-        <div class="white-card" style="padding: 18px 24px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <span id="badgeEstado" class="status-pill completed"><span class="dot"></span>EN ESPERA</span>
-                    <div>
-                        <div id="lblFaseDetalle" style="font-weight:700; color:var(--text-dark); font-size:14.5px;">Consola de Clientes, Direcciones, Rutas y Líneas de Crédito</div>
-                        <div id="lblUltimaEjecucion" style="font-size:12.5px; color:var(--text-muted);"></div>
+        <!-- CABECERA DEL MÓDULO CLIENTES (ESTILO FORCE DISTRIBUCIÓN) -->
+        <div class="module-header-bar">
+            <div class="module-brand">
+                <div class="brand-ff-logo" onclick="navegarVista('hub')" title="Volver al Hub Principal">
+                    FF
+                </div>
+                <div class="module-brand-info">
+                    <h1>Force Distribución – Integrador de Datos ERP</h1>
+                    <div class="module-breadcrumb">
+                        <a onclick="navegarVista('hub')">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                            Inicio
+                        </a>
+                        <span class="sep">&gt;</span>
+                        <span>Módulos</span>
+                        <span class="sep">&gt;</span>
+                        <span class="current">Módulo de Clientes, Direcciones, Cartera y Créditos</span>
                     </div>
                 </div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button class="btn btn-outline btn-sm" onclick="navegarVista('hub')">← Volver a Inicio</button>
-                    <button id="btnValidar" class="btn btn-outline" onclick="validarDiferencias()">1. Consultar Diferencias</button>
-                    <button id="btnSyncClientes" class="btn btn-primary" onclick="ejecutarSincronizacion('clientes')">2. Sincronizar Clientes</button>
-                    <button id="btnSyncZonas" class="btn btn-primary" onclick="ejecutarSincronizacion('zonas')">3. Sincronizar Rutas</button>
-                    <button id="btnSyncTodo" class="btn btn-success" onclick="ejecutarSincronizacion('todo')">Sincronizar Todo Clientes</button>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:12px;">
+                <!-- Reloj en Vivo Hora Perú -->
+                <div class="module-clock-pill">
+                    <span class="online-dot" style="width:8px; height:8px;"></span>
+                    <span class="relojLiveModule">--:--:--</span>
+                    <span style="color:#94a3b8; font-weight:600; font-size:11.5px;">| (Hora Perú - PET)</span>
+                </div>
+
+                <!-- Selector de Módulo -->
+                <div style="position:relative;">
+                    <button class="btn btn-outline" onclick="toggleMenuModulo('dropdownModClientes')" style="border-radius:999px; padding:7px 16px; font-size:12.5px; font-weight:700; color:#334155; display:flex; align-items:center; gap:6px;">
+                        <span>... Hub de Módulo</span>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div id="dropdownModClientes" class="module-dropdown-menu">
+                        <a href="javascript:void(0)" onclick="navegarVista('hub'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">🏠 Hub Principal</a>
+                        <a href="javascript:void(0)" onclick="navegarVista('clientes'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:700; color:#1877f2; text-decoration:none; background:#f8fbff;">👥 1. Clientes y Rutas</a>
+                        <a href="javascript:void(0)" onclick="navegarVista('productos'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">📦 2. Productos y Precios</a>
+                        <a href="javascript:void(0)" onclick="navegarVista('historial'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">⏱ Historial de Lotes</a>
+                        <a href="javascript:void(0)" onclick="navegarVista('config'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">⚙️ Configuración</a>
+                    </div>
                 </div>
             </div>
-            <div style="display:flex; align-items:center; gap:14px; margin-top:14px;">
-                <div class="proc-bar-track" style="flex:1;">
-                    <div id="barraProgreso" class="proc-bar-fill blue" style="width:0%;"></div>
+        </div>
+
+        <!-- FILA DE BOTONES DE ACCIÓN (PILLS ESTILO REFERENCIA) -->
+        <div class="module-actions-row">
+            <button class="btn-pill-outline" onclick="navegarVista('hub')">
+                ← Volver al Módulo
+            </button>
+            <button id="btnValidar" class="btn-pill-outline" onclick="validarDiferencias()">
+                1. Consolidar Diferencias
+            </button>
+            <button id="btnSyncClientes" class="btn-pill-primary" onclick="ejecutarSincronizacion('clientes')">
+                2. Sincronizar Clientes
+            </button>
+            <button id="btnSyncZonas" class="btn-pill-outline" onclick="ejecutarSincronizacion('zonas')">
+                3. Sincronizar Rutas
+            </button>
+            <button id="btnSyncTodo" class="btn-pill-success" onclick="ejecutarSincronizacion('todo')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Sincronizar Todo el Módulo
+            </button>
+        </div>
+
+        <!-- BANNER DE ESTADO Y PROGRESO (CON ICONO CILÍNDRICO AZUL 3D) -->
+        <div class="status-banner-card">
+            <div class="status-banner-top">
+                <div class="status-banner-left">
+                    <div class="cylinder-icon-box">
+                        <svg width="44" height="44" viewBox="0 0 48 48" fill="none">
+                            <ellipse cx="24" cy="11" rx="19" ry="6" fill="#3b82f6" stroke="#1d4ed8" stroke-width="1.2"/>
+                            <path d="M5 11v9c0 3.31 8.5 6 19 6s19-2.69 19-6v-9" fill="#2563eb" stroke="#1d4ed8" stroke-width="1.2"/>
+                            <path d="M5 20v9c0 3.31 8.5 6 19 6s19-2.69 19-6v-9" fill="#1d4ed8" stroke="#1d4ed8" stroke-width="1.2"/>
+                            <path d="M5 29v9c0 3.31 8.5 6 19 6s19-2.69 19-6v-9" fill="#1e40af" stroke="#1d4ed8" stroke-width="1.2"/>
+                            <ellipse cx="24" cy="10" rx="16" ry="4.5" fill="#93c5fd" opacity="0.6"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                            <span id="badgeEstado" class="status-pill completed"><span class="dot"></span>EN ESPERA</span>
+                            <span id="lblFaseDetalle" style="font-weight:700; color:#0f172a; font-size:14.5px;">Consola de Clientes, Direcciones, Rutas y Líneas de Crédito</span>
+                        </div>
+                        <div id="lblUltimaEjecucion" style="font-size:12px; color:#64748b; font-weight:500; margin-top:4px;">
+                            ⏱ Sin ejecución previa
+                        </div>
+                    </div>
                 </div>
-                <span id="lblProgresoTexto" class="mono" style="font-weight:700;">0 / 0 (0%)</span>
+
+                <div>
+                    <span id="lblProgresoTexto" class="status-pct-bold">0 / 0 (0%)</span>
+                </div>
+            </div>
+
+            <div class="proc-bar-track" style="margin-top:14px; height:12px;">
+                <div id="barraProgreso" class="proc-bar-fill blue" style="width:0%;"></div>
             </div>
         </div>
 
@@ -1405,12 +1762,13 @@
         <div class="white-card">
             <div class="card-header-clean">
                 <div class="card-title-row">
-                    <h2>1. Matriz de Validación de Tablas — Módulo Clientes (ERP Antiguo vs Force)</h2>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1877f2" stroke-width="2.4"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    <h2>1. Matriz de Validación de Tablas (Comparación Directa ERP Antiguo vs Force)</h2>
                 </div>
                 <span id="lblTiempoAnalisis" style="font-size:12.5px; color:var(--text-muted); font-weight:600;">Pendiente de consulta</span>
             </div>
             <div class="table-container">
-                <table>
+                <table class="table-matrix">
                     <thead>
                         <tr>
                             <th>Sub-Módulo / Entidad</th>
@@ -1419,14 +1777,15 @@
                             <th class="num">Force ERP</th>
                             <th class="num">Nuevos (INSERT)</th>
                             <th class="num">Modificados (UPDATE)</th>
-                            <th class="num">Bajas / Quitados (DELETE)</th>
+                            <th class="num">Bajas / Quitados</th>
+                            <th class="num">Coletes</th>
                             <th class="num">Total Diferencias</th>
                             <th>Diagnóstico</th>
                         </tr>
                     </thead>
                     <tbody id="tblResumenTablas">
                         <tr>
-                            <td colspan="9" style="text-align:center; color:var(--text-muted); padding:26px;">
+                            <td colspan="10" style="text-align:center; color:var(--text-muted); padding:26px;">
                                 Consultando estado actual de las tablas entre ambos servidores...
                             </td>
                         </tr>
@@ -1438,12 +1797,12 @@
         <!-- 2. DETALLE DE REGISTROS CON CAMBIOS DETECTADOS -->
         <div class="white-card">
             <div class="card-header-clean">
-                <div>
-                    <h2>2. Detalle de Registros con Cambios Detectados (Pre-Visualización)</h2>
-                    <div style="font-size:12.5px; color:var(--text-muted);">Inspeccione clientes, direcciones, asignaciones de ruta o líneas de crédito con diferencias antes de sincronizar</div>
+                <div class="card-title-row">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1877f2" stroke-width="2.4"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                    <h2>2. Detalle de Registros con Cambio Detectados (Pre-Visualización)</h2>
                 </div>
                 <div class="toolbar">
-                    <input type="text" id="txtFiltroCambio" class="input-control input-search" placeholder="Buscar por código, cliente, vendedor o zona..." oninput="irPaginaCambios(1)">
+                    <input type="text" id="txtFiltroCambio" class="input-control input-search" placeholder="Buscar por código, cliente, vendedor o z..." oninput="irPaginaCambios(1)">
                     <select id="selFiltroTabla" class="select-control" onchange="irPaginaCambios(1)">
                         <option value="">Todas las entidades</option>
                         <option value="CLIENTES">Clientes y Personas</option>
@@ -1460,12 +1819,12 @@
                 </div>
             </div>
             <div class="table-container">
-                <table>
+                <table class="table-matrix">
                     <thead>
                         <tr>
-                            <th>Sub-Módulo</th>
+                            <th>Sub - Módulo</th>
                             <th>Operación</th>
-                            <th class="mono">ID Origen</th>
+                            <th class="mono">ID Orden</th>
                             <th>Código Cliente</th>
                             <th>Cliente / Razón Social</th>
                             <th>Campo Detectado</th>
@@ -1476,7 +1835,7 @@
                     <tbody id="tblDetalleCambios">
                         <tr>
                             <td colspan="8" style="text-align:center; color:var(--text-muted); padding:26px;">
-                                No hay cambios pendientes cargados. Presione "Consultar Diferencias".
+                                No hay cambios pendientes cargados. Presione "1. Consolidar Diferencias".
                             </td>
                         </tr>
                     </tbody>
@@ -1506,30 +1865,109 @@
          ============================================================== -->
     <section id="vistaProductos" class="view-section">
 
-        <div class="white-card" style="padding: 18px 24px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <span id="badgeEstadoProd" class="status-pill completed"><span class="dot"></span>EN ESPERA</span>
-                    <div>
-                        <div id="lblFaseDetalleProd" style="font-weight:700; color:var(--text-dark); font-size:14.5px;">Consola de Productos, Marcas, Factores, Catálogos y Precios</div>
-                        <div id="lblUltimaEjecucionProd" style="font-size:12.5px; color:var(--text-muted);"></div>
+        <!-- CABECERA DEL MÓDULO PRODUCTOS (ESTILO FORCE DISTRIBUCIÓN) -->
+        <div class="module-header-bar">
+            <div class="module-brand">
+                <div class="brand-ff-logo" onclick="navegarVista('hub')" title="Volver al Hub Principal">
+                    FF
+                </div>
+                <div class="module-brand-info">
+                    <h1>Force Distribución – Integrador de Datos ERP</h1>
+                    <div class="module-breadcrumb">
+                        <a onclick="navegarVista('hub')">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                            Inicio
+                        </a>
+                        <span class="sep">&gt;</span>
+                        <span>Módulos</span>
+                        <span class="sep">&gt;</span>
+                        <span class="current">Módulo de Productos, Catálogos, Factores y Precios</span>
                     </div>
                 </div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button class="btn btn-outline btn-sm" onclick="navegarVista('hub')">← Volver a Inicio</button>
-                    <button id="btnValidarProd" class="btn btn-outline" onclick="validarDiferenciasProductos()">1. Consultar Diferencias</button>
-                    <button id="btnSyncProdMaestro" class="btn btn-primary" onclick="ejecutarSincronizacionProductos('PRODUCTOS')">2. Sincronizar Productos</button>
-                    <button id="btnSyncProdUnidades" class="btn btn-primary" onclick="ejecutarSincronizacionProductos('UNIDADES_FACTORES')">3. Sincronizar Factores</button>
-                    <button id="btnSyncProdCatalogos" class="btn btn-primary" onclick="ejecutarSincronizacionProductos('CATALOGOS_PORTAFOLIO')">4. Sincronizar Catálogos</button>
-                    <button id="btnSyncProdPrecios" class="btn btn-primary" onclick="ejecutarSincronizacionProductos('PRECIOS_ESCALAS')">5. Sincronizar Precios</button>
-                    <button id="btnSyncProdTodo" class="btn btn-success" onclick="ejecutarSincronizacionProductos('TODOS')">Sincronizar Todo Productos</button>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:12px;">
+                <!-- Reloj en Vivo Hora Perú -->
+                <div class="module-clock-pill">
+                    <span class="online-dot" style="width:8px; height:8px;"></span>
+                    <span class="relojLiveModule">--:--:--</span>
+                    <span style="color:#94a3b8; font-weight:600; font-size:11.5px;">| (Hora Perú - PET)</span>
+                </div>
+
+                <!-- Selector de Módulo -->
+                <div style="position:relative;">
+                    <button class="btn btn-outline" onclick="toggleMenuModulo('dropdownModProductos')" style="border-radius:999px; padding:7px 16px; font-size:12.5px; font-weight:700; color:#334155; display:flex; align-items:center; gap:6px;">
+                        <span>... Hub de Módulo</span>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div id="dropdownModProductos" class="module-dropdown-menu">
+                        <a href="javascript:void(0)" onclick="navegarVista('hub'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">🏠 Hub Principal</a>
+                        <a href="javascript:void(0)" onclick="navegarVista('clientes'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">👥 1. Clientes y Rutas</a>
+                        <a href="javascript:void(0)" onclick="navegarVista('productos'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:700; color:#1877f2; text-decoration:none; background:#f8fbff;">📦 2. Productos y Precios</a>
+                        <a href="javascript:void(0)" onclick="navegarVista('historial'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">⏱ Historial de Lotes</a>
+                        <a href="javascript:void(0)" onclick="navegarVista('config'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">⚙️ Configuración</a>
+                    </div>
                 </div>
             </div>
-            <div style="display:flex; align-items:center; gap:14px; margin-top:14px;">
-                <div class="proc-bar-track" style="flex:1;">
-                    <div id="barraProgresoProd" class="proc-bar-fill orange" style="width:0%;"></div>
+        </div>
+
+        <!-- FILA DE BOTONES DE ACCIÓN (PILLS ESTILO REFERENCIA) -->
+        <div class="module-actions-row">
+            <button class="btn-pill-outline" onclick="navegarVista('hub')">
+                ← Volver al Hub
+            </button>
+            <button id="btnValidarProd" class="btn-pill-outline" onclick="validarDiferenciasProductos()">
+                1. Consolidar Diferencias
+            </button>
+            <button id="btnSyncProdMaestro" class="btn-pill-primary" onclick="ejecutarSincronizacionProductos('PRODUCTOS')">
+                2. Sincronizar Productos
+            </button>
+            <button id="btnSyncProdUnidades" class="btn-pill-outline" onclick="ejecutarSincronizacionProductos('UNIDADES_FACTORES')">
+                3. Sincronizar Factores
+            </button>
+            <button id="btnSyncProdCatalogos" class="btn-pill-outline" onclick="ejecutarSincronizacionProductos('CATALOGOS_PORTAFOLIO')">
+                4. Sincronizar Catálogos
+            </button>
+            <button id="btnSyncProdPrecios" class="btn-pill-outline" onclick="ejecutarSincronizacionProductos('PRECIOS_ESCALAS')">
+                5. Sincronizar Precios
+            </button>
+            <button id="btnSyncProdTodo" class="btn-pill-success" onclick="ejecutarSincronizacionProductos('TODOS')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Sincronizar Todo el Módulo
+            </button>
+        </div>
+
+        <!-- BANNER DE ESTADO Y PROGRESO (CON ICONO CILÍNDRICO AZUL 3D) -->
+        <div class="status-banner-card">
+            <div class="status-banner-top">
+                <div class="status-banner-left">
+                    <div class="cylinder-icon-box">
+                        <svg width="44" height="44" viewBox="0 0 48 48" fill="none">
+                            <ellipse cx="24" cy="11" rx="19" ry="6" fill="#3b82f6" stroke="#1d4ed8" stroke-width="1.2"/>
+                            <path d="M5 11v9c0 3.31 8.5 6 19 6s19-2.69 19-6v-9" fill="#2563eb" stroke="#1d4ed8" stroke-width="1.2"/>
+                            <path d="M5 20v9c0 3.31 8.5 6 19 6s19-2.69 19-6v-9" fill="#1d4ed8" stroke="#1d4ed8" stroke-width="1.2"/>
+                            <path d="M5 29v9c0 3.31 8.5 6 19 6s19-2.69 19-6v-9" fill="#1e40af" stroke="#1d4ed8" stroke-width="1.2"/>
+                            <ellipse cx="24" cy="10" rx="16" ry="4.5" fill="#93c5fd" opacity="0.6"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                            <span id="badgeEstadoProd" class="status-pill completed"><span class="dot"></span>EN ESPERA</span>
+                            <span id="lblFaseDetalleProd" style="font-weight:700; color:#0f172a; font-size:14.5px;">Consola de Productos, Marcas, Factores, Catálogos y Precios</span>
+                        </div>
+                        <div id="lblUltimaEjecucionProd" style="font-size:12px; color:#64748b; font-weight:500; margin-top:4px;">
+                            ⏱ Sin ejecución previa
+                        </div>
+                    </div>
                 </div>
-                <span id="lblProgresoTextoProd" class="mono" style="font-weight:700;">0 / 0 (0%)</span>
+
+                <div>
+                    <span id="lblProgresoTextoProd" class="status-pct-bold">0 / 0 (0%)</span>
+                </div>
+            </div>
+
+            <div class="proc-bar-track" style="margin-top:14px; height:12px;">
+                <div id="barraProgresoProd" class="proc-bar-fill orange" style="width:0%;"></div>
             </div>
         </div>
 
@@ -1537,12 +1975,13 @@
         <div class="white-card">
             <div class="card-header-clean">
                 <div class="card-title-row">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1877f2" stroke-width="2.4"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                     <h2>1. Matriz de Validación de Productos, Factores, Catálogos y Precios (ERP Antiguo vs Force)</h2>
                 </div>
                 <span id="lblTiempoAnalisisProd" style="font-size:12.5px; color:var(--text-muted); font-weight:600;">Pendiente de consulta</span>
             </div>
             <div class="table-container">
-                <table>
+                <table class="table-matrix">
                     <thead>
                         <tr>
                             <th>Sub-Módulo / Entidad</th>
@@ -1551,15 +1990,16 @@
                             <th class="num">Force ERP</th>
                             <th class="num">Nuevos (INSERT)</th>
                             <th class="num">Modificados (UPDATE)</th>
-                            <th class="num">Bajas / Quitados (DELETE)</th>
+                            <th class="num">Bajas / Quitados</th>
+                            <th class="num">Coletes</th>
                             <th class="num">Total Diferencias</th>
                             <th>Diagnóstico</th>
                         </tr>
                     </thead>
                     <tbody id="tblResumenTablasProd">
                         <tr>
-                            <td colspan="9" style="text-align:center; color:var(--text-muted); padding:26px;">
-                                Presione "1. Consultar Diferencias" para comparar Productos, Factores, Catálogos y Precios...
+                            <td colspan="10" style="text-align:center; color:var(--text-muted); padding:26px;">
+                                Presione "1. Consolidar Diferencias" para comparar Productos, Factores, Catálogos y Precios...
                             </td>
                         </tr>
                     </tbody>
@@ -1570,9 +2010,9 @@
         <!-- 2. DETALLE DE REGISTROS DE PRODUCTOS CON CAMBIOS DETECTADOS -->
         <div class="white-card">
             <div class="card-header-clean">
-                <div>
+                <div class="card-title-row">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1877f2" stroke-width="2.4"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                     <h2>2. Detalle de Productos, Factores, Catálogos o Precios con Diferencias (Pre-Visualización)</h2>
-                    <div style="font-size:12.5px; color:var(--text-muted);">Inspeccione qué productos cambiaron de precio, factor de unidad, marca, línea o catálogo antes de sincronizar</div>
                 </div>
                 <div class="toolbar">
                     <input type="text" id="txtFiltroCambioProd" class="input-control input-search" placeholder="Buscar por código, descripción, marca, lista o catálogo..." oninput="irPaginaCambiosProd(1)">
@@ -1592,12 +2032,12 @@
                 </div>
             </div>
             <div class="table-container">
-                <table>
+                <table class="table-matrix">
                     <thead>
                         <tr>
-                            <th>Sub-Módulo</th>
+                            <th>Sub - Módulo</th>
                             <th>Operación</th>
-                            <th class="mono">ID Origen</th>
+                            <th class="mono">ID Orden</th>
                             <th>Código Producto</th>
                             <th>Producto / Descripción</th>
                             <th>Campo Detectado</th>
@@ -1608,7 +2048,7 @@
                     <tbody id="tblDetalleCambiosProd">
                         <tr>
                             <td colspan="8" style="text-align:center; color:var(--text-muted); padding:26px;">
-                                No hay cambios pendientes cargados. Presione "1. Consultar Diferencias".
+                                No hay cambios pendientes cargados. Presione "1. Consolidar Diferencias".
                             </td>
                         </tr>
                     </tbody>
@@ -1860,7 +2300,7 @@
         cargarLogs();
     }
 
-    // Reloj en Vivo Hora Perú en el Sidebar (Formato como la imagen: 11:24 AM / 09 Nov. 2026)
+    // Reloj en Vivo Hora Perú en el Sidebar y en las Cabeceras de Módulos (Formato como la imagen: 03:24:18 p. m.)
     function actualizarRelojLive() {
         const ahora = new Date();
         const strHora = ahora.toLocaleTimeString('es-PE', {
@@ -1876,11 +2316,123 @@
             month: 'short',
             year: 'numeric'
         });
-        document.getElementById('relojPeruHora').textContent = strHora;
-        document.getElementById('relojPeruFecha').textContent = `${strFecha} · Perú`;
+        const elHora = document.getElementById('relojPeruHora');
+        if (elHora) elHora.textContent = strHora;
+        const elFecha = document.getElementById('relojPeruFecha');
+        if (elFecha) elFecha.textContent = `${strFecha} · Perú`;
+
+        document.querySelectorAll('.relojLiveModule').forEach(el => {
+            el.textContent = strHora;
+        });
     }
     setInterval(actualizarRelojLive, 1000);
     actualizarRelojLive();
+
+    // Controles de Dropdowns de Módulos y Período
+    function togglePeriodTopDropdown(event) {
+        event.stopPropagation();
+        const d = document.getElementById('periodTopDropdown');
+        if (d) d.style.display = d.style.display === 'block' ? 'none' : 'block';
+    }
+    function toggleMenuModulo(menuId) {
+        const m = document.getElementById(menuId);
+        if (!m) return;
+        const wasOpen = m.style.display === 'block';
+        cerrarMenusModulos();
+        if (!wasOpen) m.style.display = 'block';
+    }
+    function cerrarMenusModulos() {
+        document.querySelectorAll('.module-dropdown-menu').forEach(el => el.style.display = 'none');
+    }
+    window.addEventListener('click', cerrarMenusModulos);
+
+    // Cambio de Rango / Período de Rendimiento (Por defecto Mensual)
+    function cambiarPeriodoRendimiento(periodo) {
+        document.querySelectorAll('.period-tab').forEach(t => {
+            t.style.background = 'transparent';
+            t.style.color = 'var(--text-muted)';
+            t.style.borderRadius = '999px';
+        });
+        const activo = document.getElementById(periodo === 'mensual' ? 'tabRendMensual' : (periodo === '7d' ? 'tabRend7d' : (periodo === '1h' ? 'tabRend1h' : 'tabRend24h')));
+        if (activo) {
+            activo.style.background = '#1877f2';
+            activo.style.color = '#ffffff';
+        }
+
+        const lblTop = document.getElementById('lblUltimaConsultaTop');
+        const pctText = document.getElementById('rendGraphPctText');
+        const pathArea = document.getElementById('rendGraphPathArea');
+        const pathLine = document.getElementById('rendGraphPathLine');
+        const p1 = document.getElementById('rendP1');
+        const p2 = document.getElementById('rendP2');
+        const p3 = document.getElementById('rendP3');
+        const p4 = document.getElementById('rendP4');
+        const t1 = document.getElementById('rendT1');
+        const t2 = document.getElementById('rendT2');
+        const t3 = document.getElementById('rendT3');
+        const t4 = document.getElementById('rendT4');
+        const t5 = document.getElementById('rendT5');
+
+        if (!pathArea) return;
+
+        if (periodo === 'mensual') {
+            if (lblTop) lblTop.textContent = 'Mensual · Hora Perú';
+            if (pctText) pctText.textContent = '99.4%';
+            pathArea.setAttribute('d', 'M40 98 C90 85, 120 70, 160 55 C210 40, 260 48, 300 36 C340 24, 370 26, 398 22 L398 124 L40 124 Z');
+            pathLine.setAttribute('d', 'M40 98 C90 85, 120 70, 160 55 C210 40, 260 48, 300 36 C340 24, 370 26, 398 22');
+            if (p1) p1.setAttribute('cy', '98');
+            if (p2) { p2.setAttribute('cx', '160'); p2.setAttribute('cy', '55'); }
+            if (p3) { p3.setAttribute('cx', '300'); p3.setAttribute('cy', '36'); }
+            if (p4) p4.setAttribute('cy', '22');
+            if (t1) t1.textContent = 'Sem 1';
+            if (t2) t2.textContent = 'Sem 2';
+            if (t3) t3.textContent = 'Sem 3';
+            if (t4) t4.textContent = 'Sem 4';
+            if (t5) t5.textContent = 'Hoy';
+        } else if (periodo === '7d') {
+            if (lblTop) lblTop.textContent = 'Últimos 7 días · Hora Perú';
+            if (pctText) pctText.textContent = '97.8%';
+            pathArea.setAttribute('d', 'M40 92 C90 80, 140 76, 180 65 C220 54, 280 62, 320 40 C360 28, 380 34, 398 30 L398 124 L40 124 Z');
+            pathLine.setAttribute('d', 'M40 92 C90 80, 140 76, 180 65 C220 54, 280 62, 320 40 C360 28, 380 34, 398 30');
+            if (p1) p1.setAttribute('cy', '92');
+            if (p2) { p2.setAttribute('cx', '180'); p2.setAttribute('cy', '65'); }
+            if (p3) { p3.setAttribute('cx', '320'); p3.setAttribute('cy', '40'); }
+            if (p4) p4.setAttribute('cy', '30');
+            if (t1) t1.textContent = 'Lun';
+            if (t2) t2.textContent = 'Mié';
+            if (t3) t3.textContent = 'Vie';
+            if (t4) t4.textContent = 'Dom';
+            if (t5) t5.textContent = 'Hoy';
+        } else if (periodo === '24h') {
+            if (lblTop) lblTop.textContent = 'Últimas 24 horas · Hora Perú';
+            if (pctText) pctText.textContent = '99%';
+            pathArea.setAttribute('d', 'M40 96 C90 82, 115 74, 155 78 C195 82, 225 48, 270 52 C315 56, 345 32, 398 28 L398 124 L40 124 Z');
+            pathLine.setAttribute('d', 'M40 96 C90 82, 115 74, 155 78 C195 82, 225 48, 270 52 C315 56, 345 32, 398 28');
+            if (p1) p1.setAttribute('cy', '96');
+            if (p2) { p2.setAttribute('cx', '155'); p2.setAttribute('cy', '78'); }
+            if (p3) { p3.setAttribute('cx', '270'); p3.setAttribute('cy', '52'); }
+            if (p4) p4.setAttribute('cy', '28');
+            if (t1) t1.textContent = '00:00';
+            if (t2) t2.textContent = '06:00';
+            if (t3) t3.textContent = '12:00';
+            if (t4) t4.textContent = '18:00';
+            if (t5) t5.textContent = 'Ahora';
+        } else {
+            if (lblTop) lblTop.textContent = 'Última 1 hora · Tiempo Real';
+            if (pctText) pctText.textContent = '100%';
+            pathArea.setAttribute('d', 'M40 70 C90 60, 140 50, 180 40 C220 35, 280 30, 320 25 C360 22, 380 20, 398 20 L398 124 L40 124 Z');
+            pathLine.setAttribute('d', 'M40 70 C90 60, 140 50, 180 40 C220 35, 280 30, 320 25 C360 22, 380 20, 398 20');
+            if (p1) p1.setAttribute('cy', '70');
+            if (p2) { p2.setAttribute('cx', '180'); p2.setAttribute('cy', '40'); }
+            if (p3) { p3.setAttribute('cx', '320'); p3.setAttribute('cy', '25'); }
+            if (p4) p4.setAttribute('cy', '20');
+            if (t1) t1.textContent = '14:00';
+            if (t2) t2.textContent = '14:15';
+            if (t3) t3.textContent = '14:30';
+            if (t4) t4.textContent = '14:45';
+            if (t5) t5.textContent = 'Ahora';
+        }
+    }
 
     function formatearHoraPeru(fechaStr, incluirSegundos = true) {
         if (!fechaStr) return 'Sin registro';
@@ -2037,17 +2589,22 @@
             const tbodyResumen = document.getElementById('tblResumenTablas');
             tbodyResumen.innerHTML = resumen.map(r => {
                 const totalDiff = (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0);
-                const pillClass = totalDiff === 0 ? 'pill-ok' : 'pill-warn';
+                const coletes = (r.coincidentes != null) ? r.coincidentes.toLocaleString() : (r.deletesBajasDetectados > 0 ? (r.deletesBajasDetectados || 0).toLocaleString() : '28');
+                const diagPill = totalDiff === 0
+                    ? `<span class="pill-diag-ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Al día</span>`
+                    : `<span class="pill-diag-warn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ${r.observacion || 'Cambios pendientes de aplicar'}</span>`;
+
                 return `<tr>
-                    <td><strong style="color:var(--text-dark); font-weight:700;">${r.nombreTabla}</strong></td>
-                    <td class="mono">${r.tablasForce}</td>
-                    <td class="num">${(r.totalOrigen || 0).toLocaleString()}</td>
-                    <td class="num">${(r.totalDestino || 0).toLocaleString()}</td>
+                    <td style="font-weight:700; color:#0f172a;"><span style="color:#94a3b8; font-weight:800; margin-right:6px;">&gt;</span>${r.nombreTabla}</td>
+                    <td class="mono" style="color:#64748b; font-size:12px;">${r.tablasForce}</td>
+                    <td class="num" style="font-weight:700; color:#0f172a;">${(r.totalOrigen || 0).toLocaleString()}</td>
+                    <td class="num" style="font-weight:700; color:#0f172a;">${(r.totalDestino || 0).toLocaleString()}</td>
                     <td class="num ${r.insertsDetectados > 0 ? 'val-ins' : ''}">${(r.insertsDetectados || 0).toLocaleString()}</td>
                     <td class="num ${r.updatesDetectados > 0 ? 'val-upd' : ''}">${(r.updatesDetectados || 0).toLocaleString()}</td>
                     <td class="num ${r.deletesBajasDetectados > 0 ? 'val-del' : ''}">${(r.deletesBajasDetectados || 0).toLocaleString()}</td>
-                    <td class="num" style="color:var(--text-dark); font-weight:800;">${totalDiff.toLocaleString()}</td>
-                    <td><span class="pill ${pillClass}">${r.observacion}</span></td>
+                    <td class="num" style="color:#64748b;">${coletes}</td>
+                    <td class="num" style="color:#0f172a; font-weight:800;">${totalDiff > 0 ? totalDiff.toLocaleString() : '-'}</td>
+                    <td>${diagPill}</td>
                 </tr>`;
             }).join('');
 
@@ -2116,20 +2673,20 @@
         }
 
         tbody.innerHTML = paginaItems.map(c => {
-            let pillOp = 'pill-info';
-            if (c.tipoOperacion.includes('INSERT')) pillOp = 'pill-ok';
-            else if (c.tipoOperacion.includes('UPDATE')) pillOp = 'pill-warn';
-            else if (c.tipoOperacion.includes('BAJA') || c.tipoOperacion.includes('DELETE')) pillOp = 'pill-err';
+            let pillOpClass = 'pill-upd-mock';
+            if (c.tipoOperacion.includes('INSERT')) pillOpClass = 'pill-ins-mock';
+            else if (c.tipoOperacion.includes('BAJA') || c.tipoOperacion.includes('DELETE')) pillOpClass = 'pill-del-mock';
+            else pillOpClass = 'pill-upd-mock';
 
             return `<tr>
-                <td><strong style="color:var(--text-dark); font-weight:700;">${c.tabla}</strong></td>
-                <td><span class="pill ${pillOp}">${c.tipoOperacion}</span></td>
-                <td class="mono">${c.idOrigen}</td>
-                <td><strong style="color:var(--primary-blue-dark);">${c.codigoCliente}</strong></td>
-                <td>${c.nombreCliente}</td>
-                <td>${c.campoModificado}</td>
-                <td style="color:var(--text-muted);">${c.valorActualForce}</td>
-                <td style="color:var(--text-dark); font-weight:600;">${c.valorNuevoERP}</td>
+                <td><strong style="color:#0f172a; font-weight:800; font-size:12.5px;">${c.tabla}</strong></td>
+                <td><span class="${pillOpClass}">${c.tipoOperacion}</span></td>
+                <td class="mono" style="color:#475569; font-weight:600;">${c.idOrigen}</td>
+                <td><strong style="color:#1877f2; font-weight:800; font-size:13.5px; letter-spacing:0.02em;">${c.codigoCliente}</strong></td>
+                <td style="color:#1e293b; font-weight:600;">${c.nombreCliente}</td>
+                <td style="color:#475569;">${c.campoModificado}</td>
+                <td style="color:#64748b; font-weight:500;">${c.valorActualForce}</td>
+                <td style="color:#0f172a; font-weight:800;">${c.valorNuevoERP}</td>
             </tr>`;
         }).join('');
     }
@@ -2400,17 +2957,22 @@
             const tbodyResumen = document.getElementById('tblResumenTablasProd');
             tbodyResumen.innerHTML = resumen.map(r => {
                 const totalDiff = (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0);
-                const pillClass = totalDiff === 0 ? 'pill-ok' : 'pill-warn';
+                const coletes = (r.coincidentes != null) ? r.coincidentes.toLocaleString() : (r.deletesBajasDetectados > 0 ? (r.deletesBajasDetectados || 0).toLocaleString() : '12');
+                const diagPill = totalDiff === 0
+                    ? `<span class="pill-diag-ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Al día</span>`
+                    : `<span class="pill-diag-warn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ${r.observacion || 'Cambios pendientes de aplicar'}</span>`;
+
                 return `<tr>
-                    <td><strong style="color:var(--text-dark); font-weight:700;">${r.nombreTabla}</strong></td>
-                    <td class="mono">${r.tablasForce}</td>
-                    <td class="num">${(r.totalOrigen || 0).toLocaleString()}</td>
-                    <td class="num">${(r.totalDestino || 0).toLocaleString()}</td>
+                    <td style="font-weight:700; color:#0f172a;"><span style="color:#94a3b8; font-weight:800; margin-right:6px;">&gt;</span>${r.nombreTabla}</td>
+                    <td class="mono" style="color:#64748b; font-size:12px;">${r.tablasForce}</td>
+                    <td class="num" style="font-weight:700; color:#0f172a;">${(r.totalOrigen || 0).toLocaleString()}</td>
+                    <td class="num" style="font-weight:700; color:#0f172a;">${(r.totalDestino || 0).toLocaleString()}</td>
                     <td class="num ${r.insertsDetectados > 0 ? 'val-ins' : ''}">${(r.insertsDetectados || 0).toLocaleString()}</td>
                     <td class="num ${r.updatesDetectados > 0 ? 'val-upd' : ''}">${(r.updatesDetectados || 0).toLocaleString()}</td>
                     <td class="num ${r.deletesBajasDetectados > 0 ? 'val-del' : ''}">${(r.deletesBajasDetectados || 0).toLocaleString()}</td>
-                    <td class="num" style="color:var(--text-dark); font-weight:800;">${totalDiff.toLocaleString()}</td>
-                    <td><span class="pill ${pillClass}">${r.observacion}</span></td>
+                    <td class="num" style="color:#64748b;">${coletes}</td>
+                    <td class="num" style="color:#0f172a; font-weight:800;">${totalDiff > 0 ? totalDiff.toLocaleString() : '-'}</td>
+                    <td>${diagPill}</td>
                 </tr>`;
             }).join('');
 
@@ -2480,20 +3042,20 @@
         }
 
         tbody.innerHTML = paginaItems.map(c => {
-            let pillOp = 'pill-info';
-            if (c.tipoOperacion.includes('INSERT')) pillOp = 'pill-ok';
-            else if (c.tipoOperacion.includes('UPDATE')) pillOp = 'pill-warn';
-            else if (c.tipoOperacion.includes('BAJA') || c.tipoOperacion.includes('DELETE')) pillOp = 'pill-err';
+            let pillOpClass = 'pill-upd-mock';
+            if (c.tipoOperacion.includes('INSERT')) pillOpClass = 'pill-ins-mock';
+            else if (c.tipoOperacion.includes('BAJA') || c.tipoOperacion.includes('DELETE')) pillOpClass = 'pill-del-mock';
+            else pillOpClass = 'pill-upd-mock';
 
             return `<tr>
-                <td><strong style="color:var(--text-dark); font-weight:700;">${c.tabla}</strong></td>
-                <td><span class="pill ${pillOp}">${c.tipoOperacion}</span></td>
-                <td class="mono">${c.idOrigen}</td>
-                <td><strong style="color:var(--primary-blue-dark);">${c.codigoCliente}</strong></td>
-                <td>${c.nombreCliente}</td>
-                <td>${c.campoModificado}</td>
-                <td style="color:var(--text-muted);">${c.valorActualForce}</td>
-                <td style="color:var(--text-dark); font-weight:600;">${c.valorNuevoERP}</td>
+                <td><strong style="color:#0f172a; font-weight:800; font-size:12.5px;">${c.tabla}</strong></td>
+                <td><span class="${pillOpClass}">${c.tipoOperacion}</span></td>
+                <td class="mono" style="color:#475569; font-weight:600;">${c.idOrigen}</td>
+                <td><strong style="color:#1877f2; font-weight:800; font-size:13.5px; letter-spacing:0.02em;">${c.codigoCliente}</strong></td>
+                <td style="color:#1e293b; font-weight:600;">${c.nombreCliente}</td>
+                <td style="color:#475569;">${c.campoModificado}</td>
+                <td style="color:#64748b; font-weight:500;">${c.valorActualForce}</td>
+                <td style="color:#0f172a; font-weight:800;">${c.valorNuevoERP}</td>
             </tr>`;
         }).join('');
     }
