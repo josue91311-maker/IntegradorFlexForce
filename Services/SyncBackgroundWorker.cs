@@ -9,17 +9,20 @@ namespace IntegradorFlexForce.Services
     public class SyncBackgroundWorker : BackgroundService
     {
         private readonly SyncEngine _syncEngine;
+        private readonly SyncProductosEngine _syncProductosEngine;
         private readonly ILogger<SyncBackgroundWorker> _logger;
+        private static readonly SemaphoreSlim _cycleLock = new(1, 1);
 
-        public SyncBackgroundWorker(SyncEngine syncEngine, ILogger<SyncBackgroundWorker> logger)
+        public SyncBackgroundWorker(SyncEngine syncEngine, SyncProductosEngine syncProductosEngine, ILogger<SyncBackgroundWorker> logger)
         {
             _syncEngine = syncEngine;
+            _syncProductosEngine = syncProductosEngine;
             _logger = logger;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Iniciando servicio de fondo SyncBackgroundWorker...");
+            _logger.LogInformation("Iniciando servicio de fondo profesional SyncBackgroundWorker (Clientes + Productos)...");
 
             // Esperar 10 segundos tras el arranque antes del primer ciclo
             await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
@@ -35,7 +38,7 @@ namespace IntegradorFlexForce.Services
 
                     if (!config.SincronizacionActiva)
                     {
-                        _logger.LogInformation("Modo manual activo: La sincronización automática está pausada. Use el botón 'Sincronizar Ahora' en el portal.");
+                        _logger.LogInformation("Modo manual activo: La sincronización automática en segundo plano está pausada.");
                     }
                     else if (!EstaEnVentanaHoraria(config.HoraInicioVentana, config.HoraFinVentana))
                     {
@@ -44,8 +47,34 @@ namespace IntegradorFlexForce.Services
                     }
                     else
                     {
-                        _logger.LogInformation("Iniciando ciclo automático de sincronización...");
-                        await _syncEngine.EjecutarSincronizacionClientesAsync("AUTOMATICO", "WORKER_SERVICE", incluirZonas: true, stoppingToken);
+                        // Control de concurrencia profesional: nunca cruzarse ni bloquearse
+                        if (await _cycleLock.WaitAsync(0, stoppingToken))
+                        {
+                            try
+                            {
+                                // 1. Ciclo automático Módulo Clientes (Inteligente: salta entidades al día)
+                                if (!await _syncEngine.IsRunningAsync())
+                                {
+                                    _logger.LogInformation("Ejecutando ciclo automático inteligente Módulo Clientes...");
+                                    await _syncEngine.EjecutarSincronizacionClientesAsync("AUTOMATICO", "WORKER_SERVICE", incluirZonas: true, stoppingToken);
+                                }
+
+                                // 2. Ciclo automático Módulo Productos (Inteligente: salta entidades al día)
+                                if (!_syncProductosEngine.GetCurrentStatus().IsRunning)
+                                {
+                                    _logger.LogInformation("Ejecutando ciclo automático inteligente Módulo Productos...");
+                                    await _syncProductosEngine.EjecutarSincronizacionProductosAsync("TODOS", "WORKER_SERVICE", stoppingToken);
+                                }
+                            }
+                            finally
+                            {
+                                _cycleLock.Release();
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Ciclo automático omitido: ya existe un proceso de sincronización en ejecución.");
+                        }
                     }
                 }
                 catch (OperationCanceledException)
@@ -54,7 +83,7 @@ namespace IntegradorFlexForce.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error no controlado en SyncBackgroundWorker. Reintentando en {Min} min.", delayMinutes);
+                    _logger.LogError(ex, "Error en SyncBackgroundWorker. Reintentando en {Min} min.", delayMinutes);
                 }
 
                 await Task.Delay(TimeSpan.FromMinutes(delayMinutes), stoppingToken);

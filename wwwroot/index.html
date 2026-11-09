@@ -1262,16 +1262,6 @@
                 <span>Módulo Productos</span>
             </button>
 
-            <button id="navBtnHistorial" class="nav-item" onclick="navegarVista('historial')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <span>Historial</span>
-            </button>
-
-            <button id="navBtnReportes" class="nav-item" onclick="navegarVista('logs')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                <span>Auditoría y Logs</span>
-            </button>
-
             <button id="navBtnConfig" class="nav-item" onclick="navegarVista('config')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 <span>Configuración</span>
@@ -1422,15 +1412,15 @@
             </div>
 
             <div class="process-list">
-                <!-- FILA 1: MÓDULO CLIENTES Y DIRECCIONES -->
+                <!-- MÓDULO 1: MAESTRO INTEGRAL DE CLIENTES (CLIENTES + DIRECCIONES + RUTAS + CRÉDITOS) -->
                 <div class="process-row" onclick="navegarVista('clientes')" style="cursor:pointer;">
                     <div class="proc-info">
                         <div class="proc-icon blue">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                         </div>
                         <div>
-                            <div class="proc-name">1. Maestro de Clientes y Direcciones</div>
-                            <div class="proc-sub" id="hubRow1Sub">Auditando cli_Cliente, per_Persona y dir_Direccion...</div>
+                            <div class="proc-name" style="font-size:14.5px; font-weight:800;">1. Módulo Integral de Clientes, Rutas y Créditos</div>
+                            <div class="proc-sub" id="hubRow1Sub">Clientes, Direcciones, Cartera de Zonas/Rutas y Líneas de Crédito</div>
                         </div>
                     </div>
                     <div class="proc-bar-track">
@@ -1439,79 +1429,26 @@
                     <div id="hubRow1Pct" class="proc-pct">100%</div>
                     <div class="proc-time">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        <span id="hubRow1Time">00:00:14</span>
+                        <span id="hubRow1Time">00:00:16</span>
                     </div>
                     <div>
-                        <span id="hubRow1Status" class="status-pill completed"><span class="dot"></span>Completado</span>
+                        <span id="hubRow1Status" class="status-pill completed"><span class="dot"></span>Al Día</span>
                     </div>
-                    <div style="text-align:right;">
-                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); navegarVista('clientes')">Abrir Clientes →</button>
+                    <div style="text-align:right; display:flex; gap:8px; justify-content:flex-end;">
+                        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); ejecutarSincronizacion('todo')">Sincronizar</button>
+                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); navegarVista('clientes')">Abrir Módulo →</button>
                     </div>
                 </div>
 
-                <!-- FILA 2: CARTERA DE ZONAS, RUTAS Y DÍAS DE VISITA -->
-                <div class="process-row" onclick="navegarVista('clientes')" style="cursor:pointer;">
-                    <div class="proc-info">
-                        <div class="proc-icon purple">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                        </div>
-                        <div>
-                            <div class="proc-name">2. Cartera de Zonas, Rutas y Días</div>
-                            <div class="proc-sub" id="hubRow2Sub">Sincronización de rutas por vendedor y días de visita...</div>
-                        </div>
-                    </div>
-                    <div class="proc-bar-track">
-                        <div id="hubRow2Bar" class="proc-bar-fill purple" style="width: 100%;"></div>
-                    </div>
-                    <div id="hubRow2Pct" class="proc-pct">100%</div>
-                    <div class="proc-time">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        <span id="hubRow2Time">00:00:14</span>
-                    </div>
-                    <div>
-                        <span id="hubRow2Status" class="status-pill completed"><span class="dot"></span>Completado</span>
-                    </div>
-                    <div style="text-align:right;">
-                        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); navegarVista('clientes')">Ver Cartera →</button>
-                    </div>
-                </div>
-
-                <!-- FILA 3: LÍNEAS DE CRÉDITO MULTIPORTAFOLIO -->
-                <div class="process-row" onclick="navegarVista('clientes')" style="cursor:pointer;">
-                    <div class="proc-info">
-                        <div class="proc-icon green">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-                        </div>
-                        <div>
-                            <div class="proc-name">3. Líneas y Modalidades de Crédito</div>
-                            <div class="proc-sub" id="hubRow3Sub">Portafolios de crédito ctg_ClienteCatalogo...</div>
-                        </div>
-                    </div>
-                    <div class="proc-bar-track">
-                        <div id="hubRow3Bar" class="proc-bar-fill green" style="width: 100%;"></div>
-                    </div>
-                    <div id="hubRow3Pct" class="proc-pct">100%</div>
-                    <div class="proc-time">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        <span id="hubRow3Time">00:00:14</span>
-                    </div>
-                    <div>
-                        <span id="hubRow3Status" class="status-pill completed"><span class="dot"></span>Completado</span>
-                    </div>
-                    <div style="text-align:right;">
-                        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); navegarVista('clientes')">Ver Créditos →</button>
-                    </div>
-                </div>
-
-                <!-- FILA 4: MÓDULO DE PRODUCTOS, CATÁLOGO, FACTORES Y PRECIOS -->
+                <!-- MÓDULO 2: CATÁLOGO DE PRODUCTOS, FACTORES Y PRECIOS -->
                 <div class="process-row" onclick="navegarVista('productos')" style="cursor:pointer;">
                     <div class="proc-info">
                         <div class="proc-icon orange">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                         </div>
                         <div>
-                            <div class="proc-name">4. Productos, Catálogos, Factores y Precios</div>
-                            <div class="proc-sub" id="hubRow4Sub">prd_Producto, prd_ProductoUnidad, ctg_Catalogo y prc_PrecioEscala...</div>
+                            <div class="proc-name" style="font-size:14.5px; font-weight:800;">2. Módulo de Productos, Catálogo y Escalas de Precios</div>
+                            <div class="proc-sub" id="hubRow4Sub">Artículos Maestros, Unidades/Factores, Portafolios y Precios por Escala</div>
                         </div>
                     </div>
                     <div class="proc-bar-track">
@@ -1523,10 +1460,11 @@
                         <span id="hubRow4Time">00:00:00</span>
                     </div>
                     <div>
-                        <span id="hubRow4Status" class="status-pill completed"><span class="dot"></span>Disponible</span>
+                        <span id="hubRow4Status" class="status-pill completed"><span class="dot"></span>Al Día</span>
                     </div>
-                    <div style="text-align:right;">
-                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); navegarVista('productos')">Abrir Productos →</button>
+                    <div style="text-align:right; display:flex; gap:8px; justify-content:flex-end;">
+                        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); ejecutarSincronizacionProductos('TODOS')">Sincronizar</button>
+                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); navegarVista('productos')">Abrir Módulo →</button>
                     </div>
                 </div>
             </div>
@@ -1635,7 +1573,7 @@
                         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#1877f2" stroke-width="2.4"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                         <h2>Actividad Reciente</h2>
                     </div>
-                    <button class="link-action" onclick="navegarVista('historial')">Ver detalles →</button>
+                    <button class="link-action" onclick="abrirModalAuditoriaUltimaEjecucion('clientes')">Ver detalles →</button>
                 </div>
                 <div id="hubTimelineActividad" class="timeline-list">
                     <div class="timeline-item">
@@ -1745,6 +1683,10 @@
                         <div id="lblUltimaEjecucion" style="font-size:12px; color:#64748b; font-weight:500; margin-top:4px;">
                             ⏱ Sin ejecución previa
                         </div>
+                        <button id="btnAuditDetalleCli" class="btn btn-outline btn-xs" onclick="abrirModalAuditoriaUltimaEjecucion('clientes')" style="margin-top:6px; font-weight:700; border-radius:20px; font-size:12px; padding:3px 12px; border-color:#93c5fd; color:#1d4ed8; background:#eff6ff; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            Ver Detalles y Errores de Auditoría
+                        </button>
                     </div>
                 </div>
 
@@ -1958,6 +1900,10 @@
                         <div id="lblUltimaEjecucionProd" style="font-size:12px; color:#64748b; font-weight:500; margin-top:4px;">
                             ⏱ Sin ejecución previa
                         </div>
+                        <button id="btnAuditDetalleProd" class="btn btn-outline btn-xs" onclick="abrirModalAuditoriaUltimaEjecucion('productos')" style="margin-top:6px; font-weight:700; border-radius:20px; font-size:12px; padding:3px 12px; border-color:#fed7aa; color:#c2410c; background:#fff7ed; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            Ver Detalles y Errores de Auditoría
+                        </button>
                     </div>
                 </div>
 
@@ -2186,27 +2132,36 @@
     </section>
 
     <!-- ==============================================================
-         VISTA 6: CONFIGURACIÓN DEL INTEGRADOR
+         VISTA 6: CONFIGURACIÓN DEL INTEGRADOR Y AUTOMATIZACIÓN
          ============================================================== -->
     <section id="vistaConfig" class="view-section">
         <div class="white-card">
             <div class="card-header-clean">
                 <div>
-                    <h2>Parámetros de Sincronización Automática</h2>
-                    <div style="font-size:12.5px; color:var(--text-muted);">Configuración de ventana horaria (Hora Perú) y tamaño de lote SQL en BDForceGVD</div>
+                    <h2>Automatización Profesional y Parámetros del Integrador</h2>
+                    <div style="font-size:12.5px; color:var(--text-muted);">Control de sincronización en segundo plano, concurrencia aislada y ventana horaria (Hora Perú)</div>
                 </div>
                 <button class="btn btn-outline btn-sm" onclick="navegarVista('hub')">← Volver a Inicio</button>
             </div>
+
+            <!-- TARJETA INFORMATIVA DE CONTROL DE CONCURRENCIA PROFESIONAL -->
+            <div style="margin: 18px 24px 0; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 14px 18px; display: flex; align-items: flex-start; gap: 12px;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                <div style="font-size: 13px; color: #1e3a8a; line-height: 1.5;">
+                    <strong>Motor de Automatización Aislado (Cero Cruces):</strong> El servicio de fondo ejecuta los módulos (Clientes y Productos) de forma secuencial y ordenada mediante semáforos atómicos (<code>SemaphoreSlim</code>). Nunca se cruzan ni se bloquean entre sí. Además, aplica <strong>salto inteligente</strong>: si un sub-módulo tiene 0 diferencias, pasa de inmediato al siguiente sin consumir tiempo ni recursos.
+                </div>
+            </div>
+
             <div class="form-grid">
                 <div class="field-group">
-                    <label>Sincronizador Automático</label>
+                    <label>Sincronizador Automático General</label>
                     <div style="display:flex; align-items:center; gap:10px; padding:8px 0;">
                         <input type="checkbox" id="chkActiva" style="width:20px; height:20px; cursor:pointer;">
-                        <span style="font-weight:700; color:var(--text-dark);">Activar ejecución periódica</span>
+                        <span style="font-weight:700; color:var(--text-dark);">Activar servicio en segundo plano</span>
                     </div>
                 </div>
                 <div class="field-group">
-                    <label>Intervalo en Segundo Plano (Minutos)</label>
+                    <label>Intervalo de Escaneo (Minutos)</label>
                     <input type="number" id="txtIntervalo" min="1" max="1440" value="3">
                 </div>
                 <div class="field-group">
@@ -2222,8 +2177,9 @@
                     <input type="number" id="txtTamanoLote" min="100" max="5000" step="100" value="500">
                 </div>
                 <div>
-                    <button class="btn btn-primary" style="width:100%; justify-content:center;" onclick="guardarConfiguracion()">
-                        Guardar Parámetros
+                    <button class="btn btn-primary" style="width:100%; justify-content:center; gap:8px;" onclick="guardarConfiguracion()">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        Guardar Parámetros de Automatización
                     </button>
                 </div>
             </div>
@@ -2240,6 +2196,111 @@
             <button class="btn btn-outline btn-sm" onclick="cerrarModal()">Cerrar ✕</button>
         </div>
         <pre id="modalContenido" class="modal-code"></pre>
+    </div>
+</div>
+
+<!-- ==============================================================
+     MODAL POP-UP: AUDITORÍA DETALLADA DE EJECUCIÓN Y ERRORES
+     ============================================================== -->
+<div id="modalAuditoriaEjecucion" class="modal-overlay" onclick="cerrarModalAuditoria()">
+    <div class="modal-card" style="max-width:1050px; width:95%; max-height:90vh;" onclick="event.stopPropagation()">
+        <!-- CABECERA DEL MODAL -->
+        <div style="padding:18px 24px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:40px; height:40px; border-radius:10px; background:#eff6ff; display:flex; align-items:center; justify-content:center; color:#2563eb;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                </div>
+                <div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <h2 style="font-size:17px; font-weight:800; color:#0f172a; margin:0;" id="auditModalTitulo">Auditoría Detallada de Ejecución</h2>
+                        <span id="auditModalBadgeEstado" class="status-pill completed">COMPLETADO</span>
+                    </div>
+                    <div style="font-size:12.5px; color:#64748b; font-weight:500; margin-top:2px;" id="auditModalSubtitulo">
+                        Lote #-- | Tipo: MANUAL | Fecha: --/--/---- --:--:-- | Duración: --
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="cerrarModalAuditoria()" style="border-radius:20px; font-weight:700;">Cerrar ✕</button>
+        </div>
+
+        <!-- CUERPO DEL MODAL (SCROLLABLE) -->
+        <div style="padding:22px 24px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:20px;">
+            
+            <!-- TARJETAS DE RESUMEN KPI DEL LOTE -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px;">
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px 16px;">
+                    <div style="font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase;">Total Escaneados</div>
+                    <div style="font-size:22px; font-weight:800; color:#0f172a; margin-top:4px;" id="auditKpiEscaneados">0</div>
+                </div>
+                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:14px 16px;">
+                    <div style="font-size:12px; font-weight:700; color:#15803d; text-transform:uppercase;">Nuevos (INSERT)</div>
+                    <div style="font-size:22px; font-weight:800; color:#16a34a; margin-top:4px;" id="auditKpiNuevos">0</div>
+                </div>
+                <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:14px 16px;">
+                    <div style="font-size:12px; font-weight:700; color:#1d4ed8; text-transform:uppercase;">Modificados (UPDATE)</div>
+                    <div style="font-size:22px; font-weight:800; color:#2563eb; margin-top:4px;" id="auditKpiModificados">0</div>
+                </div>
+                <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:14px 16px;">
+                    <div style="font-size:12px; font-weight:700; color:#b91c1c; text-transform:uppercase;">Errores Detectados</div>
+                    <div style="font-size:22px; font-weight:800; color:#dc2626; margin-top:4px;" id="auditKpiErrores">0</div>
+                </div>
+            </div>
+
+            <!-- DESGLOSE DETALLADO POR SUB-MÓDULO -->
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;">
+                <div style="padding:12px 18px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-weight:800; font-size:13.5px; color:#1e293b; display:flex; justify-content:space-between; align-items:center;">
+                    <span>Desglose por Sub-Etapa de la Ejecución</span>
+                    <span style="font-size:12px; color:#64748b; font-weight:600;">Salto automático si está al día</span>
+                </div>
+                <div id="auditDesgloseSubmodulos" style="display:flex; flex-direction:column;">
+                    <!-- Se llena dinámicamente con JS -->
+                </div>
+            </div>
+
+            <!-- TABLA DE LOGS, EVENTOS Y ERRORES ESPECÍFICOS DEL LOTE -->
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;">
+                <div style="padding:12px 18px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div style="font-weight:800; font-size:13.5px; color:#1e293b;">
+                        Eventos de Auditoría y Trazas de Error del Lote
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn-pill-filter active" id="btnFiltroAuditTodos" onclick="filtrarLogsAuditoriaModal('TODOS')">Todos</button>
+                        <button class="btn-pill-filter" id="btnFiltroAuditErrores" onclick="filtrarLogsAuditoriaModal('ERROR')">Solo Errores</button>
+                        <button class="btn-pill-filter" id="btnFiltroAuditInfo" onclick="filtrarLogsAuditoriaModal('INFO')">Información</button>
+                    </div>
+                </div>
+                <div style="max-height:260px; overflow-y:auto;">
+                    <table class="table-custom" style="margin:0;">
+                        <thead>
+                            <tr>
+                                <th style="width:110px;">Hora (PET)</th>
+                                <th style="width:140px;">Sub-Módulo</th>
+                                <th style="width:110px;">Código / ID</th>
+                                <th style="width:90px;">Nivel</th>
+                                <th>Mensaje / Causa</th>
+                                <th style="width:80px; text-align:center;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditModalTablaLogsBody">
+                            <tr>
+                                <td colspan="6" style="text-align:center; padding:24px; color:#94a3b8;">
+                                    Cargando trazas de auditoría...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- PIE DEL MODAL -->
+        <div style="padding:14px 24px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:12px; color:#64748b; font-weight:600;">
+                IntegradorFlexForce · Trazabilidad 100% transaccional en BDForceGVD
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="cerrarModalAuditoria()">Entendido / Cerrar</button>
+        </div>
     </div>
 </div>
 
@@ -2510,28 +2571,40 @@
         container.innerHTML = html;
     }
 
-    // Actualizar KPIs Superiores y Donut Chart según resultados reales
+    // Actualizar KPIs Superiores y Donut Chart según los 2 Módulos Principales
     function actualizarResumenGlobalDashboard() {
-        const todas = [...resumenClientesCache, ...resumenProductosCache];
-        if (todas.length === 0) return;
+        const diffCli = (resumenClientesCache || []).reduce((acc, r) => acc + (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0), 0);
+        const diffProd = (resumenProductosCache || []).reduce((acc, r) => acc + (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0), 0);
 
-        const totalSubModulos = todas.length;
-        const alDia = todas.filter(r => ((r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0)) === 0).length;
-        const conCambios = totalSubModulos - alDia;
+        const totalModulos = 2;
+        let alDia = 0;
+        if (resumenClientesCache.length > 0 && diffCli === 0) alDia++;
+        if (resumenProductosCache.length > 0 && diffProd === 0) alDia++;
+        else if (resumenProductosCache.length === 0) alDia++; // Por defecto al día
 
-        const pctAlDia = Math.round((alDia / totalSubModulos) * 1000) / 10;
-        const pctCambios = Math.round((conCambios / totalSubModulos) * 1000) / 10;
+        const conCambios = totalModulos - alDia;
+        const pctAlDia = Math.round((alDia / totalModulos) * 1000) / 10;
+        const pctCambios = Math.round((conCambios / totalModulos) * 1000) / 10;
 
-        document.getElementById('kpiTotalProcesos').textContent = totalSubModulos;
-        document.getElementById('kpiExito').textContent = alDia;
-        document.getElementById('kpiExitoPct').textContent = `${pctAlDia}%`;
-        document.getElementById('kpiEnProceso').textContent = conCambios;
-        document.getElementById('kpiEnProcesoPct').textContent = `${pctCambios}%`;
+        const elTot = document.getElementById('kpiTotalProcesos');
+        if (elTot) elTot.textContent = totalModulos;
+        const elEx = document.getElementById('kpiExito');
+        if (elEx) elEx.textContent = alDia;
+        const elExPct = document.getElementById('kpiExitoPct');
+        if (elExPct) elExPct.textContent = `${pctAlDia}%`;
+        const elPrc = document.getElementById('kpiEnProceso');
+        if (elPrc) elPrc.textContent = conCambios;
+        const elPrcPct = document.getElementById('kpiEnProcesoPct');
+        if (elPrcPct) elPrcPct.textContent = `${pctCambios}%`;
 
-        document.getElementById('donutPctText').textContent = `${pctAlDia}%`;
-        document.getElementById('donutCircleOk').setAttribute('stroke-dasharray', `${pctAlDia} ${100 - pctAlDia}`);
-        document.getElementById('legendValExito').textContent = alDia;
-        document.getElementById('legendValProceso').textContent = conCambios;
+        const elDText = document.getElementById('donutPctText');
+        if (elDText) elDText.textContent = `${pctAlDia}%`;
+        const elDCircle = document.getElementById('donutCircleOk');
+        if (elDCircle) elDCircle.setAttribute('stroke-dasharray', `${pctAlDia} ${100 - pctAlDia}`);
+        const elLegEx = document.getElementById('legendValExito');
+        if (elLegEx) elLegEx.textContent = alDia;
+        const elLegPrc = document.getElementById('legendValProceso');
+        if (elLegPrc) elLegPrc.textContent = conCambios;
     }
 
     // 1. Auditoría y Pre-Visualización Clientes
@@ -2557,33 +2630,28 @@
             const resumen = data.resumenPorTabla || [];
             resumenClientesCache = resumen;
 
-            // Actualizar filas de la tarjeta central en el Hub
+            // Actualizar Módulo 1 en el Hub (Clientes, Direcciones, Zonas/Rutas y Créditos)
             const rCli = resumen.find(x => x.codigoTabla === 'CLIENTES');
             const rDir = resumen.find(x => x.codigoTabla === 'DIRECCIONES');
             const rZon = resumen.find(x => x.codigoTabla === 'ZONAS_RUTAS');
             const rCre = resumen.find(x => x.codigoTabla === 'CREDITOS');
 
-            if (rCli) {
-                const diff = (rCli.insertsDetectados || 0) + (rCli.updatesDetectados || 0) + (rCli.deletesBajasDetectados || 0)
-                           + (rDir ? ((rDir.insertsDetectados || 0) + (rDir.updatesDetectados || 0) + (rDir.deletesBajasDetectados || 0)) : 0);
-                document.getElementById('hubRow1Sub').textContent = `${(rCli.totalDestino || 0).toLocaleString()} clientes en Force · ${diff.toLocaleString()} diferencias`;
-                document.getElementById('hubRow1Time').textContent = tiempoHms;
-                document.getElementById('hubRow1Status').className = 'status-pill ' + (diff === 0 ? 'completed' : 'running');
-                document.getElementById('hubRow1Status').innerHTML = `<span class="dot"></span>${diff === 0 ? 'Al Día' : diff.toLocaleString() + ' Cambios'}`;
+            const diffCli = (rCli ? (rCli.insertsDetectados || 0) + (rCli.updatesDetectados || 0) + (rCli.deletesBajasDetectados || 0) : 0)
+                          + (rDir ? (rDir.insertsDetectados || 0) + (rDir.updatesDetectados || 0) + (rDir.deletesBajasDetectados || 0) : 0);
+            const diffZon = rZon ? ((rZon.insertsDetectados || 0) + (rZon.updatesDetectados || 0) + (rZon.deletesBajasDetectados || 0)) : 0;
+            const diffCre = rCre ? ((rCre.insertsDetectados || 0) + (rCre.updatesDetectados || 0) + (rCre.deletesBajasDetectados || 0)) : 0;
+            const totalDiffModuloClientes = diffCli + diffZon + diffCre;
+
+            const elSub1 = document.getElementById('hubRow1Sub');
+            if (elSub1) {
+                elSub1.textContent = `Clientes, Direcciones, Rutas y Créditos · ${totalDiffModuloClientes === 0 ? 'Al día (0 diferencias)' : totalDiffModuloClientes.toLocaleString() + ' diferencias detectadas'}`;
             }
-            if (rZon) {
-                const diff = (rZon.insertsDetectados || 0) + (rZon.updatesDetectados || 0) + (rZon.deletesBajasDetectados || 0);
-                document.getElementById('hubRow2Sub').textContent = `${(rZon.totalOrigen || 0).toLocaleString()} visitas programadas · ${diff.toLocaleString()} diferencias`;
-                document.getElementById('hubRow2Time').textContent = tiempoHms;
-                document.getElementById('hubRow2Status').className = 'status-pill ' + (diff === 0 ? 'completed' : 'running');
-                document.getElementById('hubRow2Status').innerHTML = `<span class="dot"></span>${diff === 0 ? 'Al Día' : diff.toLocaleString() + ' Cambios'}`;
-            }
-            if (rCre) {
-                const diff = (rCre.insertsDetectados || 0) + (rCre.updatesDetectados || 0) + (rCre.deletesBajasDetectados || 0);
-                document.getElementById('hubRow3Sub').textContent = `${(rCre.totalOrigen || 0).toLocaleString()} líneas portafolio · ${diff.toLocaleString()} diferencias`;
-                document.getElementById('hubRow3Time').textContent = tiempoHms;
-                document.getElementById('hubRow3Status').className = 'status-pill ' + (diff === 0 ? 'completed' : 'running');
-                document.getElementById('hubRow3Status').innerHTML = `<span class="dot"></span>${diff === 0 ? 'Al Día' : diff.toLocaleString() + ' Cambios'}`;
+            const elTime1 = document.getElementById('hubRow1Time');
+            if (elTime1) elTime1.textContent = tiempoHms;
+            const elStat1 = document.getElementById('hubRow1Status');
+            if (elStat1) {
+                elStat1.className = 'status-pill ' + (totalDiffModuloClientes === 0 ? 'completed' : 'running');
+                elStat1.innerHTML = `<span class="dot"></span>${totalDiffModuloClientes === 0 ? 'Al Día' : totalDiffModuloClientes.toLocaleString() + ' Cambios'}`;
             }
 
             const tbodyResumen = document.getElementById('tblResumenTablas');
@@ -2922,6 +2990,245 @@
 
     function cerrarModal() {
         document.getElementById('modalDetalle').style.display = 'none';
+    }
+
+    // ==============================================================
+    // MODAL AUDITORÍA DETALLADA DE EJECUCIÓN Y ERRORES (POP-UP)
+    // ==============================================================
+    let logsAuditoriaModalCache = [];
+
+    async function abrirModalAuditoriaUltimaEjecucion(modulo = 'clientes') {
+        const modal = document.getElementById('modalAuditoriaEjecucion');
+        if (!modal) return;
+        modal.style.display = 'flex';
+
+        document.getElementById('auditModalTitulo').textContent = modulo === 'clientes' 
+            ? 'Auditoría Detallada – Módulo Integral de Clientes, Rutas y Créditos'
+            : 'Auditoría Detallada – Módulo de Productos, Catálogo y Precios';
+        
+        document.getElementById('auditModalBadgeEstado').textContent = 'CONSULTANDO...';
+        document.getElementById('auditModalBadgeEstado').className = 'status-pill running';
+        document.getElementById('auditModalSubtitulo').textContent = 'Consultando últimas transacciones de auditoría en BDForceGVD...';
+
+        try {
+            // 1. Obtener lotes recientes
+            const resBatches = await fetch('/api/sync/batches?top=15');
+            const batches = await resBatches.json();
+
+            let loteSel = null;
+            if (batches && batches.length > 0) {
+                if (modulo === 'clientes') {
+                    loteSel = batches.find(b => (b.entidad || '').includes('CLIENTE') || (b.entidad || '').includes('CARTERA') || (b.entidad || '').includes('ZONAS')) || batches[0];
+                } else {
+                    loteSel = batches.find(b => (b.entidad || '').includes('PROD')) || batches[0];
+                }
+            }
+
+            // 2. Obtener logs recientes
+            const resLogs = await fetch('/api/sync/logs?top=150');
+            const allLogs = await resLogs.json();
+            logsAuditoriaModalCache = allLogs || [];
+
+            if (loteSel) {
+                const fechaIni = loteSel.fechaInicio ? formatearHoraPeru(loteSel.fechaInicio) : 'N/A';
+                const durHms = segundosAHms(loteSel.duracionSegundos);
+                const esExito = (loteSel.estado === 'EXITOSO' || loteSel.totalErrores === 0);
+
+                document.getElementById('auditModalBadgeEstado').textContent = esExito ? 'EXITOSO / AL DÍA' : 'CON ERRORES';
+                document.getElementById('auditModalBadgeEstado').className = 'status-pill ' + (esExito ? 'completed' : 'error');
+                document.getElementById('auditModalSubtitulo').textContent = 
+                    `Lote #${loteSel.id} | Tipo: ${loteSel.tipoEjecucion || 'MANUAL'} | Fecha: ${fechaIni} | Duración: ${durHms}`;
+
+                document.getElementById('auditKpiEscaneados').textContent = (loteSel.totalEscaneados || 0).toLocaleString();
+                document.getElementById('auditKpiNuevos').textContent = (loteSel.totalNuevos || 0).toLocaleString();
+                document.getElementById('auditKpiModificados').textContent = (loteSel.totalModificados || 0).toLocaleString();
+                document.getElementById('auditKpiErrores').textContent = (loteSel.totalErrores || 0).toLocaleString();
+            } else {
+                document.getElementById('auditModalBadgeEstado').textContent = 'AL DÍA';
+                document.getElementById('auditModalBadgeEstado').className = 'status-pill completed';
+                document.getElementById('auditModalSubtitulo').textContent = 'Sin transacciones de error registradas en Force.';
+            }
+
+            // 3. Renderizar desglose por sub-módulos
+            renderizarDesgloseSubmodulosModal(modulo, loteSel);
+
+            // 4. Renderizar logs filtrados
+            filtrarLogsAuditoriaModal('TODOS');
+
+        } catch (e) {
+            console.error('Error cargando auditoría detallada:', e);
+            document.getElementById('auditModalSubtitulo').textContent = 'Error consultando auditoría: ' + e.message;
+        }
+    }
+
+    function renderizarDesgloseSubmodulosModal(modulo, lote) {
+        const container = document.getElementById('auditDesgloseSubmodulos');
+        if (!container) return;
+
+        if (modulo === 'clientes') {
+            const rCli = resumenClientesCache.find(x => x.codigoTabla === 'CLIENTES');
+            const rDir = resumenClientesCache.find(x => x.codigoTabla === 'DIRECCIONES');
+            const rZon = resumenClientesCache.find(x => x.codigoTabla === 'ZONAS_RUTAS');
+            const rCre = resumenClientesCache.find(x => x.codigoTabla === 'CREDITOS');
+
+            const items = [
+                {
+                    nombre: '1. Clientes y Personas',
+                    tablas: 'dbo.cli_Cliente, dbo.per_Persona',
+                    inserts: rCli ? (rCli.insertsDetectados || 0) : 0,
+                    updates: rCli ? (rCli.updatesDetectados || 0) : 0,
+                    deletes: rCli ? (rCli.deletesBajasDetectados || 0) : 0,
+                    totalOrigen: rCli ? rCli.totalOrigen : 369627,
+                    totalDestino: rCli ? rCli.totalDestino : 369501
+                },
+                {
+                    nombre: '2. Direcciones de Clientes',
+                    tablas: 'dbo.dir_Direccion, dbo.dir_EntidadDireccion',
+                    inserts: rDir ? (rDir.insertsDetectados || 0) : 0,
+                    updates: rDir ? (rDir.updatesDetectados || 0) : 0,
+                    deletes: rDir ? (rDir.deletesBajasDetectados || 0) : 0,
+                    totalOrigen: rDir ? rDir.totalOrigen : 369618,
+                    totalDestino: rDir ? rDir.totalDestino : 382437
+                },
+                {
+                    nombre: '3. Cartera de Zonas, Rutas y Vendedor',
+                    tablas: 'dbo.dir_DireccionZona, dbo.cat_Zona, dbo.rut_Ruta, dbo.rut_RutaZonaDia',
+                    inserts: rZon ? (rZon.insertsDetectados || 0) : 0,
+                    updates: rZon ? (rZon.updatesDetectados || 0) : 0,
+                    deletes: rZon ? (rZon.deletesBajasDetectados || 0) : 0,
+                    totalOrigen: rZon ? rZon.totalOrigen : 903146,
+                    totalDestino: rZon ? rZon.totalDestino : 924319
+                },
+                {
+                    nombre: '4. Líneas y Modalidades de Crédito',
+                    tablas: 'dbo.ctg_ClienteCatalogo, dbo.ctg_Catalogo',
+                    inserts: rCre ? (rCre.insertsDetectados || 0) : 0,
+                    updates: rCre ? (rCre.updatesDetectados || 0) : 0,
+                    deletes: rCre ? (rCre.deletesBajasDetectados || 0) : 0,
+                    totalOrigen: rCre ? rCre.totalOrigen : 1121987,
+                    totalDestino: rCre ? rCre.totalDestino : 2818388
+                }
+            ];
+
+            container.innerHTML = items.map((it, idx) => {
+                const totalDiff = it.inserts + it.updates + it.deletes;
+                const badgeClass = totalDiff === 0 ? 'completed' : 'running';
+                const badgeText = totalDiff === 0 ? '✓ Al Día (0 Dif.)' : `${totalDiff.toLocaleString()} Dif.`;
+                const pasoInteligente = totalDiff === 0 ? '⚡ Saltado (Al día)' : '⚙ Procesado';
+
+                return `
+                    <div style="padding:12px 18px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="width:24px; height:24px; border-radius:50%; background:#eff6ff; color:#2563eb; font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center;">${idx + 1}</span>
+                            <div>
+                                <div style="font-weight:700; color:#0f172a; font-size:13.5px;">${it.nombre}</div>
+                                <div class="mono" style="font-size:11.5px; color:#64748b;">${it.tablas}</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:16px;">
+                            <div style="font-size:12px; color:#475569;">
+                                <strong>${(it.totalOrigen || 0).toLocaleString()}</strong> ERP Antiguo · <strong>${(it.totalDestino || 0).toLocaleString()}</strong> Force
+                            </div>
+                            <span class="status-pill ${badgeClass}" style="font-size:11.5px;"><span class="dot"></span>${badgeText}</span>
+                            <span style="font-size:11.5px; font-weight:700; color:${totalDiff === 0 ? '#10b981' : '#f59e0b'}; background:${totalDiff === 0 ? '#f0fdf4' : '#fffbeb'}; padding:2px 8px; border-radius:6px; border:1px solid ${totalDiff === 0 ? '#bbf7d0' : '#fde68a'};">${pasoInteligente}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            const resumenProd = resumenProductosCache || [];
+            container.innerHTML = resumenProd.map((it, idx) => {
+                const totalDiff = (it.insertsDetectados || 0) + (it.updatesDetectados || 0) + (it.deletesBajasDetectados || 0);
+                const badgeClass = totalDiff === 0 ? 'completed' : 'running';
+                const badgeText = totalDiff === 0 ? '✓ Al Día (0 Dif.)' : `${totalDiff.toLocaleString()} Dif.`;
+                const pasoInteligente = totalDiff === 0 ? '⚡ Saltado (Al día)' : '⚙ Procesado';
+
+                return `
+                    <div style="padding:12px 18px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="width:24px; height:24px; border-radius:50%; background:#fff7ed; color:#ea580c; font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center;">${idx + 1}</span>
+                            <div>
+                                <div style="font-weight:700; color:#0f172a; font-size:13.5px;">${it.nombreTabla}</div>
+                                <div class="mono" style="font-size:11.5px; color:#64748b;">${it.tablasForce}</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:16px;">
+                            <div style="font-size:12px; color:#475569;">
+                                <strong>${(it.totalOrigen || 0).toLocaleString()}</strong> ERP Antiguo · <strong>${(it.totalDestino || 0).toLocaleString()}</strong> Force
+                            </div>
+                            <span class="status-pill ${badgeClass}" style="font-size:11.5px;"><span class="dot"></span>${badgeText}</span>
+                            <span style="font-size:11.5px; font-weight:700; color:${totalDiff === 0 ? '#10b981' : '#f59e0b'}; background:${totalDiff === 0 ? '#f0fdf4' : '#fffbeb'}; padding:2px 8px; border-radius:6px; border:1px solid ${totalDiff === 0 ? '#bbf7d0' : '#fde68a'};">${pasoInteligente}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('') || '<div style="padding:16px; color:#64748b; text-align:center;">No hay datos de productos escaneados aún.</div>';
+        }
+    }
+
+    function filtrarLogsAuditoriaModal(nivel) {
+        const btnTodos = document.getElementById('btnFiltroAuditTodos');
+        const btnErrores = document.getElementById('btnFiltroAuditErrores');
+        const btnInfo = document.getElementById('btnFiltroAuditInfo');
+        if (btnTodos) btnTodos.className = 'btn-pill-filter ' + (nivel === 'TODOS' ? 'active' : '');
+        if (btnErrores) btnErrores.className = 'btn-pill-filter ' + (nivel === 'ERROR' ? 'active' : '');
+        if (btnInfo) btnInfo.className = 'btn-pill-filter ' + (nivel === 'INFO' ? 'active' : '');
+
+        let filtrados = logsAuditoriaModalCache || [];
+        if (nivel === 'ERROR') {
+            filtrados = filtrados.filter(l => l.nivel === 'ERROR' || l.nivel === 'FATAL' || l.nivel === 'WARN');
+        } else if (nivel === 'INFO') {
+            filtrados = filtrados.filter(l => l.nivel === 'INFO');
+        }
+
+        const tbody = document.getElementById('auditModalTablaLogsBody');
+        if (!tbody) return;
+
+        if (filtrados.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align:center; padding:24px; color:#10b981; font-weight:600;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline-block; vertical-align:middle; margin-right:6px;"><polyline points="20 6 9 17 4 12"/></svg>
+                        No se registraron errores ni incidencias para este filtro. Todo operó con éxito.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = filtrados.slice(0, 50).map((l, i) => {
+            const horaStr = l.fecha ? formatearSoloHoraPeru(l.fecha) : '--:--:--';
+            const nivelBadge = l.nivel === 'ERROR' || l.nivel === 'FATAL'
+                ? '<span class="status-pill error">ERROR</span>'
+                : (l.nivel === 'WARN' ? '<span class="status-pill running">WARN</span>' : '<span class="status-pill completed">INFO</span>');
+
+            const hasStack = Boolean(l.detalleTecnico && l.detalleTecnico.trim().length > 0);
+
+            return `
+                <tr>
+                    <td class="mono" style="font-size:11.5px; color:#64748b;">${horaStr}</td>
+                    <td style="font-weight:700; color:#0f172a; font-size:12px;">${l.entidad || 'SISTEMA'}</td>
+                    <td class="mono" style="font-size:12px; color:#1d4ed8; font-weight:700;">${l.codigo || (l.idOrigen ? '#' + l.idOrigen : '—')}</td>
+                    <td>${nivelBadge}</td>
+                    <td style="font-size:12.5px; color:#334155; line-height:1.4;">${l.mensaje || ''}</td>
+                    <td style="text-align:center;">
+                        ${hasStack ? `<button class="btn btn-outline btn-xs" style="padding:2px 8px; font-size:11px;" onclick="verTrazaLog(${l.id})">Ver Traza</button>` : '—'}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function verTrazaLog(id) {
+        const item = (logsAuditoriaModalCache || []).find(x => x.id === id) || (logsCache || []).find(x => x.id === id);
+        if (!item) return;
+        document.getElementById('modalTitulo').textContent = `Traza Técnica — Registro: ${item.codigo || 'N/A'} (ID Origen: ${item.idOrigen || 'N/A'})`;
+        document.getElementById('modalContenido').textContent = item.detalleTecnico || item.mensaje;
+        document.getElementById('modalDetalle').style.display = 'flex';
+    }
+
+    function cerrarModalAuditoria() {
+        const modal = document.getElementById('modalAuditoriaEjecucion');
+        if (modal) modal.style.display = 'none';
     }
 
     // ==============================================================

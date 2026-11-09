@@ -935,10 +935,20 @@ namespace IntegradorFlexForce.Services
                                              + (incluirZonas ? ((resumenZonas?.UpdatesDetectados ?? 0) + (resumenZonas?.DeletesBajasDetectados ?? 0)) : 0);
 
                 var idsPendientes = _idsClientesConCambios.ToList();
-                _currentStatus.ProgresoTotal = idsPendientes.Count;
+                var idsZonas = _idsDireccionesZonaConCambios.ToList();
+                var idsQuitados = _idsDireccionesZonaQuitadas.ToList();
+                var idsCreditos = _idsCreditosConCambios.ToList();
+
+                int totalOpsModulo = idsPendientes.Count + (incluirZonas ? (idsZonas.Count + idsQuitados.Count + idsCreditos.Count) : 0);
+                _currentStatus.ProgresoTotal = totalOpsModulo > 0 ? totalOpsModulo : 1;
+                _currentStatus.ProgresoActual = 0;
 
                 int erroresCount = 0;
 
+                // -------------------------------------------------------------
+                // SUB-ETAPA 1: CLIENTES Y PERSONAS / DIRECCIONES
+                // (Skip inteligente inmediato si está al día con 0 diferencias)
+                // -------------------------------------------------------------
                 if (idsPendientes.Count > 0)
                 {
                     _currentStatus.EstadoActual = "APLICANDO_CAMBIOS_CLIENTES";
@@ -974,20 +984,46 @@ namespace IntegradorFlexForce.Services
                         }
                     }
                 }
+                else
+                {
+                    _currentStatus.FaseDetalle = "Clientes y Direcciones al día (0 diferencias). Saltando directamente a Cartera de Zonas y Rutas...";
+                }
 
+                // -------------------------------------------------------------
+                // SUB-ETAPA 2: CARTERA DE ZONAS, RUTAS Y VENDEDORES
+                // (Skip inteligente inmediato si está al día con 0 diferencias)
+                // -------------------------------------------------------------
                 int zonasActualizadas = 0;
                 if (incluirZonas)
                 {
-                    var (zCambios, zErrores) = await ProcesarZonasDiferenciasAsync(loteId, config.TamanoLote, ct);
-                    zonasActualizadas = zCambios;
-                    erroresCount += zErrores;
+                    if (idsZonas.Count > 0 || idsQuitados.Count > 0)
+                    {
+                        _currentStatus.EstadoActual = "APLICANDO_CAMBIOS_ZONAS";
+                        var (zCambios, zErrores) = await ProcesarZonasDiferenciasAsync(loteId, config.TamanoLote, ct);
+                        zonasActualizadas = zCambios;
+                        erroresCount += zErrores;
+                    }
+                    else
+                    {
+                        _currentStatus.FaseDetalle = "Cartera de Zonas y Rutas al día (0 diferencias). Saltando directamente a Líneas de Crédito...";
+                    }
                 }
 
+                // -------------------------------------------------------------
+                // SUB-ETAPA 3: LÍNEAS Y MODALIDADES DE CRÉDITO
+                // (Skip inteligente inmediato si está al día con 0 diferencias)
+                // -------------------------------------------------------------
                 int creditosActualizados = 0;
-                if (incluirZonas && _idsCreditosConCambios.Count > 0)
+                if (incluirZonas)
                 {
-                    var (cCambios, cErrores) = await ProcesarCreditosDiferenciasAsync(loteId, config.TamanoLote, ct);
-                    creditosActualizados = cCambios;
+                    if (idsCreditos.Count > 0)
+                    {
+                        _currentStatus.EstadoActual = "APLICANDO_CAMBIOS_CREDITOS";
+                        var (cCambios, cErrores) = await ProcesarCreditosDiferenciasAsync(loteId, config.TamanoLote, ct);
+                        creditosActualizados = cCambios;
+                        erroresCount += cErrores;
+                    }
+                }
                     erroresCount += cErrores;
                 }
 
