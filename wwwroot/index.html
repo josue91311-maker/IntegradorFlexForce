@@ -874,7 +874,7 @@
                 </div>
                 <div class="hero-stat-pill">
                     <span class="hero-stat-label">Módulos en Producción</span>
-                    <span class="hero-stat-val">1 Activo (Clientes)</span>
+                    <span class="hero-stat-val">2 Activos (Clientes · Productos)</span>
                 </div>
                 <div class="hero-stat-pill">
                     <span class="hero-stat-label">Última Auditoría en Vivo (Hora Perú)</span>
@@ -948,55 +948,55 @@
                 </div>
             </div>
 
-            <!-- MÓDULO 2: PRODUCTOS, PRECIOS Y STOCK (PRÓXIMAMENTE) -->
-            <div class="module-card disabled-module" onclick="alert('El Módulo de Productos se encuentra en fase de planificación y arquitectura de tablas. Próximamente disponible.')">
+            <!-- MÓDULO 2: PRODUCTOS, CATÁLOGO Y PRECIOS (ACTIVO) -->
+            <div class="module-card active-module" onclick="navegarVista('productos')">
                 <div>
                     <div class="module-top">
                         <div class="module-icon-wrap">
                             <div class="module-icon product-icon">📦</div>
                             <div class="module-title-wrap">
                                 <h4>Módulo de Productos, Catálogo y Precios</h4>
-                                <p>Maestros de artículos (pro_Producto), unidades de medida, categorías, familias, listas de precios y stock por almacén.</p>
+                                <p>Maestros de artículos (prd_Producto), marcas, líneas, proveedores, subproveedores, factores de unidad, catálogos y escalas de precios.</p>
                             </div>
                         </div>
-                        <span class="pill pill-neutral">PRÓXIMAMENTE</span>
+                        <span id="hubBadgeEstadoProductos" class="pill pill-ok">EN ESPERA</span>
                     </div>
 
-                    <!-- MÉTRICAS PLACEHOLDER DE PRODUCTOS -->
+                    <!-- MÉTRICAS EN VIVO DE PRODUCTOS -->
                     <div class="module-metrics-grid">
                         <div class="metric-item">
                             <span class="metric-label">Estado Ejecución</span>
-                            <span class="metric-value" style="color:var(--text-muted);">No Iniciado</span>
+                            <span class="metric-value" id="hubProdEstado">EN ESPERA</span>
                         </div>
                         <div class="metric-item">
                             <span class="metric-label">Registros Auditados</span>
-                            <span class="metric-value" style="color:var(--text-muted);">--</span>
+                            <span class="metric-value" id="hubProdRegistros">Consultando...</span>
                         </div>
                         <div class="metric-item">
                             <span class="metric-label">Éxitos / Procesados</span>
-                            <span class="metric-value" style="color:var(--text-muted);">--</span>
+                            <span class="metric-value ok" id="hubProdExitos">0</span>
                         </div>
                         <div class="metric-item">
                             <span class="metric-label">Errores Registrados</span>
-                            <span class="metric-value" style="color:var(--text-muted);">--</span>
+                            <span class="metric-value" id="hubProdErrores">0</span>
                         </div>
                         <div class="metric-item">
-                            <span class="metric-label">Última Ejecución</span>
-                            <span class="metric-value" style="color:var(--text-muted);">Pendiente</span>
+                            <span class="metric-label">Última Ejecución (Hora Perú)</span>
+                            <span class="metric-value time" id="hubProdHoraPeru">--:--:--</span>
                         </div>
                         <div class="metric-item">
-                            <span class="metric-label">Tiempo Ejecutado</span>
-                            <span class="metric-value" style="color:var(--text-muted);">--:--:--</span>
+                            <span class="metric-label">Tiempo Ejecutado (hh:mm:ss)</span>
+                            <span class="metric-value time" id="hubProdDuracionHms">00:00:00</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="module-footer">
                     <div class="module-footer-info">
-                        <span>🔒 En espera de inicio de sprint</span>
+                        <span>● Incluye: Productos · Marcas/Líneas · Factores · Catálogos · Precios</span>
                     </div>
-                    <div class="module-btn-action" style="color:var(--text-muted);">
-                        Bloqueado (Fase 2)
+                    <div class="module-btn-action">
+                        Entrar al Procesamiento →
                     </div>
                 </div>
             </div>
@@ -1278,6 +1278,148 @@
 
     </section>
 
+    <!-- ==============================================================
+         VISTA 3: CONSOLA DETALLADA DE PROCESAMIENTO (MÓDULO PRODUCTOS)
+         ============================================================== -->
+    <section id="vistaProductos" class="view-section">
+
+        <!-- BREADCRUMB Y RETORNO -->
+        <div class="breadcrumb-bar">
+            <div class="breadcrumb-nav">
+                <span class="breadcrumb-item" onclick="navegarVista('hub')">
+                    🏠 Hub de Módulos
+                </span>
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-active">Módulo de Productos, Catálogo, Factores y Precios</span>
+            </div>
+            <div class="action-bar" style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn btn-back btn-sm" onclick="navegarVista('hub')">← Volver al Hub</button>
+                <button id="btnValidarProd" class="btn btn-outline" onclick="validarDiferenciasProductos()">1. Consultar Diferencias</button>
+                <button id="btnSyncProdMaestro" class="btn btn-primary" onclick="ejecutarSincronizacionProductos('PRODUCTOS')">2. Sincronizar Productos</button>
+                <button id="btnSyncProdUnidades" class="btn btn-primary" onclick="ejecutarSincronizacionProductos('UNIDADES_FACTORES')">3. Sincronizar Factores</button>
+                <button id="btnSyncProdCatalogos" class="btn btn-primary" onclick="ejecutarSincronizacionProductos('CATALOGOS_PORTAFOLIO')">4. Sincronizar Catálogos</button>
+                <button id="btnSyncProdPrecios" class="btn btn-primary" onclick="ejecutarSincronizacionProductos('PRECIOS_ESCALAS')">5. Sincronizar Precios</button>
+                <button id="btnSyncProdTodo" class="btn btn-success" onclick="ejecutarSincronizacionProductos('TODOS')">Sincronizar Todo el Módulo</button>
+            </div>
+        </div>
+
+        <!-- BANDA DE ESTADO Y PROGRESO EN VIVO (PRODUCTOS) -->
+        <section class="status-banner">
+            <div class="status-row">
+                <div class="status-text-group">
+                    <span id="badgeEstadoProd" class="pill pill-neutral">EN ESPERA</span>
+                    <span id="lblFaseDetalleProd" class="status-title">Sistema listo. Presione "Consultar Diferencias" para auditar Productos, Factores, Catálogos y Precios.</span>
+                    <span id="lblUltimaEjecucionProd" class="status-meta"></span>
+                </div>
+                <div class="status-text-group">
+                    <span id="lblProgresoTextoProd" class="mono" style="font-weight:700;">0 / 0 (0%)</span>
+                </div>
+            </div>
+            <div class="progress-bar-wrap">
+                <div id="barraProgresoProd" class="progress-bar-fill"></div>
+            </div>
+        </section>
+
+        <!-- 1. MATRIZ DE VALIDACIÓN DE TABLAS DE PRODUCTOS -->
+        <section class="card">
+            <div class="card-header">
+                <div class="card-title-wrap">
+                    <h2>1. Matriz de Validación de Productos, Factores, Catálogos y Precios (ERP Antiguo vs Force)</h2>
+                </div>
+                <span id="lblTiempoAnalisisProd" class="card-subtitle">Pendiente de consulta</span>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sub-Módulo / Entidad</th>
+                            <th>Tablas Destino en BDForceGVD</th>
+                            <th class="num">ERP Antiguo</th>
+                            <th class="num">Force ERP</th>
+                            <th class="num">Nuevos (INSERT)</th>
+                            <th class="num">Modificados (UPDATE)</th>
+                            <th class="num">Bajas / Quitados (DELETE)</th>
+                            <th class="num">Total Diferencias</th>
+                            <th>Diagnóstico</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblResumenTablasProd">
+                        <tr>
+                            <td colspan="9" style="text-align:center; color:var(--text-muted); padding:26px;">
+                                Presione "1. Consultar Diferencias" para comparar Productos, Factores, Catálogos y Precios...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 2. DETALLE DE REGISTROS DE PRODUCTOS CON CAMBIOS DETECTADOS -->
+        <section class="card">
+            <div class="card-header">
+                <div>
+                    <h2>2. Detalle de Productos, Factores, Catálogos o Precios con Diferencias (Pre-Visualización)</h2>
+                    <div class="card-subtitle">Inspeccione qué productos cambiaron de precio, factor de unidad, marca, línea o catálogo antes de sincronizar</div>
+                </div>
+                <div class="toolbar">
+                    <input type="text" id="txtFiltroCambioProd" class="input-control input-search" placeholder="Buscar por código, descripción, marca, lista o catálogo..." oninput="irPaginaCambiosProd(1)">
+                    <select id="selFiltroTablaProd" class="select-control" onchange="irPaginaCambiosProd(1)">
+                        <option value="">Todas las entidades</option>
+                        <option value="PRODUCTOS">1. Productos, Marcas y Líneas</option>
+                        <option value="UNIDADES">2. Presentaciones y Factores</option>
+                        <option value="CATALOGOS">3. Catálogos / Portafolios</option>
+                        <option value="PRECIOS">4. Listas de Precios y Escalas</option>
+                    </select>
+                    <select id="selFiltroOpProd" class="select-control" onchange="irPaginaCambiosProd(1)">
+                        <option value="">Todas las operaciones</option>
+                        <option value="INSERT">INSERT (Nuevos)</option>
+                        <option value="UPDATE">UPDATE (Modificados)</option>
+                        <option value="BAJA">BAJA / DELETE (Retirados)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sub-Módulo</th>
+                            <th>Operación</th>
+                            <th class="mono">ID Origen</th>
+                            <th>Código Producto</th>
+                            <th>Producto / Descripción</th>
+                            <th>Campo Detectado</th>
+                            <th>Valor Actual en Force</th>
+                            <th>Valor Nuevo en ERP Antiguo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblDetalleCambiosProd">
+                        <tr>
+                            <td colspan="8" style="text-align:center; color:var(--text-muted); padding:26px;">
+                                No hay cambios pendientes cargados. Presione "1. Consultar Diferencias".
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination-bar">
+                <div class="pagination-info">
+                    <span id="lblPaginacionCambiosProd">Mostrando 0 de 0 registros</span>
+                    <label style="margin-left:12px; font-size:12px; color:var(--text-muted);">
+                        Por página:
+                        <select id="selPageSizeCambiosProd" class="select-control" style="padding:3px 8px; font-size:12px;" onchange="irPaginaCambiosProd(1)">
+                            <option value="15">15</option>
+                            <option value="30">30</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </label>
+                </div>
+                <div id="pagControlsCambiosProd" class="pagination-controls"></div>
+            </div>
+        </section>
+
+    </section>
+
 </main>
 
 <!-- MODAL PARA VER DETALLE / TRAZA TÉCNICA -->
@@ -1294,25 +1436,37 @@
 <script>
     // Variables de Estado y Cache
     let cambiosDetectadosCache = [];
+    let cambiosProductosCache = [];
     let lotesCache = [];
     let logsCache = [];
 
     let paginaActualCambios = 1;
+    let paginaActualCambiosProd = 1;
     let paginaActualLotes = 1;
     let paginaActualLogs = 1;
 
     let ultimoStatus = null;
+    let yaConsultoProductos = false;
 
-    // Control de Vistas (Hub vs Detalle Módulo Clientes)
+    // Control de Vistas (Hub vs Detalle Módulo Clientes vs Detalle Módulo Productos)
     function navegarVista(vista) {
         document.getElementById('vistaHub').classList.remove('active');
         document.getElementById('vistaClientes').classList.remove('active');
+        document.getElementById('vistaProductos').classList.remove('active');
         const btnVolver = document.getElementById('btnVolverHubTop');
 
         if (vista === 'clientes') {
             document.getElementById('vistaClientes').classList.add('active');
             btnVolver.style.display = 'inline-flex';
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else if (vista === 'productos') {
+            document.getElementById('vistaProductos').classList.add('active');
+            btnVolver.style.display = 'inline-flex';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (!yaConsultoProductos) {
+                yaConsultoProductos = true;
+                validarDiferenciasProductos();
+            }
         } else {
             document.getElementById('vistaHub').classList.add('active');
             btnVolver.style.display = 'none';
@@ -1753,14 +1907,201 @@
         document.getElementById('modalDetalle').style.display = 'none';
     }
 
+    // ==============================================================
+    // FUNCIONES DEL MÓDULO DE PRODUCTOS, CATÁLOGO Y PRECIOS
+    // ==============================================================
+    async function validarDiferenciasProductos() {
+        const btn = document.getElementById('btnValidarProd');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Analizando Productos y Precios...';
+        }
+        document.getElementById('lblTiempoAnalisisProd').textContent = 'Comparando maestros de productos, factores, catálogos y precios...';
+
+        try {
+            const res = await fetch('/api/sync/productos/preview');
+            const data = await res.json();
+
+            const horaAuditPeru = formatearSoloHoraPeru(data.fechaAnalisis);
+            const tiempoHms = segundosAHms(data.tiempoEscaneoSegundos);
+
+            document.getElementById('lblTiempoAnalisisProd').textContent =
+                `Última consulta: ${horaAuditPeru} (Escaneo en ${data.tiempoEscaneoSegundos} s / ${tiempoHms})`;
+
+            const resumen = data.resumenPorTabla || [];
+            const totalAuditados = resumen.reduce((acc, r) => acc + (r.totalOrigen || 0), 0);
+            const totalDestino = resumen.reduce((acc, r) => acc + (r.totalDestino || 0), 0);
+
+            document.getElementById('hubProdRegistros').textContent = totalAuditados.toLocaleString();
+            document.getElementById('hubProdExitos').textContent = totalDestino.toLocaleString();
+
+            const tbodyResumen = document.getElementById('tblResumenTablasProd');
+            tbodyResumen.innerHTML = resumen.map(r => {
+                const totalDiff = (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0);
+                const pillClass = totalDiff === 0 ? 'pill-ok' : 'pill-warn';
+                return `<tr>
+                    <td><strong style="color:var(--text-main); font-weight:700;">${r.nombreTabla}</strong></td>
+                    <td class="mono">${r.tablasForce}</td>
+                    <td class="num">${(r.totalOrigen || 0).toLocaleString()}</td>
+                    <td class="num">${(r.totalDestino || 0).toLocaleString()}</td>
+                    <td class="num ${r.insertsDetectados > 0 ? 'val-ins' : ''}">${(r.insertsDetectados || 0).toLocaleString()}</td>
+                    <td class="num ${r.updatesDetectados > 0 ? 'val-upd' : ''}">${(r.updatesDetectados || 0).toLocaleString()}</td>
+                    <td class="num ${r.deletesBajasDetectados > 0 ? 'val-del' : ''}">${(r.deletesBajasDetectados || 0).toLocaleString()}</td>
+                    <td class="num" style="color:var(--text-main); font-weight:700;">${totalDiff.toLocaleString()}</td>
+                    <td><span class="pill ${pillClass}">${r.observacion}</span></td>
+                </tr>`;
+            }).join('');
+
+            cambiosProductosCache = data.detalleCambios || [];
+            irPaginaCambiosProd(1);
+            cargarEstadoProductos();
+        } catch (e) {
+            console.error('Error al validar diferencias de productos:', e);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '1. Consultar Diferencias';
+            }
+        }
+    }
+
+    function obtenerCambiosProductosFiltrados() {
+        const texto = (document.getElementById('txtFiltroCambioProd').value || '').toLowerCase();
+        const tabla = document.getElementById('selFiltroTablaProd').value;
+        const op = document.getElementById('selFiltroOpProd').value;
+
+        return cambiosProductosCache.filter(c => {
+            if (tabla && !c.tabla.toUpperCase().includes(tabla)) return false;
+            if (op && !c.tipoOperacion.toUpperCase().includes(op)) return false;
+            if (texto) {
+                const match = (c.codigoCliente && c.codigoCliente.toLowerCase().includes(texto)) ||
+                              (c.nombreCliente && c.nombreCliente.toLowerCase().includes(texto)) ||
+                              (c.campoModificado && c.campoModificado.toLowerCase().includes(texto)) ||
+                              (c.valorActualForce && c.valorActualForce.toLowerCase().includes(texto)) ||
+                              (c.valorNuevoERP && c.valorNuevoERP.toLowerCase().includes(texto)) ||
+                              (c.idOrigen && c.idOrigen.toString().includes(texto));
+                if (!match) return false;
+            }
+            return true;
+        });
+    }
+
+    function irPaginaCambiosProd(pagina) {
+        paginaActualCambiosProd = pagina;
+        renderizarDetalleCambiosProd();
+    }
+
+    function renderizarDetalleCambiosProd() {
+        const filtrados = obtenerCambiosProductosFiltrados();
+        const pageSize = parseInt(document.getElementById('selPageSizeCambiosProd').value) || 15;
+        const totalRegistros = filtrados.length;
+        const totalPaginas = Math.max(1, Math.ceil(totalRegistros / pageSize));
+
+        if (paginaActualCambiosProd > totalPaginas) paginaActualCambiosProd = totalPaginas;
+        if (paginaActualCambiosProd < 1) paginaActualCambiosProd = 1;
+
+        const inicioIdx = (paginaActualCambiosProd - 1) * pageSize;
+        const finIdx = Math.min(inicioIdx + pageSize, totalRegistros);
+        const paginaItems = filtrados.slice(inicioIdx, finIdx);
+
+        const lblInfo = document.getElementById('lblPaginacionCambiosProd');
+        lblInfo.textContent = totalRegistros === 0
+            ? 'Mostrando 0 de 0 registros'
+            : `Mostrando ${inicioIdx + 1}–${finIdx} de ${totalRegistros.toLocaleString()} registros con diferencias`;
+
+        construirBotonesPaginacion('pagControlsCambiosProd', paginaActualCambiosProd, totalPaginas, 'irPaginaCambiosProd');
+
+        const tbody = document.getElementById('tblDetalleCambiosProd');
+        if (!paginaItems.length) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:26px;">No se encontraron registros pendientes con los filtros seleccionados.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = paginaItems.map(c => {
+            let pillOp = 'pill-info';
+            if (c.tipoOperacion.includes('INSERT')) pillOp = 'pill-ok';
+            else if (c.tipoOperacion.includes('UPDATE')) pillOp = 'pill-warn';
+            else if (c.tipoOperacion.includes('BAJA') || c.tipoOperacion.includes('DELETE')) pillOp = 'pill-err';
+
+            return `<tr>
+                <td><strong style="color:var(--text-main); font-weight:700;">${c.tabla}</strong></td>
+                <td><span class="pill ${pillOp}">${c.tipoOperacion}</span></td>
+                <td class="mono">${c.idOrigen}</td>
+                <td><strong style="color:var(--brand-primary);">${c.codigoCliente}</strong></td>
+                <td>${c.nombreCliente}</td>
+                <td>${c.campoModificado}</td>
+                <td style="color:var(--text-muted);">${c.valorActualForce}</td>
+                <td style="color:var(--text-main); font-weight:600;">${c.valorNuevoERP}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    async function ejecutarSincronizacionProductos(subModulo) {
+        try {
+            const res = await fetch(`/api/sync/productos/trigger?subModulo=${encodeURIComponent(subModulo)}`, { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.message || 'No se pudo iniciar la sincronización de productos.');
+                return;
+            }
+            cargarEstadoProductos();
+        } catch (e) {
+            alert('Error al iniciar sincronización de productos: ' + e.message);
+        }
+    }
+
+    async function cargarEstadoProductos() {
+        try {
+            const res = await fetch('/api/sync/productos/status');
+            const s = await res.json();
+
+            const fechaPeruStr = s.ultimaEjecucion ? formatearHoraPeru(s.ultimaEjecucion) : 'Sin ejecución previa';
+            const duracionHms = segundosAHms(s.ultimaDuracionSegundos);
+
+            document.getElementById('lblFaseDetalleProd').textContent = s.faseDetalle || s.estadoActual;
+            if (s.ultimaEjecucion) {
+                document.getElementById('lblUltimaEjecucionProd').textContent =
+                    `Última sincronización: ${fechaPeruStr} | Duración: ${duracionHms}`;
+            }
+
+            const pct = s.porcentaje || 0;
+            document.getElementById('barraProgresoProd').style.width = (s.isRunning ? Math.max(pct, 4) : (s.estadoActual === 'COMPLETADO' ? 100 : 0)) + '%';
+            document.getElementById('lblProgresoTextoProd').textContent = `${(s.progresoActual || 0).toLocaleString()} / ${(s.progresoTotal || 0).toLocaleString()} (${pct}%)`;
+
+            const badge = document.getElementById('badgeEstadoProd');
+            badge.textContent = s.estadoActual;
+            badge.className = 'pill ' + (s.isRunning ? 'pill-info' : (s.estadoActual === 'COMPLETADO' ? 'pill-ok' : 'pill-neutral'));
+
+            document.getElementById('btnSyncProdMaestro').disabled = s.isRunning;
+            document.getElementById('btnSyncProdUnidades').disabled = s.isRunning;
+            document.getElementById('btnSyncProdCatalogos').disabled = s.isRunning;
+            document.getElementById('btnSyncProdPrecios').disabled = s.isRunning;
+            document.getElementById('btnSyncProdTodo').disabled = s.isRunning;
+
+            // Actualizar tarjeta del Módulo Productos en el Hub Principal
+            document.getElementById('hubBadgeEstadoProductos').textContent = s.estadoActual;
+            document.getElementById('hubBadgeEstadoProductos').className = badge.className;
+            document.getElementById('hubProdEstado').textContent = s.estadoActual;
+            if (s.ultimoLoteProcesados > 0) {
+                document.getElementById('hubProdExitos').textContent = s.ultimoLoteProcesados.toLocaleString();
+            }
+            document.getElementById('hubProdErrores').textContent = s.ultimoLoteErrores || 0;
+            document.getElementById('hubProdHoraPeru').textContent = s.ultimaEjecucion ? formatearSoloHoraPeru(s.ultimaEjecucion) : '--:--:--';
+            document.getElementById('hubProdDuracionHms').textContent = duracionHms;
+        } catch (e) {
+            console.error('Error cargando estado de productos:', e);
+        }
+    }
+
     // Inicialización al abrir el portal
     cargarConfiguracion();
     cargarEstado();
+    cargarEstadoProductos();
     cargarLotes();
     cargarLogs();
     validarDiferencias();
 
-    setInterval(cargarEstado, 2000);
+    setInterval(() => { cargarEstado(); cargarEstadoProductos(); }, 2000);
     setInterval(() => { cargarLotes(); cargarLogs(); }, 6000);
 </script>
 </body>

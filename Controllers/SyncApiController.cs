@@ -11,10 +11,12 @@ namespace IntegradorFlexForce.Controllers
     public class SyncApiController : ControllerBase
     {
         private readonly SyncEngine _syncEngine;
+        private readonly SyncProductosEngine _syncProductosEngine;
 
-        public SyncApiController(SyncEngine syncEngine)
+        public SyncApiController(SyncEngine syncEngine, SyncProductosEngine syncProductosEngine)
         {
             _syncEngine = syncEngine;
+            _syncProductosEngine = syncProductosEngine;
         }
 
         [HttpGet("status")]
@@ -109,6 +111,36 @@ namespace IntegradorFlexForce.Controllers
         {
             var batches = await _syncEngine.ObtenerUltimasTransaccionesAsync(top, ct);
             return Ok(batches);
+        }
+
+        // =========================================================================
+        // ENDPOINTS DEL MÓDULO DE PRODUCTOS, CATÁLOGO Y PRECIOS
+        // =========================================================================
+
+        [HttpGet("productos/status")]
+        public IActionResult GetProductosStatus()
+        {
+            return Ok(_syncProductosEngine.GetCurrentStatus());
+        }
+
+        [HttpGet("productos/preview")]
+        public async Task<IActionResult> PreviewCambiosProductos(CancellationToken ct)
+        {
+            var preview = await _syncProductosEngine.AnalizarCambiosPendientesAsync(ct);
+            return Ok(preview);
+        }
+
+        [HttpPost("productos/trigger")]
+        public IActionResult TriggerProductos([FromQuery] string subModulo = "TODOS")
+        {
+            var current = _syncProductosEngine.GetCurrentStatus();
+            if (current.IsRunning)
+            {
+                return Conflict(new { message = "Ya hay una sincronización de Productos en ejecución." });
+            }
+
+            _ = Task.Run(() => _syncProductosEngine.EjecutarSincronizacionProductosAsync(subModulo.ToUpperInvariant(), "PORTAL_WEB", CancellationToken.None));
+            return Accepted(new { message = $"Sincronización de Productos ({subModulo}) iniciada." });
         }
     }
 }
