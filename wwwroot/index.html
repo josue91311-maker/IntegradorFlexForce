@@ -905,6 +905,12 @@
             align-items: center;
             padding: 24px;
         }
+        #modalAuditoriaEjecucion {
+            z-index: 10000 !important;
+        }
+        #modalDetalle {
+            z-index: 12000 !important;
+        }
         .modal-card {
             background: #ffffff;
             border-radius: var(--radius-xl);
@@ -2228,14 +2234,38 @@
 
 </main>
 
-<!-- MODAL PARA VER DETALLE / TRAZA TÉCNICA -->
-<div id="modalDetalle" class="modal-overlay" onclick="cerrarModal()">
-    <div class="modal-card" onclick="event.stopPropagation()">
-        <div class="card-header-clean">
-            <h2 id="modalTitulo">Traza Técnica del Registro</h2>
-            <button class="btn btn-outline btn-sm" onclick="cerrarModal()">Cerrar ✕</button>
+<!-- ==============================================================
+     MODAL SUPERIOR: TRAZA TÉCNICA / DETALLE DE ERROR SQL (Z-INDEX 12000)
+     ============================================================== -->
+<div id="modalDetalle" class="modal-overlay" onclick="cerrarModal()" style="z-index: 12000 !important; background: rgba(11, 23, 42, 0.75);">
+    <div class="modal-card" style="max-width: 980px; width: 92vw; max-height: 85vh; z-index: 12001; box-shadow: 0 35px 70px -15px rgba(0, 0, 0, 0.6); border: 1px solid #cbd5e1; border-radius: 16px; overflow: hidden;" onclick="event.stopPropagation()">
+        <!-- CABECERA DEL POPUP DE TRAZA -->
+        <div style="padding: 16px 22px; border-bottom: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:38px; height:38px; border-radius:10px; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(220,38,38,0.2);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </div>
+                <div>
+                    <h2 id="modalTitulo" style="font-size:16px; font-weight:800; color:#0f172a; margin:0;">Traza Técnica del Registro</h2>
+                    <div style="font-size:12px; color:#64748b; margin-top:2px;">Detalle del error SQL y pila de ejecución reportada por BDForceGVD</div>
+                </div>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-outline btn-sm" onclick="copiarTrazaAlPortapapeles()" style="font-size:12px; font-weight:600;">📋 Copiar Traza</button>
+                <button class="btn btn-outline btn-sm" onclick="cerrarModal()" style="font-weight:700; border-radius:20px;">Cerrar ✕</button>
+            </div>
         </div>
-        <pre id="modalContenido" class="modal-code"></pre>
+
+        <!-- CUERPO DE LA TRAZA CON FORMATO CODE/TERMINAL -->
+        <div style="padding: 18px 22px; overflow-y: auto; flex: 1; background: #0f172a;">
+            <pre id="modalContenido" style="margin: 0; padding: 0; background: transparent; font-size: 12.5px; line-height: 1.6; color: #f8fafc; font-family: 'JetBrains Mono', Consolas, monospace; white-space: pre-wrap; word-break: break-word;"></pre>
+        </div>
+
+        <!-- PIE DEL POPUP -->
+        <div style="padding: 12px 22px; border-top: 1px solid #e2e8f0; background: #f8fafc; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:12px; color:#64748b; font-weight:500;">Presione Esc o haga clic fuera para volver al centro de auditoría</span>
+            <button class="btn btn-primary btn-sm" onclick="cerrarModal()" style="font-weight:700;">Volver a la Auditoría</button>
+        </div>
     </div>
 </div>
 
@@ -3143,6 +3173,15 @@
 
     function cerrarModal() {
         document.getElementById('modalDetalle').style.display = 'none';
+    }
+
+    function copiarTrazaAlPortapapeles() {
+        const texto = document.getElementById('modalContenido')?.textContent || '';
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(texto).then(() => {
+                alert('Traza técnica copiada al portapapeles exitosamente.');
+            }).catch(() => {});
+        }
     }
 
     // ==============================================================
