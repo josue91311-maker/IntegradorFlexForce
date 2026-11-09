@@ -1225,6 +1225,46 @@
             z-index: 100;
             padding: 6px 0;
         }
+
+        /* ==============================================================
+           ESTILOS DEL MODAL DE AUDITORÍA Y TRAZABILIDAD
+           ============================================================== */
+        .batch-item-row {
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .batch-item-row:hover {
+            background: #f8fafc !important;
+        }
+        .batch-item-row.active-batch {
+            background: #eff6ff !important;
+            border-left: 4px solid #1877f2 !important;
+            font-weight: 600;
+        }
+        .badge-tipo-manual {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .badge-tipo-auto {
+            background: #f5f3ff;
+            color: #6d28d9;
+            border: 1px solid #ddd6fe;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .table-sticky-header thead th {
+            position: sticky;
+            top: 0;
+            background: #f8fafc;
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
@@ -2200,85 +2240,197 @@
 </div>
 
 <!-- ==============================================================
-     MODAL POP-UP: AUDITORÍA DETALLADA DE EJECUCIÓN Y ERRORES
+     MODAL POP-UP EXPANDIDO: AUDITORÍA DETALLADA, HISTORIAL Y ERRORES POR CARGA
      ============================================================== -->
 <div id="modalAuditoriaEjecucion" class="modal-overlay" onclick="cerrarModalAuditoria()">
-    <div class="modal-card" style="max-width:1050px; width:95%; max-height:90vh;" onclick="event.stopPropagation()">
-        <!-- CABECERA DEL MODAL -->
-        <div style="padding:18px 24px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
-            <div style="display:flex; align-items:center; gap:12px;">
-                <div style="width:40px; height:40px; border-radius:10px; background:#eff6ff; display:flex; align-items:center; justify-content:center; color:#2563eb;">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    <div class="modal-card" style="max-width:1420px; width:96vw; height:93vh; max-height:93vh; display:flex; flex-direction:column; border-radius:18px; box-shadow:0 30px 60px -12px rgba(15,23,42,0.45); overflow:hidden;" onclick="event.stopPropagation()">
+        <!-- CABECERA PRINCIPAL DEL MODAL -->
+        <div style="padding:16px 26px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc; flex-shrink:0;">
+            <div style="display:flex; align-items:center; gap:14px;">
+                <div style="width:44px; height:44px; border-radius:12px; background:#eff6ff; display:flex; align-items:center; justify-content:center; color:#2563eb; box-shadow:0 3px 10px rgba(37,99,235,0.2);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                 </div>
                 <div>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <h2 style="font-size:17px; font-weight:800; color:#0f172a; margin:0;" id="auditModalTitulo">Auditoría Detallada de Ejecución</h2>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <h2 style="font-size:18px; font-weight:800; color:#0f172a; margin:0;" id="auditModalTitulo">Centro de Auditoría y Trazabilidad de Cargas</h2>
                         <span id="auditModalBadgeEstado" class="status-pill completed">COMPLETADO</span>
                     </div>
-                    <div style="font-size:12.5px; color:#64748b; font-weight:500; margin-top:2px;" id="auditModalSubtitulo">
-                        Lote #-- | Tipo: MANUAL | Fecha: --/--/---- --:--:-- | Duración: --
+                    <div style="font-size:12.5px; color:#64748b; font-weight:500; margin-top:3px;" id="auditModalSubtitulo">
+                        Historial completo de ejecuciones (Manuales y Automáticas) con desglose, métricas y detalle de errores por carga.
                     </div>
                 </div>
             </div>
-            <button class="btn btn-outline btn-sm" onclick="cerrarModalAuditoria()" style="border-radius:20px; font-weight:700;">Cerrar ✕</button>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <button class="btn btn-outline btn-sm" onclick="recargarAuditoriaModal()" title="Refrescar ejecuciones y logs" style="border-radius:20px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    Actualizar
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="cerrarModalAuditoria()" style="border-radius:20px; font-weight:700;">Cerrar ✕</button>
+            </div>
         </div>
 
-        <!-- CUERPO DEL MODAL (SCROLLABLE) -->
-        <div style="padding:22px 24px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:20px;">
+        <!-- CUERPO PRINCIPAL DEL MODAL (SCROLLABLE) -->
+        <div style="padding:20px 26px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:22px;">
             
-            <!-- TARJETAS DE RESUMEN KPI DEL LOTE -->
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px;">
-                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px 16px;">
-                    <div style="font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase;">Total Escaneados</div>
-                    <div style="font-size:22px; font-weight:800; color:#0f172a; margin-top:4px;" id="auditKpiEscaneados">0</div>
+            <!-- ==============================================================
+                 SECCIÓN 1: HISTORIAL DE EJECUCIONES (MANUALES Y AUTOMÁTICAS)
+                 ============================================================== -->
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,0.03); overflow:hidden;">
+                <div style="padding:14px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <span style="font-weight:800; font-size:14px; color:#0f172a;">Historial de Ejecuciones Registradas</span>
+                        <span id="auditTotalBatchesBadge" style="font-size:12px; background:#e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:12px;">0 cargas</span>
+                    </div>
+
+                    <!-- FILTROS DE EJECUCIÓN (TIPO Y MÓDULO) -->
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <div style="display:flex; gap:4px; background:#f1f5f9; padding:3px; border-radius:10px;">
+                            <button class="btn-pill-filter active" id="btnFiltroBatchTodos" onclick="filtrarBatchesModal('TODOS')">Todas</button>
+                            <button class="btn-pill-filter" id="btnFiltroBatchAuto" onclick="filtrarBatchesModal('AUTOMATICO')">⚡ Automáticas</button>
+                            <button class="btn-pill-filter" id="btnFiltroBatchManual" onclick="filtrarBatchesModal('MANUAL')">👤 Manuales</button>
+                            <button class="btn-pill-filter" id="btnFiltroBatchErrores" onclick="filtrarBatchesModal('CON_ERRORES')">⚠ Con Errores</button>
+                        </div>
+                        <div style="display:flex; gap:4px; background:#f1f5f9; padding:3px; border-radius:10px;">
+                            <button class="btn-pill-filter active" id="btnFiltroBatchModTodos" onclick="filtrarBatchesPorModuloModal('TODOS')">Todos los Módulos</button>
+                            <button class="btn-pill-filter" id="btnFiltroBatchModCli" onclick="filtrarBatchesPorModuloModal('CLIENTES')">Clientes</button>
+                            <button class="btn-pill-filter" id="btnFiltroBatchModProd" onclick="filtrarBatchesPorModuloModal('PRODUCTOS')">Productos</button>
+                        </div>
+                    </div>
                 </div>
-                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:14px 16px;">
-                    <div style="font-size:12px; font-weight:700; color:#15803d; text-transform:uppercase;">Nuevos (INSERT)</div>
-                    <div style="font-size:22px; font-weight:800; color:#16a34a; margin-top:4px;" id="auditKpiNuevos">0</div>
-                </div>
-                <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:14px 16px;">
-                    <div style="font-size:12px; font-weight:700; color:#1d4ed8; text-transform:uppercase;">Modificados (UPDATE)</div>
-                    <div style="font-size:22px; font-weight:800; color:#2563eb; margin-top:4px;" id="auditKpiModificados">0</div>
-                </div>
-                <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:14px 16px;">
-                    <div style="font-size:12px; font-weight:700; color:#b91c1c; text-transform:uppercase;">Errores Detectados</div>
-                    <div style="font-size:22px; font-weight:800; color:#dc2626; margin-top:4px;" id="auditKpiErrores">0</div>
+
+                <!-- TABLA DE EJECUCIONES CON SCROLL -->
+                <div style="max-height:220px; overflow-y:auto;">
+                    <table class="table-custom table-sticky-header" style="margin:0; font-size:13px;">
+                        <thead>
+                            <tr>
+                                <th style="width:75px;">Lote #</th>
+                                <th style="width:110px;">Tipo</th>
+                                <th style="width:140px;">Módulo</th>
+                                <th>Fecha y Hora Ejecución (PET)</th>
+                                <th style="width:95px;">Duración</th>
+                                <th style="width:145px; text-align:center;">Registros (Ins / Upd)</th>
+                                <th style="width:95px; text-align:center;">Errores</th>
+                                <th style="width:130px; text-align:center;">Resultado / Éxito</th>
+                                <th style="width:125px; text-align:center;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditModalBatchesTableBody">
+                            <tr>
+                                <td colspan="9" style="text-align:center; padding:24px; color:#94a3b8;">
+                                    Consultando historial de ejecuciones...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
-            <!-- DESGLOSE DETALLADO POR SUB-MÓDULO -->
-            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;">
-                <div style="padding:12px 18px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-weight:800; font-size:13.5px; color:#1e293b; display:flex; justify-content:space-between; align-items:center;">
-                    <span>Desglose por Sub-Etapa de la Ejecución</span>
-                    <span style="font-size:12px; color:#64748b; font-weight:600;">Salto automático si está al día</span>
+            <!-- ==============================================================
+                 SECCIÓN 2: DETALLE INTEGRAL DE LA CARGA SELECCIONADA
+                 ============================================================== -->
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,0.03); overflow:hidden;">
+                <!-- CABECERA DE LA CARGA SELECCIONADA -->
+                <div style="padding:14px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:15px; font-weight:800; color:#0f172a;" id="auditDetalleLoteTitulo">Detalle de Ejecución: Lote #--</span>
+                            <span id="auditDetalleLoteBadge" class="status-pill completed">COMPLETADO</span>
+                        </div>
+                        <div style="font-size:12.5px; color:#64748b; font-weight:500; margin-top:2px;" id="auditDetalleLoteInfo">
+                            Seleccione una ejecución de la tabla superior para ver su desglose completo y errores.
+                        </div>
+                    </div>
+                    <div id="auditDetalleLoteTipoBadge">
+                        <!-- Badge tipo manual / automático -->
+                    </div>
                 </div>
-                <div id="auditDesgloseSubmodulos" style="display:flex; flex-direction:column;">
-                    <!-- Se llena dinámicamente con JS -->
+
+                <div style="padding:18px 20px; display:flex; flex-direction:column; gap:18px;">
+                    <!-- 4 TARJETAS KPI DE LA CARGA SELECCIONADA -->
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px;">
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px 18px;">
+                            <div style="font-size:11.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em;">Total Escaneados</div>
+                            <div style="font-size:24px; font-weight:800; color:#0f172a; margin-top:4px;" id="auditKpiEscaneados">0</div>
+                            <div style="font-size:11.5px; color:#64748b; margin-top:2px;">Registros revisados en base origen</div>
+                        </div>
+                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:14px 18px;">
+                            <div style="font-size:11.5px; font-weight:700; color:#15803d; text-transform:uppercase; letter-spacing:0.04em;">Nuevos (INSERT)</div>
+                            <div style="font-size:24px; font-weight:800; color:#16a34a; margin-top:4px;" id="auditKpiNuevos">0</div>
+                            <div style="font-size:11.5px; color:#16a34a; margin-top:2px;">Nuevos registros insertados en Force</div>
+                        </div>
+                        <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:14px 18px;">
+                            <div style="font-size:11.5px; font-weight:700; color:#1d4ed8; text-transform:uppercase; letter-spacing:0.04em;">Modificados (UPDATE)</div>
+                            <div style="font-size:24px; font-weight:800; color:#2563eb; margin-top:4px;" id="auditKpiModificados">0</div>
+                            <div style="font-size:11.5px; color:#2563eb; margin-top:2px;">Registros actualizados con cambios</div>
+                        </div>
+                        <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:14px 18px;">
+                            <div style="font-size:11.5px; font-weight:700; color:#b91c1c; text-transform:uppercase; letter-spacing:0.04em;">Errores Detectados</div>
+                            <div style="font-size:24px; font-weight:800; color:#dc2626; margin-top:4px;" id="auditKpiErrores">0</div>
+                            <div style="font-size:11.5px; color:#dc2626; margin-top:2px;" id="auditKpiErroresSub">0 incidencias en esta carga</div>
+                        </div>
+                    </div>
+
+                    <!-- DESGLOSE POR SUB-ETAPA (CLIENTES, DIRECCIONES, ZONAS, CRÉDITOS) -->
+                    <div style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;">
+                        <div style="padding:10px 16px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-weight:800; font-size:13px; color:#1e293b; display:flex; justify-content:space-between; align-items:center;">
+                            <span>Desglose por Sub-Etapa de la Ejecución</span>
+                            <span style="font-size:12px; color:#64748b; font-weight:600;">Salto automático inteligente si no hay diferencias</span>
+                        </div>
+                        <div id="auditDesgloseSubmodulos" style="display:flex; flex-direction:column;">
+                            <!-- Se llena dinámicamente con JS -->
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- TABLA DE LOGS, EVENTOS Y ERRORES ESPECÍFICOS DEL LOTE -->
-            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;">
-                <div style="padding:12px 18px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                    <div style="font-weight:800; font-size:13.5px; color:#1e293b;">
-                        Eventos de Auditoría y Trazas de Error del Lote
+            <!-- ==============================================================
+                 SECCIÓN 3: EVENTOS DE AUDITORÍA Y TRAZAS DE ERROR DE LA CARGA
+                 ============================================================== -->
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,0.03); overflow:hidden;">
+                <div style="padding:14px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <div style="font-weight:800; font-size:14px; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            Trazas de Auditoría y Detalle de Errores por Carga
+                        </div>
+                        <div style="font-size:12px; color:#64748b; margin-top:2px;" id="auditLogsHeaderInfo">
+                            Mostrando eventos registrados en la base de datos para el lote seleccionado.
+                        </div>
                     </div>
-                    <div style="display:flex; gap:6px;">
-                        <button class="btn-pill-filter active" id="btnFiltroAuditTodos" onclick="filtrarLogsAuditoriaModal('TODOS')">Todos</button>
-                        <button class="btn-pill-filter" id="btnFiltroAuditErrores" onclick="filtrarLogsAuditoriaModal('ERROR')">Solo Errores</button>
-                        <button class="btn-pill-filter" id="btnFiltroAuditInfo" onclick="filtrarLogsAuditoriaModal('INFO')">Información</button>
+
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <!-- BUSCADOR EN TIEMPO REAL -->
+                        <div style="position:relative; width:260px;">
+                            <input type="text" id="txtBuscarAuditLogs" placeholder="Buscar cliente, error, SQL..." oninput="buscarEnLogsAuditoriaModal(this.value)"
+                                style="width:100%; padding:6px 12px 6px 32px; border-radius:8px; border:1px solid #cbd5e1; font-size:12.5px; outline:none;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" style="position:absolute; left:10px; top:10px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </div>
+
+                        <!-- FILTROS DE NIVEL -->
+                        <div style="display:flex; gap:4px; background:#f1f5f9; padding:3px; border-radius:10px;">
+                            <button class="btn-pill-filter active" id="btnFiltroAuditTodos" onclick="filtrarLogsAuditoriaModal('TODOS')">Todos</button>
+                            <button class="btn-pill-filter" id="btnFiltroAuditErrores" onclick="filtrarLogsAuditoriaModal('ERROR')">Solo Errores</button>
+                            <button class="btn-pill-filter" id="btnFiltroAuditInfo" onclick="filtrarLogsAuditoriaModal('INFO')">Información</button>
+                        </div>
                     </div>
                 </div>
-                <div style="max-height:260px; overflow-y:auto;">
-                    <table class="table-custom" style="margin:0;">
+
+                <!-- BANNER DINÁMICO DE ESTADO DE ERRORES -->
+                <div id="auditBannerEstadoErrores" style="display:none; padding:12px 20px; font-size:13px; font-weight:600;">
+                    <!-- Mensaje dinámico de éxito o alerta de errores -->
+                </div>
+
+                <div style="max-height:300px; overflow-y:auto;">
+                    <table class="table-custom table-sticky-header" style="margin:0; font-size:12.5px;">
                         <thead>
                             <tr>
                                 <th style="width:110px;">Hora (PET)</th>
-                                <th style="width:140px;">Sub-Módulo</th>
+                                <th style="width:130px;">Sub-Módulo</th>
                                 <th style="width:110px;">Código / ID</th>
-                                <th style="width:90px;">Nivel</th>
-                                <th>Mensaje / Causa</th>
-                                <th style="width:80px; text-align:center;">Acción</th>
+                                <th style="width:85px;">Nivel</th>
+                                <th>Mensaje / Causa del Error</th>
+                                <th style="width:90px; text-align:center;">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="auditModalTablaLogsBody">
@@ -2295,11 +2447,12 @@
         </div>
 
         <!-- PIE DEL MODAL -->
-        <div style="padding:14px 24px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:space-between; align-items:center;">
-            <div style="font-size:12px; color:#64748b; font-weight:600;">
-                IntegradorFlexForce · Trazabilidad 100% transaccional en BDForceGVD
+        <div style="padding:14px 26px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+            <div style="font-size:12px; color:#64748b; font-weight:600; display:flex; align-items:center; gap:8px;">
+                <span style="width:8px; height:8px; border-radius:50%; background:#10b981; display:inline-block;"></span>
+                IntegradorFlexForce · Trazabilidad 100% transaccional en BDForceGVD · Origen digalimenta41
             </div>
-            <button class="btn btn-outline btn-sm" onclick="cerrarModalAuditoria()">Entendido / Cerrar</button>
+            <button class="btn btn-outline btn-sm" onclick="cerrarModalAuditoria()" style="border-radius:20px; font-weight:700;">Entendido / Cerrar</button>
         </div>
     </div>
 </div>
@@ -2993,71 +3146,260 @@
     }
 
     // ==============================================================
-    // MODAL AUDITORÍA DETALLADA DE EJECUCIÓN Y ERRORES (POP-UP)
+    // MODAL POP-UP EXPANDIDO: AUDITORÍA DETALLADA, HISTORIAL Y ERRORES POR CARGA
     // ==============================================================
+    let batchesAuditoriaModalCache = [];
+    let batchSeleccionadoModal = null;
     let logsAuditoriaModalCache = [];
+    let filtroTipoBatchModal = 'TODOS';
+    let filtroModuloBatchModal = 'TODOS';
+    let filtroNivelLogsModal = 'TODOS';
+    let textoBusquedaLogsModal = '';
+    let moduloAuditoriaActivo = 'clientes';
 
     async function abrirModalAuditoriaUltimaEjecucion(modulo = 'clientes') {
         const modal = document.getElementById('modalAuditoriaEjecucion');
         if (!modal) return;
         modal.style.display = 'flex';
+        moduloAuditoriaActivo = modulo;
 
         document.getElementById('auditModalTitulo').textContent = modulo === 'clientes' 
-            ? 'Auditoría Detallada – Módulo Integral de Clientes, Rutas y Créditos'
-            : 'Auditoría Detallada – Módulo de Productos, Catálogo y Precios';
-        
+            ? 'Centro de Auditoría y Trazabilidad – Módulo Integral de Clientes'
+            : 'Centro de Auditoría y Trazabilidad – Módulo de Productos y Precios';
+
         document.getElementById('auditModalBadgeEstado').textContent = 'CONSULTANDO...';
         document.getElementById('auditModalBadgeEstado').className = 'status-pill running';
-        document.getElementById('auditModalSubtitulo').textContent = 'Consultando últimas transacciones de auditoría en BDForceGVD...';
+        document.getElementById('auditModalSubtitulo').textContent = 'Consultando historial de ejecuciones y trazas en BDForceGVD...';
 
+        await recargarAuditoriaModal();
+    }
+
+    async function recargarAuditoriaModal() {
         try {
-            // 1. Obtener lotes recientes
-            const resBatches = await fetch('/api/sync/batches?top=15');
-            const batches = await resBatches.json();
+            // 1. Obtener historial amplio de ejecuciones (Top 50)
+            const resBatches = await fetch('/api/sync/batches?top=50');
+            batchesAuditoriaModalCache = await resBatches.json() || [];
 
-            let loteSel = null;
-            if (batches && batches.length > 0) {
-                if (modulo === 'clientes') {
-                    loteSel = batches.find(b => (b.entidad || '').includes('CLIENTE') || (b.entidad || '').includes('CARTERA') || (b.entidad || '').includes('ZONAS')) || batches[0];
+            // Actualizar badge de conteo total
+            const badgeCount = document.getElementById('auditTotalBatchesBadge');
+            if (badgeCount) badgeCount.textContent = `${batchesAuditoriaModalCache.length} cargas registradas`;
+
+            // Renderizar la tabla de ejecuciones (manuales y automáticas)
+            renderizarTablaBatchesModal();
+
+            // 2. Seleccionar por defecto la ejecución más relevante del módulo
+            let loteInicial = null;
+            if (batchesAuditoriaModalCache.length > 0) {
+                if (moduloAuditoriaActivo === 'clientes') {
+                    loteInicial = batchesAuditoriaModalCache.find(b => (b.entidad || '').includes('CLIENTE') || (b.entidad || '').includes('CARTERA') || (b.entidad || '').includes('ZONAS')) || batchesAuditoriaModalCache[0];
+                } else if (moduloAuditoriaActivo === 'productos') {
+                    loteInicial = batchesAuditoriaModalCache.find(b => (b.entidad || '').includes('PROD')) || batchesAuditoriaModalCache[0];
                 } else {
-                    loteSel = batches.find(b => (b.entidad || '').includes('PROD')) || batches[0];
+                    loteInicial = batchesAuditoriaModalCache[0];
                 }
             }
 
-            // 2. Obtener logs recientes
-            const resLogs = await fetch('/api/sync/logs?top=150');
-            const allLogs = await resLogs.json();
-            logsAuditoriaModalCache = allLogs || [];
-
-            if (loteSel) {
-                const fechaIni = loteSel.fechaInicio ? formatearHoraPeru(loteSel.fechaInicio) : 'N/A';
-                const durHms = segundosAHms(loteSel.duracionSegundos);
-                const esExito = (loteSel.estado === 'EXITOSO' || loteSel.totalErrores === 0);
-
-                document.getElementById('auditModalBadgeEstado').textContent = esExito ? 'EXITOSO / AL DÍA' : 'CON ERRORES';
-                document.getElementById('auditModalBadgeEstado').className = 'status-pill ' + (esExito ? 'completed' : 'error');
-                document.getElementById('auditModalSubtitulo').textContent = 
-                    `Lote #${loteSel.id} | Tipo: ${loteSel.tipoEjecucion || 'MANUAL'} | Fecha: ${fechaIni} | Duración: ${durHms}`;
-
-                document.getElementById('auditKpiEscaneados').textContent = (loteSel.totalEscaneados || 0).toLocaleString();
-                document.getElementById('auditKpiNuevos').textContent = (loteSel.totalNuevos || 0).toLocaleString();
-                document.getElementById('auditKpiModificados').textContent = (loteSel.totalModificados || 0).toLocaleString();
-                document.getElementById('auditKpiErrores').textContent = (loteSel.totalErrores || 0).toLocaleString();
+            if (loteInicial) {
+                await seleccionarBatchModal(loteInicial.id);
             } else {
-                document.getElementById('auditModalBadgeEstado').textContent = 'AL DÍA';
+                document.getElementById('auditModalBadgeEstado').textContent = 'SIN DATOS';
                 document.getElementById('auditModalBadgeEstado').className = 'status-pill completed';
-                document.getElementById('auditModalSubtitulo').textContent = 'Sin transacciones de error registradas en Force.';
+                document.getElementById('auditModalSubtitulo').textContent = 'No hay cargas registradas aún en el sistema.';
             }
 
-            // 3. Renderizar desglose por sub-módulos
-            renderizarDesgloseSubmodulosModal(modulo, loteSel);
-
-            // 4. Renderizar logs filtrados
-            filtrarLogsAuditoriaModal('TODOS');
-
         } catch (e) {
-            console.error('Error cargando auditoría detallada:', e);
+            console.error('Error cargando auditoría de ejecuciones:', e);
             document.getElementById('auditModalSubtitulo').textContent = 'Error consultando auditoría: ' + e.message;
+        }
+    }
+
+    function renderizarTablaBatchesModal() {
+        const tbody = document.getElementById('auditModalBatchesTableBody');
+        if (!tbody) return;
+
+        let lista = batchesAuditoriaModalCache || [];
+
+        // Filtro por Tipo de ejecución (Manual, Automático, Con Errores)
+        if (filtroTipoBatchModal === 'AUTOMATICO') {
+            lista = lista.filter(b => (b.tipoEjecucion || '').toUpperCase().includes('AUTO'));
+        } else if (filtroTipoBatchModal === 'MANUAL') {
+            lista = lista.filter(b => (b.tipoEjecucion || '').toUpperCase().includes('MANUAL'));
+        } else if (filtroTipoBatchModal === 'CON_ERRORES') {
+            lista = lista.filter(b => (b.totalErrores > 0) || b.estado === 'CON_ERRORES' || b.estado === 'FALLIDO');
+        }
+
+        // Filtro por Módulo
+        if (filtroModuloBatchModal === 'CLIENTES') {
+            lista = lista.filter(b => (b.entidad || '').includes('CLIENTE') || (b.entidad || '').includes('CARTERA') || (b.entidad || '').includes('ZONAS'));
+        } else if (filtroModuloBatchModal === 'PRODUCTOS') {
+            lista = lista.filter(b => (b.entidad || '').includes('PROD'));
+        }
+
+        if (lista.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" style="text-align:center; padding:20px; color:#64748b; font-weight:600;">
+                        No se encontraron ejecuciones con los filtros seleccionados.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = lista.map(b => {
+            const isSelected = batchSeleccionadoModal && batchSeleccionadoModal.id === b.id;
+            const esAuto = (b.tipoEjecucion || '').toUpperCase().includes('AUTO');
+            const tipoBadge = esAuto 
+                ? '<span class="badge-tipo-auto">⚡ AUTOMÁTICO</span>' 
+                : '<span class="badge-tipo-manual">👤 MANUAL</span>';
+
+            const esProd = (b.entidad || '').includes('PROD');
+            const modBadge = esProd
+                ? '<span style="font-weight:700; color:#ea580c; background:#fff7ed; padding:2px 8px; border-radius:6px; border:1px solid #fed7aa; font-size:11.5px;">PRODUCTOS</span>'
+                : '<span style="font-weight:700; color:#1d4ed8; background:#eff6ff; padding:2px 8px; border-radius:6px; border:1px solid #bfdbfe; font-size:11.5px;">CLIENTES INTEGRAL</span>';
+
+            const horaFecha = b.fechaInicio ? formatearHoraPeru(b.fechaInicio) : '--/--/---- --:--';
+            const durHms = segundosAHms(b.duracionSegundos);
+
+            const esExito = (b.estado === 'EXITOSO' || b.totalErrores === 0);
+            const estadoBadge = esExito 
+                ? '<span class="status-pill completed" style="font-size:11px;"><span class="dot"></span>Éxito / Al Día</span>'
+                : (b.estado === 'FALLIDO' 
+                    ? '<span class="status-pill error" style="font-size:11px;"><span class="dot"></span>FALLIDO</span>'
+                    : '<span class="status-pill error" style="font-size:11px;"><span class="dot"></span>Con Errores</span>');
+
+            const totalRegs = (b.totalNuevos || 0) + (b.totalModificados || 0);
+            const regsHtml = `<span style="font-weight:700; color:#0f172a;">${totalRegs.toLocaleString()}</span> <span style="font-size:11px; color:#64748b;">(<strong style="color:#16a34a;">+${b.totalNuevos || 0}</strong> / <strong style="color:#2563eb;">~${b.totalModificados || 0}</strong>)</span>`;
+
+            const errHtml = (b.totalErrores > 0)
+                ? `<span style="background:#fef2f2; color:#dc2626; border:1px solid #fecaca; font-weight:800; padding:2px 7px; border-radius:8px; font-size:11.5px;">${b.totalErrores} error(es)</span>`
+                : `<span style="color:#10b981; font-weight:700; font-size:12px;">0 errores</span>`;
+
+            return `
+                <tr class="batch-item-row ${isSelected ? 'active-batch' : ''}" onclick="seleccionarBatchModal(${b.id})">
+                    <td class="mono" style="font-weight:800; color:#0f172a;">#${b.id}</td>
+                    <td>${tipoBadge}</td>
+                    <td>${modBadge}</td>
+                    <td class="mono" style="font-size:12px; color:#334155; font-weight:600;">${horaFecha}</td>
+                    <td class="mono" style="font-size:12px; font-weight:700; color:#2563eb;">${durHms}</td>
+                    <td style="text-align:center;">${regsHtml}</td>
+                    <td style="text-align:center;">${errHtml}</td>
+                    <td style="text-align:center;">${estadoBadge}</td>
+                    <td style="text-align:center;">
+                        <button class="btn btn-outline btn-xs" style="padding:3px 9px; font-size:11px; font-weight:700; border-radius:6px;" onclick="event.stopPropagation(); seleccionarBatchModal(${b.id})">
+                            ${isSelected ? '✓ Seleccionado' : 'Ver Detalles ↓'}
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function filtrarBatchesModal(tipo) {
+        filtroTipoBatchModal = tipo;
+        ['btnFiltroBatchTodos', 'btnFiltroBatchAuto', 'btnFiltroBatchManual', 'btnFiltroBatchErrores'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.classList.remove('active');
+        });
+        if (tipo === 'TODOS') document.getElementById('btnFiltroBatchTodos')?.classList.add('active');
+        if (tipo === 'AUTOMATICO') document.getElementById('btnFiltroBatchAuto')?.classList.add('active');
+        if (tipo === 'MANUAL') document.getElementById('btnFiltroBatchManual')?.classList.add('active');
+        if (tipo === 'CON_ERRORES') document.getElementById('btnFiltroBatchErrores')?.classList.add('active');
+
+        renderizarTablaBatchesModal();
+    }
+
+    function filtrarBatchesPorModuloModal(mod) {
+        filtroModuloBatchModal = mod;
+        ['btnFiltroBatchModTodos', 'btnFiltroBatchModCli', 'btnFiltroBatchModProd'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.classList.remove('active');
+        });
+        if (mod === 'TODOS') document.getElementById('btnFiltroBatchModTodos')?.classList.add('active');
+        if (mod === 'CLIENTES') document.getElementById('btnFiltroBatchModCli')?.classList.add('active');
+        if (mod === 'PRODUCTOS') document.getElementById('btnFiltroBatchModProd')?.classList.add('active');
+
+        renderizarTablaBatchesModal();
+    }
+
+    async function seleccionarBatchModal(batchId) {
+        const batch = batchesAuditoriaModalCache.find(b => b.id === batchId);
+        if (!batch) return;
+
+        batchSeleccionadoModal = batch;
+        renderizarTablaBatchesModal();
+
+        const fechaIni = batch.fechaInicio ? formatearHoraPeru(batch.fechaInicio) : 'N/A';
+        const durHms = segundosAHms(batch.duracionSegundos);
+        const esExito = (batch.estado === 'EXITOSO' || batch.totalErrores === 0);
+        const esAuto = (batch.tipoEjecucion || '').toUpperCase().includes('AUTO');
+
+        // Cabecera superior
+        document.getElementById('auditModalBadgeEstado').textContent = esExito ? 'EXITOSO / AL DÍA' : 'CON ERRORES';
+        document.getElementById('auditModalBadgeEstado').className = 'status-pill ' + (esExito ? 'completed' : 'error');
+        document.getElementById('auditModalSubtitulo').textContent = 
+            `Lote seleccionado #${batch.id} | Tipo: ${batch.tipoEjecucion || 'MANUAL'} | Fecha: ${fechaIni} | Duración: ${durHms} | Usuario: ${batch.usuario || 'SISTEMA'}`;
+
+        // Cabecera de la sección detalle
+        document.getElementById('auditDetalleLoteTitulo').textContent = `Detalle de Ejecución: Lote #${batch.id}`;
+        document.getElementById('auditDetalleLoteBadge').textContent = esExito ? 'ÉXITO / AL DÍA' : (batch.estado === 'FALLIDO' ? 'FALLIDO' : 'CON ERRORES');
+        document.getElementById('auditDetalleLoteBadge').className = 'status-pill ' + (esExito ? 'completed' : 'error');
+        document.getElementById('auditDetalleLoteInfo').textContent = 
+            `Ejecutado el ${fechaIni} · Duración total: ${durHms} · Módulo: ${batch.entidad || 'CLIENTES'}`;
+
+        const tipoBadgeContainer = document.getElementById('auditDetalleLoteTipoBadge');
+        if (tipoBadgeContainer) {
+            tipoBadgeContainer.innerHTML = esAuto 
+                ? '<span class="badge-tipo-auto" style="font-size:12px; padding:4px 10px;">⚡ Carga Automática Programada</span>'
+                : '<span class="badge-tipo-manual" style="font-size:12px; padding:4px 10px;">👤 Carga Manual Web</span>';
+        }
+
+        // KPIs del Lote
+        document.getElementById('auditKpiEscaneados').textContent = (batch.totalEscaneados || 0).toLocaleString();
+        document.getElementById('auditKpiNuevos').textContent = (batch.totalNuevos || 0).toLocaleString();
+        document.getElementById('auditKpiModificados').textContent = (batch.totalModificados || 0).toLocaleString();
+        document.getElementById('auditKpiErrores').textContent = (batch.totalErrores || 0).toLocaleString();
+        document.getElementById('auditKpiErroresSub').textContent = batch.totalErrores > 0 
+            ? `${batch.totalErrores} error(es) detectado(s)` 
+            : '0 incidencias en esta carga';
+
+        // Desglose de sub-etapas
+        const modNombre = (batch.entidad || '').includes('PROD') ? 'productos' : 'clientes';
+        renderizarDesgloseSubmodulosModal(modNombre, batch);
+
+        // Consultar logs específicos de este loteId
+        try {
+            const urlLogs = batch.loteId 
+                ? `/api/sync/logs?top=200&loteId=${batch.loteId}`
+                : `/api/sync/logs?top=100`;
+            const resLogs = await fetch(urlLogs);
+            logsAuditoriaModalCache = await resLogs.json() || [];
+
+            // Si el lote tiene errores, configurar filtro en Solo Errores automáticamente para facilitar revisión
+            if (batch.totalErrores > 0) {
+                const banner = document.getElementById('auditBannerEstadoErrores');
+                if (banner) {
+                    banner.style.display = 'block';
+                    banner.style.background = '#fef2f2';
+                    banner.style.border = '1px solid #fecaca';
+                    banner.style.color = '#991b1b';
+                    banner.innerHTML = `<strong>⚠ Atención:</strong> Esta carga finalizó con <strong>${batch.totalErrores} error(es)</strong>. Se han resaltado las causas técnicas y códigos afectados a continuación:`;
+                }
+                filtrarLogsAuditoriaModal('ERROR');
+            } else {
+                const banner = document.getElementById('auditBannerEstadoErrores');
+                if (banner) {
+                    banner.style.display = 'block';
+                    banner.style.background = '#f0fdf4';
+                    banner.style.border = '1px solid #bbf7d0';
+                    banner.style.color = '#166534';
+                    banner.innerHTML = `<strong>✓ Impecable:</strong> Esta ejecución se completó con <strong>0 errores técnicos</strong> y todos los registros fueron procesados correctamente.`;
+                }
+                filtrarLogsAuditoriaModal('TODOS');
+            }
+
+        } catch (errLogs) {
+            console.error('Error cargando logs del lote:', errLogs);
         }
     }
 
@@ -3117,20 +3459,20 @@
                 const pasoInteligente = totalDiff === 0 ? '⚡ Saltado (Al día)' : '⚙ Procesado';
 
                 return `
-                    <div style="padding:12px 18px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;">
+                    <div style="padding:10px 16px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;">
                         <div style="display:flex; align-items:center; gap:10px;">
                             <span style="width:24px; height:24px; border-radius:50%; background:#eff6ff; color:#2563eb; font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center;">${idx + 1}</span>
                             <div>
-                                <div style="font-weight:700; color:#0f172a; font-size:13.5px;">${it.nombre}</div>
+                                <div style="font-weight:700; color:#0f172a; font-size:13px;">${it.nombre}</div>
                                 <div class="mono" style="font-size:11.5px; color:#64748b;">${it.tablas}</div>
                             </div>
                         </div>
-                        <div style="display:flex; align-items:center; gap:16px;">
+                        <div style="display:flex; align-items:center; gap:14px;">
                             <div style="font-size:12px; color:#475569;">
-                                <strong>${(it.totalOrigen || 0).toLocaleString()}</strong> ERP Antiguo · <strong>${(it.totalDestino || 0).toLocaleString()}</strong> Force
+                                <strong>${(it.totalOrigen || 0).toLocaleString()}</strong> Origen · <strong>${(it.totalDestino || 0).toLocaleString()}</strong> Force
                             </div>
-                            <span class="status-pill ${badgeClass}" style="font-size:11.5px;"><span class="dot"></span>${badgeText}</span>
-                            <span style="font-size:11.5px; font-weight:700; color:${totalDiff === 0 ? '#10b981' : '#f59e0b'}; background:${totalDiff === 0 ? '#f0fdf4' : '#fffbeb'}; padding:2px 8px; border-radius:6px; border:1px solid ${totalDiff === 0 ? '#bbf7d0' : '#fde68a'};">${pasoInteligente}</span>
+                            <span class="status-pill ${badgeClass}" style="font-size:11px;"><span class="dot"></span>${badgeText}</span>
+                            <span style="font-size:11px; font-weight:700; color:${totalDiff === 0 ? '#10b981' : '#f59e0b'}; background:${totalDiff === 0 ? '#f0fdf4' : '#fffbeb'}; padding:2px 8px; border-radius:6px; border:1px solid ${totalDiff === 0 ? '#bbf7d0' : '#fde68a'};">${pasoInteligente}</span>
                         </div>
                     </div>
                 `;
@@ -3144,28 +3486,29 @@
                 const pasoInteligente = totalDiff === 0 ? '⚡ Saltado (Al día)' : '⚙ Procesado';
 
                 return `
-                    <div style="padding:12px 18px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;">
+                    <div style="padding:10px 16px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;">
                         <div style="display:flex; align-items:center; gap:10px;">
                             <span style="width:24px; height:24px; border-radius:50%; background:#fff7ed; color:#ea580c; font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center;">${idx + 1}</span>
                             <div>
-                                <div style="font-weight:700; color:#0f172a; font-size:13.5px;">${it.nombreTabla}</div>
+                                <div style="font-weight:700; color:#0f172a; font-size:13px;">${it.nombreTabla}</div>
                                 <div class="mono" style="font-size:11.5px; color:#64748b;">${it.tablasForce}</div>
                             </div>
                         </div>
-                        <div style="display:flex; align-items:center; gap:16px;">
+                        <div style="display:flex; align-items:center; gap:14px;">
                             <div style="font-size:12px; color:#475569;">
-                                <strong>${(it.totalOrigen || 0).toLocaleString()}</strong> ERP Antiguo · <strong>${(it.totalDestino || 0).toLocaleString()}</strong> Force
+                                <strong>${(it.totalOrigen || 0).toLocaleString()}</strong> Origen · <strong>${(it.totalDestino || 0).toLocaleString()}</strong> Force
                             </div>
-                            <span class="status-pill ${badgeClass}" style="font-size:11.5px;"><span class="dot"></span>${badgeText}</span>
-                            <span style="font-size:11.5px; font-weight:700; color:${totalDiff === 0 ? '#10b981' : '#f59e0b'}; background:${totalDiff === 0 ? '#f0fdf4' : '#fffbeb'}; padding:2px 8px; border-radius:6px; border:1px solid ${totalDiff === 0 ? '#bbf7d0' : '#fde68a'};">${pasoInteligente}</span>
+                            <span class="status-pill ${badgeClass}" style="font-size:11px;"><span class="dot"></span>${badgeText}</span>
+                            <span style="font-size:11px; font-weight:700; color:${totalDiff === 0 ? '#10b981' : '#f59e0b'}; background:${totalDiff === 0 ? '#f0fdf4' : '#fffbeb'}; padding:2px 8px; border-radius:6px; border:1px solid ${totalDiff === 0 ? '#bbf7d0' : '#fde68a'};">${pasoInteligente}</span>
                         </div>
                     </div>
                 `;
-            }).join('') || '<div style="padding:16px; color:#64748b; text-align:center;">No hay datos de productos escaneados aún.</div>';
+            }).join('') || '<div style="padding:14px; color:#64748b; text-align:center;">No hay datos de productos escaneados aún.</div>';
         }
     }
 
     function filtrarLogsAuditoriaModal(nivel) {
+        filtroNivelLogsModal = nivel;
         const btnTodos = document.getElementById('btnFiltroAuditTodos');
         const btnErrores = document.getElementById('btnFiltroAuditErrores');
         const btnInfo = document.getElementById('btnFiltroAuditInfo');
@@ -3173,11 +3516,32 @@
         if (btnErrores) btnErrores.className = 'btn-pill-filter ' + (nivel === 'ERROR' ? 'active' : '');
         if (btnInfo) btnInfo.className = 'btn-pill-filter ' + (nivel === 'INFO' ? 'active' : '');
 
+        renderizarFilasLogsModal();
+    }
+
+    function buscarEnLogsAuditoriaModal(texto) {
+        textoBusquedaLogsModal = (texto || '').toLowerCase().trim();
+        renderizarFilasLogsModal();
+    }
+
+    function renderizarFilasLogsModal() {
         let filtrados = logsAuditoriaModalCache || [];
-        if (nivel === 'ERROR') {
+
+        // Filtro por nivel
+        if (filtroNivelLogsModal === 'ERROR') {
             filtrados = filtrados.filter(l => l.nivel === 'ERROR' || l.nivel === 'FATAL' || l.nivel === 'WARN');
-        } else if (nivel === 'INFO') {
+        } else if (filtroNivelLogsModal === 'INFO') {
             filtrados = filtrados.filter(l => l.nivel === 'INFO');
+        }
+
+        // Filtro por texto de búsqueda en tiempo real
+        if (textoBusquedaLogsModal) {
+            filtrados = filtrados.filter(l => 
+                (l.codigo || '').toLowerCase().includes(textoBusquedaLogsModal) ||
+                (l.mensaje || '').toLowerCase().includes(textoBusquedaLogsModal) ||
+                (l.entidad || '').toLowerCase().includes(textoBusquedaLogsModal) ||
+                (l.detalleTecnico || '').toLowerCase().includes(textoBusquedaLogsModal)
+            );
         }
 
         const tbody = document.getElementById('auditModalTablaLogsBody');
@@ -3186,32 +3550,35 @@
         if (filtrados.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" style="text-align:center; padding:24px; color:#10b981; font-weight:600;">
+                    <td colspan="6" style="text-align:center; padding:22px; color:#10b981; font-weight:600;">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline-block; vertical-align:middle; margin-right:6px;"><polyline points="20 6 9 17 4 12"/></svg>
-                        No se registraron errores ni incidencias para este filtro. Todo operó con éxito.
+                        No se encontraron registros ni errores para este criterio.
                     </td>
                 </tr>
             `;
             return;
         }
 
-        tbody.innerHTML = filtrados.slice(0, 50).map((l, i) => {
+        tbody.innerHTML = filtrados.slice(0, 100).map((l, i) => {
             const horaStr = l.fecha ? formatearSoloHoraPeru(l.fecha) : '--:--:--';
-            const nivelBadge = l.nivel === 'ERROR' || l.nivel === 'FATAL'
-                ? '<span class="status-pill error">ERROR</span>'
-                : (l.nivel === 'WARN' ? '<span class="status-pill running">WARN</span>' : '<span class="status-pill completed">INFO</span>');
+            const esErr = l.nivel === 'ERROR' || l.nivel === 'FATAL';
+            const nivelBadge = esErr
+                ? '<span class="status-pill error" style="font-size:11px;">ERROR</span>'
+                : (l.nivel === 'WARN' ? '<span class="status-pill running" style="font-size:11px;">WARN</span>' : '<span class="status-pill completed" style="font-size:11px;">INFO</span>');
 
             const hasStack = Boolean(l.detalleTecnico && l.detalleTecnico.trim().length > 0);
 
             return `
-                <tr>
+                <tr style="${esErr ? 'background:#fffbfb;' : ''}">
                     <td class="mono" style="font-size:11.5px; color:#64748b;">${horaStr}</td>
                     <td style="font-weight:700; color:#0f172a; font-size:12px;">${l.entidad || 'SISTEMA'}</td>
-                    <td class="mono" style="font-size:12px; color:#1d4ed8; font-weight:700;">${l.codigo || (l.idOrigen ? '#' + l.idOrigen : '—')}</td>
+                    <td class="mono" style="font-size:12px; color:#1d4ed8; font-weight:800;">${l.codigo || (l.idOrigen ? '#' + l.idOrigen : '—')}</td>
                     <td>${nivelBadge}</td>
-                    <td style="font-size:12.5px; color:#334155; line-height:1.4;">${l.mensaje || ''}</td>
+                    <td style="font-size:12.5px; color:${esErr ? '#991b1b' : '#334155'}; font-weight:${esErr ? '600' : '500'}; line-height:1.4;">
+                        ${l.mensaje || ''}
+                    </td>
                     <td style="text-align:center;">
-                        ${hasStack ? `<button class="btn btn-outline btn-xs" style="padding:2px 8px; font-size:11px;" onclick="verTrazaLog(${l.id})">Ver Traza</button>` : '—'}
+                        ${hasStack ? `<button class="btn btn-outline btn-xs" style="padding:2px 8px; font-size:11px; font-weight:700;" onclick="verTrazaLog(${l.id})">Ver Traza</button>` : '—'}
                     </td>
                 </tr>
             `;
@@ -3221,7 +3588,7 @@
     function verTrazaLog(id) {
         const item = (logsAuditoriaModalCache || []).find(x => x.id === id) || (logsCache || []).find(x => x.id === id);
         if (!item) return;
-        document.getElementById('modalTitulo').textContent = `Traza Técnica — Registro: ${item.codigo || 'N/A'} (ID Origen: ${item.idOrigen || 'N/A'})`;
+        document.getElementById('modalTitulo').textContent = `Traza Técnica Detallada — Código: ${item.codigo || 'N/A'} (ID Origen: ${item.idOrigen || 'N/A'})`;
         document.getElementById('modalContenido').textContent = item.detalleTecnico || item.mensaje;
         document.getElementById('modalDetalle').style.display = 'flex';
     }

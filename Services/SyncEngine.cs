@@ -1738,7 +1738,7 @@ namespace IntegradorFlexForce.Services
             }
         }
 
-        public async Task<List<SyncLogDto>> ObtenerUltimosLogsAsync(int cantidad = 100, string? nivel = null, CancellationToken ct = default)
+        public async Task<List<SyncLogDto>> ObtenerUltimosLogsAsync(int cantidad = 100, string? nivel = null, Guid? loteId = null, CancellationToken ct = default)
         {
             var logs = new List<SyncLogDto>();
             using var conn = new SqlConnection(_connectionStringForce);
@@ -1748,10 +1748,12 @@ namespace IntegradorFlexForce.Services
                 SELECT TOP ({cantidad}) ID, LoteId, Entidad, Nivel, IDOrigen, Codigo, Mensaje, DetalleTecnico, Fecha
                 FROM dbo.sync_Log WITH (NOLOCK)
                 WHERE (@Nivel IS NULL OR Nivel = @Nivel)
+                  AND (@LoteId IS NULL OR LoteId = @LoteId)
                 ORDER BY Fecha DESC;";
 
             using var cmd = new SqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("@Nivel", (object?)nivel ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@LoteId", (object?)loteId ?? DBNull.Value);
             using var reader = await cmd.ExecuteReaderAsync(ct);
 
             while (await reader.ReadAsync(ct))

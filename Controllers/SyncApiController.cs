@@ -100,14 +100,14 @@ namespace IntegradorFlexForce.Controllers
         }
 
         [HttpGet("logs")]
-        public async Task<IActionResult> GetLogs([FromQuery] int top = 100, [FromQuery] string? nivel = null, CancellationToken ct = default)
+        public async Task<IActionResult> GetLogs([FromQuery] int top = 100, [FromQuery] string? nivel = null, [FromQuery] Guid? loteId = null, CancellationToken ct = default)
         {
-            var logs = await _syncEngine.ObtenerUltimosLogsAsync(top, string.IsNullOrWhiteSpace(nivel) ? null : nivel, ct);
+            var logs = await _syncEngine.ObtenerUltimosLogsAsync(top, string.IsNullOrWhiteSpace(nivel) ? null : nivel, loteId, ct);
             return Ok(logs);
         }
 
         [HttpGet("batches")]
-        public async Task<IActionResult> GetBatches([FromQuery] int top = 20, CancellationToken ct = default)
+        public async Task<IActionResult> GetBatches([FromQuery] int top = 50, CancellationToken ct = default)
         {
             var batches = await _syncEngine.ObtenerUltimasTransaccionesAsync(top, ct);
             return Ok(batches);
