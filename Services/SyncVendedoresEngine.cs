@@ -812,6 +812,11 @@ namespace IntegradorFlexForce.Services
                         {
                             erroresCount++;
                             _logger.LogWarning(ex, "Error al sincronizar sucursal {PKID}", pkid);
+                            await RegistrarLogAsync(loteId, "VENDEDORES", "ERROR", pkid, r.GetString(1), $"Error al sincronizar sucursal: {ex.Message}", ex.ToString(), ct);
+                            if (string.Equals(tipoEjecucion, "MANUAL", StringComparison.OrdinalIgnoreCase))
+                            {
+                                throw new InvalidOperationException($"Detenido por error en Sucursal {r.GetString(1)} (ID {pkid}): {ex.Message}", ex);
+                            }
                         }
                     }
                 }
@@ -847,6 +852,11 @@ namespace IntegradorFlexForce.Services
                         {
                             erroresCount++;
                             _logger.LogWarning(ex, "Error al sincronizar canal {Cod}", cod);
+                            await RegistrarLogAsync(loteId, "VENDEDORES", "ERROR", null, cod, $"Error al sincronizar canal: {ex.Message}", ex.ToString(), ct);
+                            if (string.Equals(tipoEjecucion, "MANUAL", StringComparison.OrdinalIgnoreCase))
+                            {
+                                throw new InvalidOperationException($"Detenido por error en Canal de Venta {cod}: {ex.Message}", ex);
+                            }
                         }
                     }
                 }
@@ -882,6 +892,11 @@ namespace IntegradorFlexForce.Services
                         {
                             erroresCount++;
                             _logger.LogWarning(ex, "Error al sincronizar jefe {Cod}", cod);
+                            await RegistrarLogAsync(loteId, "VENDEDORES", "ERROR", null, cod, $"Error al sincronizar jefatura: {ex.Message}", ex.ToString(), ct);
+                            if (string.Equals(tipoEjecucion, "MANUAL", StringComparison.OrdinalIgnoreCase))
+                            {
+                                throw new InvalidOperationException($"Detenido por error en Jefatura {cod}: {ex.Message}", ex);
+                            }
                         }
                     }
                 }
@@ -920,6 +935,11 @@ namespace IntegradorFlexForce.Services
                         {
                             erroresCount++;
                             _logger.LogWarning(ex, "Error al sincronizar supervisor {Cod}", cod);
+                            await RegistrarLogAsync(loteId, "VENDEDORES", "ERROR", null, cod, $"Error al sincronizar supervisor: {ex.Message}", ex.ToString(), ct);
+                            if (string.Equals(tipoEjecucion, "MANUAL", StringComparison.OrdinalIgnoreCase))
+                            {
+                                throw new InvalidOperationException($"Detenido por error en Supervisor {cod}: {ex.Message}", ex);
+                            }
                         }
                     }
                 }
@@ -958,6 +978,11 @@ namespace IntegradorFlexForce.Services
                         {
                             erroresCount++;
                             _logger.LogWarning(ex, "Error al sincronizar fuerza {PKID}", pkid);
+                            await RegistrarLogAsync(loteId, "VENDEDORES", "ERROR", pkid, r.GetString(1), $"Error al sincronizar fuerza: {ex.Message}", ex.ToString(), ct);
+                            if (string.Equals(tipoEjecucion, "MANUAL", StringComparison.OrdinalIgnoreCase))
+                            {
+                                throw new InvalidOperationException($"Detenido por error en Fuerza de Venta {r.GetString(1)} (ID {pkid}): {ex.Message}", ex);
+                            }
                         }
                     }
                 }
@@ -1003,6 +1028,11 @@ namespace IntegradorFlexForce.Services
                         {
                             erroresCount++;
                             _logger.LogWarning(ex, "Error al sincronizar grupo {PKID}", pkid);
+                            await RegistrarLogAsync(loteId, "VENDEDORES", "ERROR", pkid, r.GetString(1), $"Error al sincronizar grupo: {ex.Message}", ex.ToString(), ct);
+                            if (string.Equals(tipoEjecucion, "MANUAL", StringComparison.OrdinalIgnoreCase))
+                            {
+                                throw new InvalidOperationException($"Detenido por error en Grupo de Ventas {r.GetString(1)} (ID {pkid}): {ex.Message}", ex);
+                            }
                         }
                     }
                 }
@@ -1016,10 +1046,6 @@ namespace IntegradorFlexForce.Services
                         RTRIM(p.Nombre) AS NombreCompleto,
                         RTRIM(p.Nombre) AS NombreCorto,
                         COALESCE(NULLIF(RTRIM(p.DocIdentidad), ''), RTRIM(p.Codigo)) AS DocIdentidad,
-                        ISNULL(p.IDTipoDocIdentidad, 19) AS IDTipoDocIdentidad,
-                        p.FechaCumpleaños AS FechaNacimiento,
-                        ISNULL(p.Email, '') AS Email,
-                        ISNULL(p.Telefono, '') AS Telefono,
                         p.Activo AS Estado,
                         ISNULL(v.IDGrupoVentas, 0) AS IDGrupoVentas,
                         ISNULL(v.IDSucursal, 0) AS IDSucursal
@@ -1033,22 +1059,23 @@ namespace IntegradorFlexForce.Services
                     {
                         int pkid = r.GetInt32(0);
                         if (!_idsVendedoresConCambios.Contains(pkid) && totalDifs > 0) continue;
+                        string codVend = r.GetString(1);
 
                         try
                         {
                             using var cmdSp = new SqlCommand("dbo.usp_Sync_UpsertVendedorMaestro", connForce) { CommandType = CommandType.StoredProcedure, CommandTimeout = 30 };
                             cmdSp.Parameters.AddWithValue("@ID_Vendedor_Origen", pkid);
-                            cmdSp.Parameters.AddWithValue("@CodigoVendedor", r.GetString(1));
+                            cmdSp.Parameters.AddWithValue("@CodigoVendedor", codVend);
                             cmdSp.Parameters.AddWithValue("@NombreCompleto", r.GetString(2));
                             cmdSp.Parameters.AddWithValue("@NombreCorto", r.GetString(3));
                             cmdSp.Parameters.AddWithValue("@DocumentoIdentidad", r.GetString(4));
-                            cmdSp.Parameters.AddWithValue("@IDTipoDocIdentidad", r.GetInt32(5));
-                            cmdSp.Parameters.AddWithValue("@FechaNacimiento", r.IsDBNull(6) ? (object)DBNull.Value : r.GetDateTime(6).Date);
-                            cmdSp.Parameters.AddWithValue("@Email", string.IsNullOrWhiteSpace(r.GetString(7)) ? (object)DBNull.Value : r.GetString(7));
-                            cmdSp.Parameters.AddWithValue("@Telefono", string.IsNullOrWhiteSpace(r.GetString(8)) ? (object)DBNull.Value : r.GetString(8));
-                            cmdSp.Parameters.AddWithValue("@EstadoVendedor", r.GetBoolean(9));
-                            cmdSp.Parameters.AddWithValue("@ID_GrupoVenta_Origen", r.GetInt32(10));
-                            cmdSp.Parameters.AddWithValue("@ID_Sucursal_Origen", r.GetInt32(11));
+                            cmdSp.Parameters.AddWithValue("@IDTipoDocIdentidad", 19);
+                            cmdSp.Parameters.AddWithValue("@FechaNacimiento", DBNull.Value);
+                            cmdSp.Parameters.AddWithValue("@Email", DBNull.Value);
+                            cmdSp.Parameters.AddWithValue("@Telefono", DBNull.Value);
+                            cmdSp.Parameters.AddWithValue("@EstadoVendedor", r.GetBoolean(5));
+                            cmdSp.Parameters.AddWithValue("@ID_GrupoVenta_Origen", r.GetInt32(6));
+                            cmdSp.Parameters.AddWithValue("@ID_Sucursal_Origen", r.GetInt32(7));
                             await cmdSp.ExecuteNonQueryAsync(ct);
                             procesados++;
                             _currentStatus.ProgresoActual = procesados;
@@ -1056,7 +1083,12 @@ namespace IntegradorFlexForce.Services
                         catch (Exception ex)
                         {
                             erroresCount++;
-                            _logger.LogWarning(ex, "Error al sincronizar vendedor {PKID}", pkid);
+                            _logger.LogWarning(ex, "Error al sincronizar vendedor {PKID} ({Cod})", pkid, codVend);
+                            await RegistrarLogAsync(loteId, "VENDEDORES", "ERROR", pkid, codVend, $"Error al sincronizar vendedor: {ex.Message}", ex.ToString(), ct);
+                            if (string.Equals(tipoEjecucion, "MANUAL", StringComparison.OrdinalIgnoreCase))
+                            {
+                                throw new InvalidOperationException($"Detenido por error en Vendedor {codVend} (ID {pkid}): {ex.Message}", ex);
+                            }
                         }
                     }
                 }
@@ -1078,11 +1110,16 @@ namespace IntegradorFlexForce.Services
             {
                 swTotal.Stop();
                 transaccion.Estado = "FALLIDO";
+                transaccion.TotalErrores = Math.Max(1, erroresCount);
                 transaccion.DuracionSegundos = (decimal)swTotal.Elapsed.TotalSeconds;
+                await RegistrarLogAsync(loteId, "VENDEDORES", "FATAL", null, null, $"Fallo en sincronización de Vendedores: {ex.Message}", ex.ToString(), ct);
                 await RegistrarFinLoteAsync(transaccion, ct);
-                _logger.LogError(ex, "Error fatal al ejecutar sincronización del Módulo de Vendedores.");
+                _logger.LogError(ex, "Error al ejecutar sincronización del Módulo de Vendedores.");
+                _currentStatus.UltimaEjecucion = DateTime.Now;
+                _currentStatus.UltimoLoteErrores = transaccion.TotalErrores;
+                _currentStatus.UltimaDuracionSegundos = Math.Round(swTotal.Elapsed.TotalSeconds, 2);
                 _currentStatus.EstadoActual = "ERROR";
-                _currentStatus.FaseDetalle = $"Error: {ex.Message}";
+                _currentStatus.FaseDetalle = $"Detenido por error: {ex.Message}";
             }
             finally
             {
@@ -1150,6 +1187,31 @@ namespace IntegradorFlexForce.Services
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "No se pudo registrar fin de lote en BDForceGVD.");
+            }
+        }
+
+        public async Task RegistrarLogAsync(Guid? loteId, string entidad, string nivel, int? idOrigen, string? codigo, string mensaje, string? detalle, CancellationToken ct = default)
+        {
+            try
+            {
+                using var conn = new SqlConnection(_connectionStringForce);
+                await conn.OpenAsync(ct);
+                const string sql = @"
+                    INSERT INTO dbo.sync_Log (LoteId, Entidad, Nivel, IDOrigen, Codigo, Mensaje, DetalleTecnico, Fecha)
+                    VALUES (@LoteId, @Entidad, @Nivel, @IDOrigen, @Codigo, @Mensaje, @DetalleTecnico, GETDATE());";
+                using var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@LoteId", (object?)loteId ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@Entidad", entidad);
+                cmd.Parameters.AddWithValue("@Nivel", nivel);
+                cmd.Parameters.AddWithValue("@IDOrigen", (object?)idOrigen ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@Codigo", (object?)codigo ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@Mensaje", mensaje.Length > 500 ? mensaje[..500] : mensaje);
+                cmd.Parameters.AddWithValue("@DetalleTecnico", (object?)detalle ?? DBNull.Value);
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo registrar log en sync_Log para vendedores.");
             }
         }
     }

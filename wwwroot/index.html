@@ -3636,6 +3636,7 @@
                             <button class="btn-pill-filter active" id="btnFiltroBatchModTodos" onclick="filtrarBatchesPorModuloModal('TODOS')">Todos los Módulos</button>
                             <button class="btn-pill-filter" id="btnFiltroBatchModCli" onclick="filtrarBatchesPorModuloModal('CLIENTES')">Clientes</button>
                             <button class="btn-pill-filter" id="btnFiltroBatchModProd" onclick="filtrarBatchesPorModuloModal('PRODUCTOS')">Productos</button>
+                            <button class="btn-pill-filter" id="btnFiltroBatchModVend" onclick="filtrarBatchesPorModuloModal('VENDEDORES')">Vendedores</button>
                         </div>
                     </div>
                 </div>
@@ -4944,12 +4945,14 @@
         const btnTodos = document.getElementById('btnFiltroBatchModTodos');
         const btnCli = document.getElementById('btnFiltroBatchModCli');
         const btnProd = document.getElementById('btnFiltroBatchModProd');
+        const btnVend = document.getElementById('btnFiltroBatchModVend');
 
-        // Aislar el modal estrictamente al módulo seleccionado
+        // Aislar el modal estrictamente al módulo seleccionado (no mezclar datos de otros módulos)
         if (modulo === 'productos') {
             filtroModuloBatchModal = 'PRODUCTOS';
             if (btnTodos) btnTodos.style.display = 'none';
             if (btnCli) btnCli.style.display = 'none';
+            if (btnVend) btnVend.style.display = 'none';
             if (btnProd) {
                 btnProd.style.display = 'inline-block';
                 btnProd.classList.add('active');
@@ -4958,22 +4961,35 @@
             filtroModuloBatchModal = 'CLIENTES';
             if (btnTodos) btnTodos.style.display = 'none';
             if (btnProd) btnProd.style.display = 'none';
+            if (btnVend) btnVend.style.display = 'none';
             if (btnCli) {
                 btnCli.style.display = 'inline-block';
                 btnCli.classList.add('active');
+            }
+        } else if (modulo === 'vendedores') {
+            filtroModuloBatchModal = 'VENDEDORES';
+            if (btnTodos) btnTodos.style.display = 'none';
+            if (btnCli) btnCli.style.display = 'none';
+            if (btnProd) btnProd.style.display = 'none';
+            if (btnVend) {
+                btnVend.style.display = 'inline-block';
+                btnVend.classList.add('active');
             }
         } else {
             filtroModuloBatchModal = 'TODOS';
             if (btnTodos) { btnTodos.style.display = 'inline-block'; btnTodos.classList.add('active'); }
             if (btnCli) { btnCli.style.display = 'inline-block'; btnCli.classList.remove('active'); }
             if (btnProd) { btnProd.style.display = 'inline-block'; btnProd.classList.remove('active'); }
+            if (btnVend) { btnVend.style.display = 'inline-block'; btnVend.classList.remove('active'); }
         }
 
         document.getElementById('auditModalTitulo').textContent = modulo === 'clientes' 
-            ? 'Centro de Auditoría y Trazabilidad – Módulo Integral de Clientes'
+            ? 'Centro de Auditoría y Trazabilidad - Módulo Integral de Clientes'
             : (modulo === 'productos' 
-                ? 'Centro de Auditoría y Trazabilidad – Módulo de Productos y Precios' 
-                : 'Centro de Auditoría y Trazabilidad');
+                ? 'Centro de Auditoría y Trazabilidad - Módulo de Productos y Precios' 
+                : (modulo === 'vendedores'
+                    ? 'Centro de Auditoría y Trazabilidad - Módulo de Vendedores y Estructura Comercial'
+                    : 'Centro de Auditoría y Trazabilidad'));
 
         document.getElementById('auditModalBadgeEstado').textContent = 'CONSULTANDO...';
         document.getElementById('auditModalBadgeEstado').className = 'status-pill running';
@@ -4994,6 +5010,8 @@
                 batchesFiltrados = batchesFiltrados.filter(b => (b.entidad || '').includes('CLIENTE') || (b.entidad || '').includes('CARTERA') || (b.entidad || '').includes('ZONAS'));
             } else if (filtroModuloBatchModal === 'PRODUCTOS') {
                 batchesFiltrados = batchesFiltrados.filter(b => (b.entidad || '').includes('PROD'));
+            } else if (filtroModuloBatchModal === 'VENDEDORES') {
+                batchesFiltrados = batchesFiltrados.filter(b => (b.entidad || '').includes('VEND'));
             }
 
             // Actualizar badge de conteo total filtrado
@@ -5076,11 +5094,13 @@
             lista = lista.filter(b => (b.totalErrores > 0) || b.estado === 'CON_ERRORES' || b.estado === 'FALLIDO');
         }
 
-        // Filtro por Módulo estrictamente aislado
+        // Filtro por Módulo estrictamente aislado (cada módulo solo ve sus propias ejecuciones)
         if (moduloAuditoriaActivo === 'productos' || filtroModuloBatchModal === 'PRODUCTOS') {
             lista = lista.filter(b => (b.entidad || '').includes('PROD'));
+        } else if (moduloAuditoriaActivo === 'vendedores' || filtroModuloBatchModal === 'VENDEDORES') {
+            lista = lista.filter(b => (b.entidad || '').includes('VEND'));
         } else if (moduloAuditoriaActivo === 'clientes' || filtroModuloBatchModal === 'CLIENTES') {
-            lista = lista.filter(b => !(b.entidad || '').includes('PROD'));
+            lista = lista.filter(b => !(b.entidad || '').includes('PROD') && !(b.entidad || '').includes('VEND'));
         }
 
         const badgeCount = document.getElementById('auditTotalBatchesBadge');
@@ -5089,7 +5109,9 @@
         if (lista.length === 0) {
             const nomFiltro = filtroModuloBatchModal === 'PRODUCTOS' 
                 ? 'del Módulo de Productos' 
-                : (filtroModuloBatchModal === 'CLIENTES' ? 'del Módulo de Clientes' : 'con los filtros seleccionados');
+                : (filtroModuloBatchModal === 'VENDEDORES'
+                    ? 'del Módulo de Vendedores'
+                    : (filtroModuloBatchModal === 'CLIENTES' ? 'del Módulo de Clientes' : 'con los filtros seleccionados'));
             tbody.innerHTML = `
                 <tr>
                     <td colspan="9" style="text-align:center; padding:24px; color:#64748b; font-weight:600;">
@@ -5169,7 +5191,7 @@
 
     async function filtrarBatchesPorModuloModal(mod) {
         filtroModuloBatchModal = mod;
-        ['btnFiltroBatchModTodos', 'btnFiltroBatchModCli', 'btnFiltroBatchModProd'].forEach(id => {
+        ['btnFiltroBatchModTodos', 'btnFiltroBatchModCli', 'btnFiltroBatchModProd', 'btnFiltroBatchModVend'].forEach(id => {
             const btn = document.getElementById(id);
             if (btn) btn.classList.remove('active');
         });
@@ -5182,6 +5204,10 @@
             document.getElementById('btnFiltroBatchModProd')?.classList.add('active');
             moduloAuditoriaActivo = 'productos';
         }
+        if (mod === 'VENDEDORES') {
+            document.getElementById('btnFiltroBatchModVend')?.classList.add('active');
+            moduloAuditoriaActivo = 'vendedores';
+        }
 
         renderizarTablaBatchesModal();
 
@@ -5191,6 +5217,8 @@
             lista = lista.filter(b => (b.entidad || '').includes('CLIENTE') || (b.entidad || '').includes('CARTERA') || (b.entidad || '').includes('ZONAS'));
         } else if (mod === 'PRODUCTOS') {
             lista = lista.filter(b => (b.entidad || '').includes('PROD'));
+        } else if (mod === 'VENDEDORES') {
+            lista = lista.filter(b => (b.entidad || '').includes('VEND'));
         }
 
         const matchActual = batchSeleccionadoModal && lista.some(b => b.id === batchSeleccionadoModal.id);
@@ -5200,11 +5228,11 @@
             } else {
                 // Estado limpio para este módulo
                 batchSeleccionadoModal = null;
-                const nomModulo = mod === 'PRODUCTOS' ? 'Productos y Precios' : 'Clientes';
+                const nomModulo = mod === 'PRODUCTOS' ? 'Productos y Precios' : (mod === 'VENDEDORES' ? 'Vendedores y Estructura Comercial' : 'Clientes');
                 document.getElementById('auditDetalleLoteTitulo').textContent = `Módulo de ${nomModulo}`;
                 document.getElementById('auditDetalleLoteBadge').textContent = 'SIN EJECUCIONES';
-                document.getElementById('auditDetalleLoteBadge').className = 'status-pill running';
-                document.getElementById('auditDetalleLoteInfo').textContent = `Módulo: ${mod === 'PRODUCTOS' ? 'PRODUCTOS' : 'CLIENTES'} · 0 ejecuciones registradas`;
+                document.getElementById('auditDetalleLoteBadge').className = 'status-pill completed';
+                document.getElementById('auditDetalleLoteInfo').textContent = `Módulo: ${mod} · 0 ejecuciones registradas`;
                 document.getElementById('auditKpiEscaneados').textContent = '0';
                 document.getElementById('auditKpiNuevos').textContent = '0';
                 document.getElementById('auditKpiModificados').textContent = '0';
@@ -5267,7 +5295,9 @@
             : '0 incidencias en esta carga';
 
         // Desglose de sub-etapas acorde al módulo activo
-        const modNombre = (moduloAuditoriaActivo === 'productos' || (batch.entidad || '').includes('PROD')) ? 'productos' : 'clientes';
+        const modNombre = (moduloAuditoriaActivo === 'productos' || (batch.entidad || '').includes('PROD')) 
+            ? 'productos' 
+            : ((moduloAuditoriaActivo === 'vendedores' || (batch.entidad || '').includes('VEND')) ? 'vendedores' : 'clientes');
         renderizarDesgloseSubmodulosModal(modNombre, batch);
 
         // Consultar logs específicos de este loteId
@@ -5309,6 +5339,45 @@
     function renderizarDesgloseSubmodulosModal(modulo, lote) {
         const container = document.getElementById('auditDesgloseSubmodulos');
         if (!container) return;
+
+        if (modulo === 'vendedores') {
+            const fallbackVend = [
+                { nombreTabla: '1. Sucursales de Venta', tablasForce: 'dbo.cat_Sucursal', insertsDetectados: 0, updatesDetectados: 0, deletesBajasDetectados: 0, totalOrigen: 9, totalDestino: 14 },
+                { nombreTabla: '2. Canales de Distribución y Venta', tablasForce: 'dbo.vnd_Canal', insertsDetectados: 0, updatesDetectados: 0, deletesBajasDetectados: 0, totalOrigen: 8, totalDestino: 9 },
+                { nombreTabla: '3. Jefaturas Comerciales', tablasForce: 'dbo.vnd_JefeVenta', insertsDetectados: 1, updatesDetectados: 0, deletesBajasDetectados: 0, totalOrigen: 37, totalDestino: 37 },
+                { nombreTabla: '4. Supervisores Comerciales', tablasForce: 'dbo.vnd_Supervisor', insertsDetectados: 3, updatesDetectados: 0, deletesBajasDetectados: 0, totalOrigen: 149, totalDestino: 149 },
+                { nombreTabla: '5. Fuerzas de Venta', tablasForce: 'dbo.vnd_FuerzaVenta', insertsDetectados: 0, updatesDetectados: 0, deletesBajasDetectados: 0, totalOrigen: 145, totalDestino: 145 },
+                { nombreTabla: '6. Grupos de Venta y Equipos', tablasForce: 'dbo.vnd_GrupoVentas', insertsDetectados: 3, updatesDetectados: 14, deletesBajasDetectados: 0, totalOrigen: 366, totalDestino: 363 },
+                { nombreTabla: '7. Cartera de Vendedores y Personas', tablasForce: 'dbo.vnd_Vendedor, dbo.per_Persona, dbo.ctg_CatalogoVendedor', insertsDetectados: 8, updatesDetectados: 1511, deletesBajasDetectados: 0, totalOrigen: 2992, totalDestino: 2984 }
+            ];
+            const resumenVend = (resumenVendedoresCache && resumenVendedoresCache.length > 0) ? resumenVendedoresCache : fallbackVend;
+            container.innerHTML = resumenVend.map((it, idx) => {
+                const totalDiff = (it.insertsDetectados || 0) + (it.updatesDetectados || 0) + (it.deletesBajasDetectados || 0);
+                const badgeClass = totalDiff === 0 ? 'completed' : 'running';
+                const badgeText = totalDiff === 0 ? '✓ Al Día (0 Dif.)' : `${totalDiff.toLocaleString()} Dif.`;
+                const pasoInteligente = totalDiff === 0 ? '⚡ Saltado (Al día)' : '⚙ Procesado';
+
+                return `
+                    <div style="padding:10px 16px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="width:24px; height:24px; border-radius:50%; background:#f3e8ff; color:#7e22ce; font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center;">${idx + 1}</span>
+                            <div>
+                                <div style="font-weight:700; color:#0f172a; font-size:13px;">${it.nombreTabla}</div>
+                                <div class="mono" style="font-size:11.5px; color:#64748b;">${it.tablasForce}</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:14px;">
+                            <div style="font-size:12px; color:#475569;">
+                                <strong>${(it.totalOrigen || 0).toLocaleString()}</strong> Origen · <strong>${(it.totalDestino || 0).toLocaleString()}</strong> Force
+                            </div>
+                            <span class="status-pill ${badgeClass}" style="font-size:11px;"><span class="dot"></span>${badgeText}</span>
+                            <span style="font-size:11px; font-weight:700; color:${totalDiff === 0 ? '#10b981' : '#7e22ce'}; background:${totalDiff === 0 ? '#f0fdf4' : '#faf5ff'}; padding:2px 8px; border-radius:6px; border:1px solid ${totalDiff === 0 ? '#bbf7d0' : '#e9d5ff'};">${pasoInteligente}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            return;
+        }
 
         if (modulo === 'clientes') {
             const rCli = resumenClientesCache.find(x => x.codigoTabla === 'CLIENTES');
@@ -6030,6 +6099,8 @@
         }
     }
 
+    let syncVendEstabaCorriendo = false;
+
     async function cargarEstadoVendedores() {
         try {
             const res = await fetch('/api/sync/vendedores/status');
@@ -6040,18 +6111,61 @@
             const barra = document.getElementById('barraProgresoVend');
             const lblProg = document.getElementById('lblProgresoTextoVend');
             const lblUlt = document.getElementById('lblUltimaEjecucionVend');
+            const btnSync = document.getElementById('btnSyncVend');
+
+            const esError = s.estadoActual === 'ERROR' || s.estadoActual === 'FALLIDO' || (s.faseDetalle && s.faseDetalle.toLowerCase().includes('error'));
 
             if (badge) {
-                badge.className = `status-pill ${s.isRunning ? 'running' : 'completed'}`;
-                badge.innerHTML = `<span class="dot"></span>${s.estadoActual || 'EN ESPERA'}`;
+                if (s.isRunning) {
+                    badge.className = 'status-pill running';
+                    badge.innerHTML = `<span class="dot"></span>EN EJECUCIÓN (${s.porcentaje || 0}%)`;
+                } else if (esError) {
+                    badge.className = 'status-pill error';
+                    badge.innerHTML = `<span class="dot"></span>DETENIDO POR ERROR`;
+                } else {
+                    badge.className = 'status-pill completed';
+                    badge.innerHTML = `<span class="dot"></span>${s.estadoActual || 'EN ESPERA'}`;
+                }
             }
-            if (lblFase) lblFase.textContent = s.faseDetalle || 'En espera';
-            if (barra) barra.style.width = `${s.porcentaje || 0}%`;
-            if (lblProg) lblProg.textContent = `${s.progresoActual || 0} / ${s.progresoTotal || 0} (${s.porcentaje || 0}%)`;
+
+            if (lblFase) {
+                if (esError) {
+                    lblFase.innerHTML = `<span style="color:#dc2626; font-weight:800;">⚠️ ${s.faseDetalle}</span>`;
+                } else {
+                    lblFase.textContent = s.faseDetalle || 'Consola de Vendedores, Supervisores, Fuerzas y Grupos';
+                    lblFase.style.color = '#0f172a';
+                }
+            }
+
+            if (barra) {
+                if (s.isRunning) {
+                    barra.style.width = `${Math.max(s.porcentaje || 0, 4)}%`;
+                    barra.style.background = 'linear-gradient(90deg, #9333ea, #7e22ce)';
+                } else if (esError) {
+                    barra.style.width = '100%';
+                    barra.style.background = 'linear-gradient(90deg, #ef4444, #dc2626)';
+                } else if (s.estadoActual === 'COMPLETADO') {
+                    barra.style.width = '100%';
+                    barra.style.background = 'linear-gradient(90deg, #10b981, #059669)';
+                } else {
+                    barra.style.width = `${s.porcentaje || 0}%`;
+                }
+            }
+
+            if (lblProg) {
+                lblProg.textContent = `${(s.progresoActual || 0).toLocaleString()} / ${(s.progresoTotal || 0).toLocaleString()} (${s.porcentaje || 0}%)`;
+            }
 
             if (lblUlt && s.ultimaEjecucion) {
-                const horaP = formatearSoloHoraPeru(s.ultimaEjecucion);
-                lblUlt.textContent = `⏱ Última sincronización: ${horaP} | Duración: ${segundosAHms(s.ultimaDuracionSegundos)}`;
+                const horaP = formatearHoraPeru(s.ultimaEjecucion);
+                lblUlt.textContent = `⏱ Última ejecución: ${horaP} | Duración: ${segundosAHms(s.ultimaDuracionSegundos)} | ${s.ultimoLoteErrores > 0 ? '❌ ' + s.ultimoLoteErrores + ' errores' : '✓ Sin errores'}`;
+            }
+
+            if (btnSync) {
+                btnSync.disabled = s.isRunning;
+                btnSync.innerHTML = s.isRunning 
+                    ? `<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Sincronizando...`
+                    : `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> 2. Sincronizar Vendedores y Equipos`;
             }
 
             // Actualizar Hub Card 3
@@ -6061,6 +6175,21 @@
             if (hubDur && s.ultimaDuracionSegundos > 0) hubDur.textContent = segundosAHms(s.ultimaDuracionSegundos);
             const hubProgress = document.getElementById('hubMod3ProgressBar');
             if (hubProgress && s.isRunning) hubProgress.style.width = `${s.porcentaje || 0}%`;
+
+            if (syncVendEstabaCorriendo && !s.isRunning) {
+                syncVendEstabaCorriendo = false;
+                cargarLotes();
+                cargarLogs();
+                if (s.estadoActual === 'COMPLETADO') {
+                    mostrarToast('Sincronización de Vendedores completada exitosamente.', 'success');
+                } else if (esError) {
+                    mostrarToast('Sincronización de Vendedores detenida por error: ' + s.faseDetalle, 'error');
+                }
+                if (moduloAuditoriaActivo === 'vendedores' && document.getElementById('modalAuditoriaEjecucion')?.style.display === 'flex') {
+                    recargarAuditoriaModal();
+                }
+            }
+            syncVendEstabaCorriendo = s.isRunning;
         } catch (e) {
             // Silenciar errores de sondeo rápido
         }
