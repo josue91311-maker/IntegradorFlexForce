@@ -1516,6 +1516,34 @@
             border-color: #c2410c;
             box-shadow: 0 6px 20px rgba(234, 88, 12, 0.4);
         }
+        .btn-pill-consultar.vend {
+            background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+            border: 2px solid #7e22ce;
+            color: #7e22ce !important;
+            box-shadow: 0 4px 14px rgba(126, 34, 206, 0.25);
+            font-weight: 700;
+        }
+        .btn-pill-consultar.vend svg {
+            stroke: #7e22ce !important;
+        }
+        .btn-pill-consultar.vend:hover:not(:disabled) {
+            background: #7e22ce !important;
+            color: #ffffff !important;
+            border-color: #6b21a8 !important;
+            box-shadow: 0 6px 20px rgba(126, 34, 206, 0.4);
+        }
+        .btn-pill-consultar.vend:hover:not(:disabled) svg {
+            stroke: #ffffff !important;
+        }
+        .btn-pill-primary.vend {
+            background: #7e22ce;
+            border-color: #6b21a8;
+            color: #ffffff !important;
+        }
+        .btn-pill-primary.vend:hover:not(:disabled) {
+            background: #6b21a8;
+            box-shadow: 0 6px 20px rgba(126, 34, 206, 0.4);
+        }
 
         /* Botón Ejecutivo Grande para Auditoría y Detalles */
         .btn-auditoria-lg {
@@ -2862,11 +2890,11 @@
             <button class="btn-pill-outline" onclick="navegarVista('hub')">
                 ← Volver al Hub
             </button>
-            <button id="btnValidarVend" class="btn-pill-consultar" style="background:#7e22ce; border-color:#6b21a8;" onclick="validarDiferenciasVendedores()">
+            <button id="btnValidarVend" class="btn-pill-consultar vend" onclick="validarDiferenciasVendedores()">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 1. Consultar Diferencias
             </button>
-            <button id="btnSyncVend" class="btn-pill-primary" style="background:#6b21a8;" onclick="ejecutarSincronizacionVendedores()">
+            <button id="btnSyncVend" class="btn-pill-primary vend" onclick="ejecutarSincronizacionVendedores()">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                 2. Sincronizar Vendedores y Equipos
             </button>
@@ -4995,6 +5023,13 @@
         document.getElementById('auditModalBadgeEstado').className = 'status-pill running';
         document.getElementById('auditModalSubtitulo').textContent = 'Consultando historial de ejecuciones y trazas en BDForceGVD...';
 
+        const txtLogs = document.getElementById('txtBuscarAuditLogs');
+        if (txtLogs) {
+            txtLogs.placeholder = modulo === 'vendedores'
+                ? 'Buscar vendedor, equipo, error, SQL...'
+                : (modulo === 'productos' ? 'Buscar producto, precio, error, SQL...' : 'Buscar cliente, error, SQL...');
+        }
+
         await recargarAuditoriaModal();
     }
 
@@ -5037,7 +5072,7 @@
             } else {
                 // Estado limpio cuando el módulo seleccionado aún no tiene ejecuciones
                 batchSeleccionadoModal = null;
-                const nomModulo = moduloAuditoriaActivo === 'productos' ? 'Productos y Precios' : 'Clientes';
+                const nomModulo = moduloAuditoriaActivo === 'productos' ? 'Productos y Precios' : (moduloAuditoriaActivo === 'vendedores' ? 'Vendedores y Estructura Comercial' : 'Clientes');
                 
                 document.getElementById('auditModalBadgeEstado').textContent = 'SIN EJECUCIONES AÚN';
                 document.getElementById('auditModalBadgeEstado').className = 'status-pill running';
@@ -5046,7 +5081,7 @@
                 document.getElementById('auditDetalleLoteTitulo').textContent = `Módulo de ${nomModulo}`;
                 document.getElementById('auditDetalleLoteBadge').textContent = 'PENDIENTE DE EJECUCIÓN';
                 document.getElementById('auditDetalleLoteBadge').className = 'status-pill running';
-                document.getElementById('auditDetalleLoteInfo').textContent = `Módulo: ${moduloAuditoriaActivo === 'productos' ? 'PRODUCTOS_CATALOGO_PRECIOS' : 'MODULO_CLIENTES_COMPLETO'} · 0 ejecuciones previas registradas`;
+                document.getElementById('auditDetalleLoteInfo').textContent = `Módulo: ${moduloAuditoriaActivo === 'productos' ? 'PRODUCTOS_CATALOGO_PRECIOS' : (moduloAuditoriaActivo === 'vendedores' ? 'MODULO_VENDEDORES' : 'MODULO_CLIENTES_COMPLETO')} — 0 ejecuciones previas registradas`;
 
                 const tipoBadgeContainer = document.getElementById('auditDetalleLoteTipoBadge');
                 if (tipoBadgeContainer) {
@@ -5130,9 +5165,12 @@
                 : '<span class="badge-tipo-manual">👤 MANUAL</span>';
 
             const esProd = (b.entidad || '').includes('PROD');
+            const esVend = (b.entidad || '').includes('VEND');
             const modBadge = esProd
                 ? '<span style="font-weight:700; color:#ea580c; background:#fff7ed; padding:2px 8px; border-radius:6px; border:1px solid #fed7aa; font-size:11.5px;">PRODUCTOS</span>'
-                : '<span style="font-weight:700; color:#1d4ed8; background:#eff6ff; padding:2px 8px; border-radius:6px; border:1px solid #bfdbfe; font-size:11.5px;">CLIENTES INTEGRAL</span>';
+                : (esVend
+                    ? '<span style="font-weight:700; color:#7e22ce; background:#faf5ff; padding:2px 8px; border-radius:6px; border:1px solid #d8b4fe; font-size:11.5px;">VENDEDORES</span>'
+                    : '<span style="font-weight:700; color:#1d4ed8; background:#eff6ff; padding:2px 8px; border-radius:6px; border:1px solid #bfdbfe; font-size:11.5px;">CLIENTES INTEGRAL</span>');
 
             const horaFecha = b.fechaInicio ? formatearHoraPeru(b.fechaInicio) : '--/--/---- --:--';
             const durHms = segundosAHms(b.duracionSegundos);
@@ -5207,6 +5245,13 @@
         if (mod === 'VENDEDORES') {
             document.getElementById('btnFiltroBatchModVend')?.classList.add('active');
             moduloAuditoriaActivo = 'vendedores';
+        }
+
+        const txtLogsFilt = document.getElementById('txtBuscarAuditLogs');
+        if (txtLogsFilt) {
+            txtLogsFilt.placeholder = mod === 'VENDEDORES'
+                ? 'Buscar vendedor, equipo, error, SQL...'
+                : (mod === 'PRODUCTOS' ? 'Buscar producto, precio, error, SQL...' : 'Buscar cliente, error, SQL...');
         }
 
         renderizarTablaBatchesModal();
