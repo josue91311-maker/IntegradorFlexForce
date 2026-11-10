@@ -589,6 +589,10 @@ namespace IntegradorFlexForce.Services
                         {
                             catalogoProdForce[$"{idPortEx.Value}_{idProdEx.Value}"] = (idCp, idPortEx.Value, idProdEx.Value, codCat, codProd, est);
                         }
+                        if (!string.IsNullOrEmpty(codCat) && !string.IsNullOrEmpty(codProd))
+                        {
+                            catalogoProdForce[$"COD_{codCat}_{codProd}"] = (idCp, idPortEx ?? 0, idProdEx ?? 0, codCat, codProd, est);
+                        }
                     }
                 }
 
@@ -629,9 +633,12 @@ namespace IntegradorFlexForce.Services
 
                         totalCatOrigen++;
                         string key = $"{idPort}_{idProd}";
+                        string keyCod = $"COD_{codPort}_{codProd}";
                         clavesVistasEnOrigen.Add(key);
+                        if (!string.IsNullOrEmpty(codPort) && !string.IsNullOrEmpty(codProd))
+                            clavesVistasEnOrigen.Add(keyCod);
 
-                        if (!catalogoProdForce.TryGetValue(key, out var cf))
+                        if (!catalogoProdForce.TryGetValue(key, out var cf) && !catalogoProdForce.TryGetValue(keyCod, out cf))
                         {
                             catInserts++;
                             nuevosIdsPort.Add(idItem);
@@ -1332,9 +1339,11 @@ namespace IntegradorFlexForce.Services
                     LTRIM(RTRIM(ISNULL(pp.Nombre, ''))) AS NombrePortafolio,
                     LTRIM(RTRIM(ISNULL(pp.Observacion, ''))) AS ObservacionPortafolio,
                     CAST(ISNULL(pp.Activo, 1) AS bit) AS EstadoPortafolio,
-                    ip.IDProducto
+                    ip.IDProducto,
+                    LTRIM(RTRIM(ISNULL(ps.Codigo, ISNULL(ip.Codigo, '')))) AS CodigoProducto
                 FROM dbo.ItemPortafolioProductoProducto ip WITH (NOLOCK)
                 INNER JOIN dbo.PortafolioProducto pp WITH (NOLOCK) ON pp.PKID = ip.IDPortafolioProducto
+                LEFT JOIN dbo.ProductoServicio ps WITH (NOLOCK) ON ps.PKID = ip.IDProducto
                 WHERE ip.PKID IN ({inClause});";
 
             using var cmdRead = new SqlCommand(sql, connAntiguo) { CommandTimeout = 120 };
@@ -1343,22 +1352,43 @@ namespace IntegradorFlexForce.Services
             using var connForce = new SqlConnection(_connectionStringForce);
             await connForce.OpenAsync(ct);
 
+            const string sqlUpsertCatalogoProdDirecto = @"
+                DECLARE @IDCat int, @IDProd int;
+                SELECT TOP 1 @IDCat = ID FROM dbo.ctg_Catalogo WHERE (IDExtra = @IDPort OR Codigo = @CodPort) AND Eliminado = 0;
+                SELECT TOP 1 @IDProd = ID FROM dbo.prd_Producto WHERE (IDExtra = @IDProdEx OR Codigo = @CodProd) AND Eliminado = 0;
+
+                IF @IDCat IS NULL AND @CodPort <> ''
+                BEGIN
+                    INSERT INTO dbo.ctg_Catalogo (Codigo, Nombre, Descripcion, Estado, FechaCreacion, FechaModificacion, IDExtra, Eliminado)
+                    VALUES (@CodPort, @NomPort, @ObsPort, @EstadoPort, GETDATE(), GETDATE(), @IDPort, 0);
+                    SET @IDCat = SCOPE_IDENTITY();
+                END
+
+                IF @IDCat IS NOT NULL AND @IDProd IS NOT NULL
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM dbo.ctg_CatalogoProducto WHERE IDCatalogo = @IDCat AND IDProducto = @IDProd)
+                        INSERT INTO dbo.ctg_CatalogoProducto (IDCatalogo, IDProducto, Estado, FechaCreacion, FechaModificacion)
+                        VALUES (@IDCat, @IDProd, 1, GETDATE(), GETDATE());
+                    ELSE
+                        UPDATE dbo.ctg_CatalogoProducto SET Estado = 1, FechaModificacion = GETDATE()
+                        WHERE IDCatalogo = @IDCat AND IDProducto = @IDProd;
+
+                    UPDATE dbo.prd_Producto SET IDExtra = @IDProdEx WHERE ID = @IDProd AND IDExtra IS NULL;
+                    UPDATE dbo.ctg_Catalogo SET IDExtra = @IDPort WHERE ID = @IDCat AND IDExtra IS NULL;
+                END";
+
             while (await r.ReadAsync(ct))
             {
                 try
                 {
-                    using var cmd = new SqlCommand("dbo.usp_Sync_UpsertCatalogoProducto", connForce)
-                    {
-                        CommandType = CommandType.StoredProcedure,
-                        CommandTimeout = 60
-                    };
-                    cmd.Parameters.AddWithValue("@ID_Portafolio_Origen", r.GetInt32(0));
-                    cmd.Parameters.AddWithValue("@CodigoPortafolio", r.GetString(1));
-                    cmd.Parameters.AddWithValue("@NombrePortafolio", r.GetString(2));
-                    cmd.Parameters.AddWithValue("@ObservacionPortafolio", r.GetString(3));
-                    cmd.Parameters.AddWithValue("@EstadoPortafolio", r.GetBoolean(4));
-                    cmd.Parameters.AddWithValue("@ID_Producto_Origen", r.GetInt32(5));
-                    cmd.Parameters.AddWithValue("@EstadoAsignacion", true);
+                    using var cmd = new SqlCommand(sqlUpsertCatalogoProdDirecto, connForce) { CommandTimeout = 60 };
+                    cmd.Parameters.AddWithValue("@IDPort", r.GetInt32(0));
+                    cmd.Parameters.AddWithValue("@CodPort", r.GetString(1));
+                    cmd.Parameters.AddWithValue("@NomPort", r.GetString(2));
+                    cmd.Parameters.AddWithValue("@ObsPort", r.GetString(3));
+                    cmd.Parameters.AddWithValue("@EstadoPort", r.GetBoolean(4));
+                    cmd.Parameters.AddWithValue("@IDProdEx", r.GetInt32(5));
+                    cmd.Parameters.AddWithValue("@CodProd", r.GetString(6));
 
                     await cmd.ExecuteNonQueryAsync(ct);
                     procesados++;
