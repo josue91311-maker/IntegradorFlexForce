@@ -3215,28 +3215,32 @@
         modal.style.display = 'flex';
         moduloAuditoriaActivo = modulo;
 
-        // Fijar filtro de módulo de inmediato según el módulo desde el que se abrió
+        const btnTodos = document.getElementById('btnFiltroBatchModTodos');
+        const btnCli = document.getElementById('btnFiltroBatchModCli');
+        const btnProd = document.getElementById('btnFiltroBatchModProd');
+
+        // Aislar el modal estrictamente al módulo seleccionado
         if (modulo === 'productos') {
             filtroModuloBatchModal = 'PRODUCTOS';
-            ['btnFiltroBatchModTodos', 'btnFiltroBatchModCli', 'btnFiltroBatchModProd'].forEach(id => {
-                const btn = document.getElementById(id);
-                if (btn) btn.classList.remove('active');
-            });
-            document.getElementById('btnFiltroBatchModProd')?.classList.add('active');
+            if (btnTodos) btnTodos.style.display = 'none';
+            if (btnCli) btnCli.style.display = 'none';
+            if (btnProd) {
+                btnProd.style.display = 'inline-block';
+                btnProd.classList.add('active');
+            }
         } else if (modulo === 'clientes') {
             filtroModuloBatchModal = 'CLIENTES';
-            ['btnFiltroBatchModTodos', 'btnFiltroBatchModCli', 'btnFiltroBatchModProd'].forEach(id => {
-                const btn = document.getElementById(id);
-                if (btn) btn.classList.remove('active');
-            });
-            document.getElementById('btnFiltroBatchModCli')?.classList.add('active');
+            if (btnTodos) btnTodos.style.display = 'none';
+            if (btnProd) btnProd.style.display = 'none';
+            if (btnCli) {
+                btnCli.style.display = 'inline-block';
+                btnCli.classList.add('active');
+            }
         } else {
             filtroModuloBatchModal = 'TODOS';
-            ['btnFiltroBatchModTodos', 'btnFiltroBatchModCli', 'btnFiltroBatchModProd'].forEach(id => {
-                const btn = document.getElementById(id);
-                if (btn) btn.classList.remove('active');
-            });
-            document.getElementById('btnFiltroBatchModTodos')?.classList.add('active');
+            if (btnTodos) { btnTodos.style.display = 'inline-block'; btnTodos.classList.add('active'); }
+            if (btnCli) { btnCli.style.display = 'inline-block'; btnCli.classList.remove('active'); }
+            if (btnProd) { btnProd.style.display = 'inline-block'; btnProd.classList.remove('active'); }
         }
 
         document.getElementById('auditModalTitulo').textContent = modulo === 'clientes' 
@@ -3338,11 +3342,11 @@
             lista = lista.filter(b => (b.totalErrores > 0) || b.estado === 'CON_ERRORES' || b.estado === 'FALLIDO');
         }
 
-        // Filtro por Módulo
-        if (filtroModuloBatchModal === 'CLIENTES') {
-            lista = lista.filter(b => (b.entidad || '').includes('CLIENTE') || (b.entidad || '').includes('CARTERA') || (b.entidad || '').includes('ZONAS'));
-        } else if (filtroModuloBatchModal === 'PRODUCTOS') {
+        // Filtro por Módulo estrictamente aislado
+        if (moduloAuditoriaActivo === 'productos' || filtroModuloBatchModal === 'PRODUCTOS') {
             lista = lista.filter(b => (b.entidad || '').includes('PROD'));
+        } else if (moduloAuditoriaActivo === 'clientes' || filtroModuloBatchModal === 'CLIENTES') {
+            lista = lista.filter(b => !(b.entidad || '').includes('PROD'));
         }
 
         const badgeCount = document.getElementById('auditTotalBatchesBadge');
@@ -3516,8 +3520,8 @@
             ? `${batch.totalErrores} error(es) detectado(s)` 
             : '0 incidencias en esta carga';
 
-        // Desglose de sub-etapas
-        const modNombre = (batch.entidad || '').includes('PROD') ? 'productos' : 'clientes';
+        // Desglose de sub-etapas acorde al módulo activo
+        const modNombre = (moduloAuditoriaActivo === 'productos' || (batch.entidad || '').includes('PROD')) ? 'productos' : 'clientes';
         renderizarDesgloseSubmodulosModal(modNombre, batch);
 
         // Consultar logs específicos de este loteId
@@ -3795,7 +3799,9 @@
                     ? `<span class="pill-diag-ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Al día</span>`
                     : `<span class="pill-diag-warn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ${r.observacion || 'Cambios pendientes de aplicar'}</span>`;
 
-                return `<tr>
+                const submodKey = r.codigoTabla === 'PRODUCTOS' ? 'PRODUCTOS' : (r.codigoTabla === 'UNIDADES_FACTORES' ? 'UNIDADES' : (r.codigoTabla === 'CATALOGOS_PORTAFOLIO' ? 'CATALOGOS' : 'PRECIOS'));
+
+                return `<tr style="cursor:pointer;" onclick="seleccionarSubmoduloFiltroProd('${submodKey}')" title="Clic para filtrar este sub-módulo en la tabla inferior">
                     <td style="font-weight:700; color:#0f172a;"><span style="color:#94a3b8; font-weight:800; margin-right:6px;">&gt;</span>${r.nombreTabla}</td>
                     <td class="mono" style="color:#64748b; font-size:12px;">${r.tablasForce}</td>
                     <td class="num" style="font-weight:700; color:#0f172a;">${(r.totalOrigen || 0).toLocaleString()}</td>
@@ -3823,20 +3829,44 @@
         }
     }
 
+    function seleccionarSubmoduloFiltroProd(submodKey) {
+        const sel = document.getElementById('selFiltroTablaProd');
+        if (sel) {
+            sel.value = submodKey;
+            irPaginaCambiosProd(1);
+            document.getElementById('txtFiltroCambioProd')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    function limpiarFiltrosCambiosProd() {
+        document.getElementById('txtFiltroCambioProd').value = '';
+        document.getElementById('selFiltroTablaProd').value = '';
+        document.getElementById('selFiltroOpProd').value = '';
+        irPaginaCambiosProd(1);
+    }
+
     function obtenerCambiosProductosFiltrados() {
-        const texto = (document.getElementById('txtFiltroCambioProd').value || '').toLowerCase();
+        const texto = (document.getElementById('txtFiltroCambioProd').value || '').toLowerCase().trim();
         const tabla = document.getElementById('selFiltroTablaProd').value;
         const op = document.getElementById('selFiltroOpProd').value;
 
         return cambiosProductosCache.filter(c => {
-            if (tabla && !c.tabla.toUpperCase().includes(tabla)) return false;
-            if (op && !c.tipoOperacion.toUpperCase().includes(op)) return false;
+            if (tabla) {
+                const t = (c.tabla || '').toUpperCase();
+                if (tabla === 'PRODUCTOS' && !t.includes('PRODUCTO')) return false;
+                if (tabla === 'UNIDADES' && !t.includes('UNIDAD') && !t.includes('FACTOR')) return false;
+                if (tabla === 'CATALOGOS' && !t.includes('CATALOGO') && !t.includes('PORTAFOLIO')) return false;
+                if (tabla === 'PRECIOS' && !t.includes('PRECIO') && !t.includes('ESCALA')) return false;
+            }
+            if (op && !(c.tipoOperacion || '').toUpperCase().includes(op)) return false;
             if (texto) {
                 const match = (c.codigoCliente && c.codigoCliente.toLowerCase().includes(texto)) ||
                               (c.nombreCliente && c.nombreCliente.toLowerCase().includes(texto)) ||
                               (c.campoModificado && c.campoModificado.toLowerCase().includes(texto)) ||
                               (c.valorActualForce && c.valorActualForce.toLowerCase().includes(texto)) ||
                               (c.valorNuevoERP && c.valorNuevoERP.toLowerCase().includes(texto)) ||
+                              (c.tabla && c.tabla.toLowerCase().includes(texto)) ||
+                              (c.tipoOperacion && c.tipoOperacion.toLowerCase().includes(texto)) ||
                               (c.idOrigen && c.idOrigen.toString().includes(texto));
                 if (!match) return false;
             }
@@ -3870,7 +3900,17 @@
 
         const tbody = document.getElementById('tblDetalleCambiosProd');
         if (!paginaItems.length) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:26px;">No se encontraron registros pendientes con los filtros seleccionados.</td></tr>';
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" style="text-align:center; padding:32px 16px; color:#64748b;">
+                        <div style="font-weight:700; color:#334155; font-size:14px; margin-bottom:6px;">No se encontraron registros pendientes con los filtros seleccionados.</div>
+                        <div style="font-size:12px; color:#94a3b8; margin-bottom:12px;">Total diferencias cargadas en memoria: ${cambiosProductosCache.length.toLocaleString()} registros</div>
+                        <button class="btn btn-outline btn-xs" onclick="limpiarFiltrosCambiosProd()" style="border-radius:20px; padding:4px 14px; font-weight:700; border-color:#93c5fd; color:#1d4ed8; background:#eff6ff;">
+                            🔄 Restablecer Filtros
+                        </button>
+                    </td>
+                </tr>
+            `;
             return;
         }
 

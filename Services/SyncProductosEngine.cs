@@ -945,12 +945,16 @@ namespace IntegradorFlexForce.Services
             var transaccion = new SyncTransaccionDto
             {
                 LoteId = loteId,
-                Entidad = $"PRODUCTOS_{subModulo}",
+                Entidad = subModulo == "TODOS" ? "PRODUCTOS" : $"PRODUCTOS_{subModulo}",
                 TipoEjecucion = "MANUAL",
                 FechaInicio = DateTime.Now,
                 Estado = "EN_PROCESO",
                 Usuario = usuario
             };
+
+            await RegistrarInicioLoteAsync(transaccion, ct);
+            await RegistrarLogAsync(loteId, transaccion.Entidad, "INFO", null, null,
+                $"Iniciando sincronización manual de Productos (Sub-Módulo: {subModulo})...", null, ct);
 
             try
             {
@@ -1080,6 +1084,10 @@ namespace IntegradorFlexForce.Services
                 transaccion.DuracionSegundos = (decimal)swTotal.Elapsed.TotalSeconds;
                 transaccion.Estado = errores > 0 ? "CON_ERRORES" : "EXITOSO";
 
+                await RegistrarFinLoteAsync(transaccion, ct);
+                await RegistrarLogAsync(loteId, transaccion.Entidad, errores > 0 ? "WARN" : "INFO", null, null,
+                    $"Sincronización de Productos ({subModulo}) completada: {procesados:N0} procesados, {errores:N0} errores en {transaccion.DuracionSegundos}s.", null, ct);
+
                 _currentStatus.UltimaEjecucion = DateTime.Now;
                 _currentStatus.UltimoLoteProcesados = procesados;
                 _currentStatus.UltimoLoteErrores = errores;
@@ -1088,6 +1096,19 @@ namespace IntegradorFlexForce.Services
                 _currentStatus.FaseDetalle = $"Sincronización de Productos completada: {procesados:N0} registros en {_currentStatus.UltimaDuracionSegundos}s.";
 
                 return transaccion;
+            }
+            catch (Exception ex)
+            {
+                swTotal.Stop();
+                transaccion.TotalErrores++;
+                transaccion.DuracionSegundos = (decimal)swTotal.Elapsed.TotalSeconds;
+                transaccion.Estado = "FALLIDO";
+                await RegistrarFinLoteAsync(transaccion, CancellationToken.None);
+                await RegistrarLogAsync(loteId, transaccion.Entidad, "ERROR", null, null,
+                    $"Error en sincronización de productos ({subModulo}): {ex.Message}", ex.ToString(), CancellationToken.None);
+                _currentStatus.EstadoActual = "FALLIDO";
+                _currentStatus.FaseDetalle = $"Error: {ex.Message}";
+                throw;
             }
             finally
             {
@@ -1448,6 +1469,93 @@ namespace IntegradorFlexForce.Services
             }
 
             return (procesados, errores);
+        }
+
+        private async Task RegistrarInicioLoteAsync(SyncTransaccionDto t, CancellationToken ct)
+        {
+            try
+            {
+                using var conn = new SqlConnection(_connectionStringForce);
+                await conn.OpenAsync(ct);
+
+                const string sql = @"
+                    INSERT INTO dbo.sync_TransaccionLote (LoteId, Entidad, TipoEjecucion, FechaInicio, Estado, Usuario)
+                    VALUES (@LoteId, @Entidad, @TipoEjecucion, @FechaInicio, @Estado, @Usuario);";
+
+                using var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@LoteId", t.LoteId);
+                cmd.Parameters.AddWithValue("@Entidad", t.Entidad);
+                cmd.Parameters.AddWithValue("@TipoEjecucion", t.TipoEjecucion);
+                cmd.Parameters.AddWithValue("@FechaInicio", t.FechaInicio);
+                cmd.Parameters.AddWithValue("@Estado", t.Estado);
+                cmd.Parameters.AddWithValue("@Usuario", (object?)t.Usuario ?? DBNull.Value);
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo registrar inicio de lote en sync_TransaccionLote para productos.");
+            }
+        }
+
+        private async Task RegistrarFinLoteAsync(SyncTransaccionDto t, CancellationToken ct)
+        {
+            try
+            {
+                using var conn = new SqlConnection(_connectionStringForce);
+                await conn.OpenAsync(ct);
+
+                const string sql = @"
+                    UPDATE dbo.sync_TransaccionLote
+                    SET FechaFin = GETDATE(),
+                        DuracionSegundos = @DuracionSegundos,
+                        TotalEscaneados = @TotalEscaneados,
+                        TotalNuevos = @TotalNuevos,
+                        TotalModificados = @TotalModificados,
+                        TotalErrores = @TotalErrores,
+                        Estado = @Estado
+                    WHERE LoteId = @LoteId;";
+
+                using var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@LoteId", t.LoteId);
+                cmd.Parameters.AddWithValue("@DuracionSegundos", (object?)t.DuracionSegundos ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@TotalEscaneados", t.TotalEscaneados);
+                cmd.Parameters.AddWithValue("@TotalNuevos", t.TotalNuevos);
+                cmd.Parameters.AddWithValue("@TotalModificados", t.TotalModificados);
+                cmd.Parameters.AddWithValue("@TotalErrores", t.TotalErrores);
+                cmd.Parameters.AddWithValue("@Estado", t.Estado);
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo registrar fin de lote en sync_TransaccionLote para productos.");
+            }
+        }
+
+        public async Task RegistrarLogAsync(Guid? loteId, string entidad, string nivel, int? idOrigen, string? codigo, string mensaje, string? detalle, CancellationToken ct = default)
+        {
+            try
+            {
+                using var conn = new SqlConnection(_connectionStringForce);
+                await conn.OpenAsync(ct);
+
+                const string sql = @"
+                    INSERT INTO dbo.sync_Log (LoteId, Entidad, Nivel, IDOrigen, Codigo, Mensaje, DetalleTecnico, Fecha)
+                    VALUES (@LoteId, @Entidad, @Nivel, @IDOrigen, @Codigo, @Mensaje, @DetalleTecnico, GETDATE());";
+
+                using var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@LoteId", (object?)loteId ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@Entidad", entidad);
+                cmd.Parameters.AddWithValue("@Nivel", nivel);
+                cmd.Parameters.AddWithValue("@IDOrigen", (object?)idOrigen ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@Codigo", (object?)codigo ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@Mensaje", mensaje.Length > 500 ? mensaje[..500] : mensaje);
+                cmd.Parameters.AddWithValue("@DetalleTecnico", (object?)detalle ?? DBNull.Value);
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo registrar log en sync_Log para productos.");
+            }
         }
     }
 }
