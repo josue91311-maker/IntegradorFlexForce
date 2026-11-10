@@ -2381,35 +2381,42 @@ namespace IntegradorFlexForce.Services
         public async Task<List<SyncLogDto>> ObtenerUltimosLogsAsync(int cantidad = 100, string? nivel = null, Guid? loteId = null, CancellationToken ct = default)
         {
             var logs = new List<SyncLogDto>();
-            using var conn = new SqlConnection(_connectionStringForce);
-            await conn.OpenAsync(ct);
-
-            string sql = $@"
-                SELECT TOP ({cantidad}) ID, LoteId, Entidad, Nivel, IDOrigen, Codigo, Mensaje, DetalleTecnico, Fecha
-                FROM dbo.sync_Log WITH (NOLOCK)
-                WHERE (@Nivel IS NULL OR Nivel = @Nivel)
-                  AND (@LoteId IS NULL OR LoteId = @LoteId)
-                ORDER BY Fecha DESC;";
-
-            using var cmd = new SqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@Nivel", (object?)nivel ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@LoteId", (object?)loteId ?? DBNull.Value);
-            using var reader = await cmd.ExecuteReaderAsync(ct);
-
-            while (await reader.ReadAsync(ct))
+            try
             {
-                logs.Add(new SyncLogDto
+                using var conn = new SqlConnection(_connectionStringForce);
+                await conn.OpenAsync(ct);
+
+                string sql = $@"
+                    SELECT TOP ({cantidad}) ID, LoteId, Entidad, Nivel, IDOrigen, Codigo, Mensaje, DetalleTecnico, Fecha
+                    FROM dbo.sync_Log WITH (NOLOCK)
+                    WHERE (@Nivel IS NULL OR Nivel = @Nivel)
+                      AND (@LoteId IS NULL OR LoteId = @LoteId)
+                    ORDER BY Fecha DESC;";
+
+                using var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@Nivel", (object?)nivel ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@LoteId", (object?)loteId ?? DBNull.Value);
+                using var reader = await cmd.ExecuteReaderAsync(ct);
+
+                while (await reader.ReadAsync(ct))
                 {
-                    ID = reader.GetInt64(0),
-                    LoteId = reader.IsDBNull(1) ? null : reader.GetGuid(1),
-                    Entidad = reader.GetString(2),
-                    Nivel = reader.GetString(3),
-                    IDOrigen = reader.IsDBNull(4) ? null : reader.GetInt32(4),
-                    Codigo = reader.IsDBNull(5) ? null : reader.GetString(5),
-                    Mensaje = reader.GetString(6),
-                    DetalleTecnico = reader.IsDBNull(7) ? null : reader.GetString(7),
-                    Fecha = reader.GetDateTime(8)
-                });
+                    logs.Add(new SyncLogDto
+                    {
+                        ID = reader.GetInt64(0),
+                        LoteId = reader.IsDBNull(1) ? null : reader.GetGuid(1),
+                        Entidad = reader.GetString(2),
+                        Nivel = reader.GetString(3),
+                        IDOrigen = reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                        Codigo = reader.IsDBNull(5) ? null : reader.GetString(5),
+                        Mensaje = reader.GetString(6),
+                        DetalleTecnico = reader.IsDBNull(7) ? null : reader.GetString(7),
+                        Fecha = reader.GetDateTime(8)
+                    });
+                }
+            }
+            catch (Exception ex) when (ct.IsCancellationRequested || ex is OperationCanceledException || ex.Message.Contains("cancelada por el usuario"))
+            {
+                // Solicitud HTTP abortada/cancelada por recarga o cierre del navegador; retornar lista de forma limpia
             }
             return logs;
         }
@@ -2417,36 +2424,43 @@ namespace IntegradorFlexForce.Services
         public async Task<List<SyncTransaccionDto>> ObtenerUltimasTransaccionesAsync(int cantidad = 20, CancellationToken ct = default)
         {
             var list = new List<SyncTransaccionDto>();
-            using var conn = new SqlConnection(_connectionStringForce);
-            await conn.OpenAsync(ct);
-
-            string sql = $@"
-                SELECT TOP ({cantidad}) ID, LoteId, Entidad, TipoEjecucion, FechaInicio, FechaFin, 
-                       DuracionSegundos, TotalEscaneados, TotalNuevos, TotalModificados, TotalErrores, Estado, Usuario
-                FROM dbo.sync_TransaccionLote WITH (NOLOCK)
-                ORDER BY FechaInicio DESC;";
-
-            using var cmd = new SqlCommand(sql, conn);
-            using var reader = await cmd.ExecuteReaderAsync(ct);
-
-            while (await reader.ReadAsync(ct))
+            try
             {
-                list.Add(new SyncTransaccionDto
+                using var conn = new SqlConnection(_connectionStringForce);
+                await conn.OpenAsync(ct);
+
+                string sql = $@"
+                    SELECT TOP ({cantidad}) ID, LoteId, Entidad, TipoEjecucion, FechaInicio, FechaFin, 
+                           DuracionSegundos, TotalEscaneados, TotalNuevos, TotalModificados, TotalErrores, Estado, Usuario
+                    FROM dbo.sync_TransaccionLote WITH (NOLOCK)
+                    ORDER BY FechaInicio DESC;";
+
+                using var cmd = new SqlCommand(sql, conn);
+                using var reader = await cmd.ExecuteReaderAsync(ct);
+
+                while (await reader.ReadAsync(ct))
                 {
-                    ID = reader.GetInt64(0),
-                    LoteId = reader.GetGuid(1),
-                    Entidad = reader.GetString(2),
-                    TipoEjecucion = reader.GetString(3),
-                    FechaInicio = reader.GetDateTime(4),
-                    FechaFin = reader.IsDBNull(5) ? null : reader.GetDateTime(5),
-                    DuracionSegundos = reader.IsDBNull(6) ? null : reader.GetDecimal(6),
-                    TotalEscaneados = reader.GetInt32(7),
-                    TotalNuevos = reader.GetInt32(8),
-                    TotalModificados = reader.GetInt32(9),
-                    TotalErrores = reader.GetInt32(10),
-                    Estado = reader.GetString(11),
-                    Usuario = reader.IsDBNull(12) ? "" : reader.GetString(12)
-                });
+                    list.Add(new SyncTransaccionDto
+                    {
+                        ID = reader.GetInt64(0),
+                        LoteId = reader.GetGuid(1),
+                        Entidad = reader.GetString(2),
+                        TipoEjecucion = reader.GetString(3),
+                        FechaInicio = reader.GetDateTime(4),
+                        FechaFin = reader.IsDBNull(5) ? null : reader.GetDateTime(5),
+                        DuracionSegundos = reader.IsDBNull(6) ? null : reader.GetDecimal(6),
+                        TotalEscaneados = reader.GetInt32(7),
+                        TotalNuevos = reader.GetInt32(8),
+                        TotalModificados = reader.GetInt32(9),
+                        TotalErrores = reader.GetInt32(10),
+                        Estado = reader.GetString(11),
+                        Usuario = reader.IsDBNull(12) ? "" : reader.GetString(12)
+                    });
+                }
+            }
+            catch (Exception ex) when (ct.IsCancellationRequested || ex is OperationCanceledException || ex.Message.Contains("cancelada por el usuario"))
+            {
+                // Solicitud HTTP abortada/cancelada por recarga o cierre del navegador; retornar lista de forma limpia
             }
             return list;
         }
