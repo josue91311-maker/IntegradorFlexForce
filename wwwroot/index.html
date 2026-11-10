@@ -4513,6 +4513,15 @@
 
         try {
             const res = await fetch('/api/sync/preview');
+            if (!res.ok) {
+                let errText = 'Error del servidor al consultar diferencias (' + res.status + ')';
+                try {
+                    const errObj = await res.json();
+                    if (errObj && errObj.message) errText = errObj.message;
+                } catch { }
+                mostrarToast(errText, 'error');
+                return;
+            }
             const data = await res.json();
 
             const horaAuditPeru = formatearSoloHoraPeru(data.fechaAnalisis);

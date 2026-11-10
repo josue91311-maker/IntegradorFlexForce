@@ -213,21 +213,10 @@ namespace IntegradorFlexForce.Services
         }
 
         // =========================================================================
-        // HELPER: CONEXIONES SQL CON PACKET SIZE OPTIMIZADO (32 KB)
+        // HELPER: CONEXIONES SQL ESTÁNDAR COMPATIBLES CON MARS
         // =========================================================================
-        private SqlConnection CrearConexionForce(int packetSize = 32767)
-        {
-            var csb = new SqlConnectionStringBuilder(_connectionStringForce);
-            if (packetSize > 0) csb.PacketSize = packetSize;
-            return new SqlConnection(csb.ConnectionString);
-        }
-
-        private SqlConnection CrearConexionAntiguo(int packetSize = 32767)
-        {
-            var csb = new SqlConnectionStringBuilder(_connectionStringAntiguo);
-            if (packetSize > 0) csb.PacketSize = packetSize;
-            return new SqlConnection(csb.ConnectionString);
-        }
+        private SqlConnection CrearConexionForce() => new SqlConnection(_connectionStringForce);
+        private SqlConnection CrearConexionAntiguo() => new SqlConnection(_connectionStringAntiguo);
 
         private static string NormalizarTexto(string? input)
         {

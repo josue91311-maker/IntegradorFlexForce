@@ -58,8 +58,15 @@ namespace IntegradorFlexForce.Controllers
         [HttpGet("preview")]
         public async Task<IActionResult> PreviewCambios(CancellationToken ct)
         {
-            var preview = await _syncEngine.AnalizarCambiosPendientesAsync(ct);
-            return Ok(preview);
+            try
+            {
+                var preview = await _syncEngine.AnalizarCambiosPendientesAsync(ct);
+                return Ok(preview);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al analizar diferencias: " + ex.Message, detalle = ex.ToString() });
+            }
         }
 
         [HttpPost("trigger")]
