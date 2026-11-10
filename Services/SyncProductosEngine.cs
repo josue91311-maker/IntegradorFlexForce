@@ -1189,14 +1189,16 @@ namespace IntegradorFlexForce.Services
 
             while (await r.ReadAsync(ct))
             {
+                int idProdOrigen = 0;
                 try
                 {
+                    idProdOrigen = r.GetInt32(0);
                     using var cmd = new SqlCommand("dbo.usp_Sync_UpsertProductoMaestro", connForce)
                     {
                         CommandType = CommandType.StoredProcedure,
                         CommandTimeout = 60
                     };
-                    cmd.Parameters.AddWithValue("@ID_Producto_Origen", r.GetInt32(0));
+                    cmd.Parameters.AddWithValue("@ID_Producto_Origen", idProdOrigen);
                     cmd.Parameters.AddWithValue("@CodigoProducto", r.GetString(1));
                     cmd.Parameters.AddWithValue("@NombreProducto", r.GetString(2));
                     cmd.Parameters.AddWithValue("@DescripcionProducto", r.GetString(2));
@@ -1225,7 +1227,7 @@ namespace IntegradorFlexForce.Services
                 catch (Exception ex)
                 {
                     errores++;
-                    _logger.LogWarning(ex, "Error sincronizando producto ID {Id}", r.GetInt32(0));
+                    _logger.LogWarning(ex, "Error sincronizando producto ID {Id}", idProdOrigen);
                 }
             }
 
@@ -1268,14 +1270,16 @@ namespace IntegradorFlexForce.Services
 
             while (await r.ReadAsync(ct))
             {
+                int idUnidadOrigen = 0;
                 try
                 {
+                    idUnidadOrigen = r.GetInt32(0);
                     using var cmd = new SqlCommand("dbo.usp_Sync_UpsertProductoUnidad", connForce)
                     {
                         CommandType = CommandType.StoredProcedure,
                         CommandTimeout = 60
                     };
-                    cmd.Parameters.AddWithValue("@ID_Unidad_Origen", r.GetInt32(0));
+                    cmd.Parameters.AddWithValue("@ID_Unidad_Origen", idUnidadOrigen);
                     cmd.Parameters.AddWithValue("@ID_Producto_Origen", r.GetInt32(1));
                     cmd.Parameters.AddWithValue("@CodigoUnidad", r.GetString(2));
                     cmd.Parameters.AddWithValue("@NombreUnidad", r.GetString(3));
@@ -1296,7 +1300,7 @@ namespace IntegradorFlexForce.Services
                 catch (Exception ex)
                 {
                     errores++;
-                    _logger.LogWarning(ex, "Error sincronizando unidad ID {Id}", r.GetInt32(0));
+                    _logger.LogWarning(ex, "Error sincronizando unidad ID {Id}", idUnidadOrigen);
                 }
             }
 
@@ -1359,46 +1363,94 @@ namespace IntegradorFlexForce.Services
             return (procesados, errores);
         }
 
+        private sealed class EscalaOrigenItem
+        {
+            public int IdEscala { get; set; }
+            public int IdUnidadItemLista { get; set; }
+            public int IdItemLista { get; set; }
+            public int IdListaPrecio { get; set; }
+            public string NombreListaPrecio { get; set; } = "";
+            public bool EstadoListaPrecio { get; set; }
+            public int IdProducto { get; set; }
+            public int IdUnidad { get; set; }
+            public bool DesactivadoItem { get; set; }
+            public bool Credito { get; set; }
+            public bool Contado { get; set; }
+            public bool PermiteVentaUnidad { get; set; }
+            public decimal Desde { get; set; }
+            public decimal Hasta { get; set; }
+            public decimal Precio { get; set; }
+            public decimal PrecioIncImpto { get; set; }
+            public decimal UtilidadMonto { get; set; }
+            public decimal UtilidadPorcentual { get; set; }
+            public bool EsVigente { get; set; }
+        }
+
         private async Task<(int Procesados, int Errores)> ProcesarLotePreciosEscalasAsync(List<int> idsEscalas, CancellationToken ct)
         {
             int procesados = 0, errores = 0;
             var inClause = string.Join(",", idsEscalas);
+            var items = new List<EscalaOrigenItem>();
 
-            using var connAntiguo = new SqlConnection(_connectionStringAntiguo);
-            await connAntiguo.OpenAsync(ct);
+            using (var connAntiguo = new SqlConnection(_connectionStringAntiguo))
+            {
+                await connAntiguo.OpenAsync(ct);
 
-            var sql = $@"
-                SELECT 
-                    e.PKID AS ID_Escala,
-                    uilp.PKID AS ID_UnidadItemLista,
-                    ilp.PKID AS ID_ItemLista,
-                    lp.PKID AS ID_ListaPrecio,
-                    LTRIM(RTRIM(ISNULL(lp.Descripcion, ''))) AS NombreListaPrecio,
-                    CAST(ISNULL(lp.Activo, 1) AS bit) AS EstadoListaPrecio,
-                    ilp.IDProducto AS ID_Producto,
-                    uilp.IDUnidad AS ID_Unidad,
-                    CAST(ISNULL(ilp.Desactivado, 0) AS bit) AS DesactivadoItem,
-                    CAST(ISNULL(ilp.Credito, 1) AS bit) AS Credito,
-                    CAST(ISNULL(ilp.Contado, 1) AS bit) AS Contado,
-                    CAST(ISNULL(uilp.Venta, 1) AS bit) AS PermiteVentaUnidad,
-                    CAST(ISNULL(e.Desde, 0) AS decimal(18,4)) AS Desde,
-                    CAST(ISNULL(e.Hasta, 999999) AS decimal(18,4)) AS Hasta,
-                    CAST(ISNULL(e.Precio, 0) AS decimal(18,6)) AS Precio,
-                    CAST(ISNULL(e.PrecioIncImpto, 0) AS decimal(18,6)) AS PrecioIncImpto,
-                    CAST(ISNULL(e.UtilidadMonto, 0) AS decimal(18,6)) AS UtilidadMonto,
-                    CAST(ISNULL(e.UtilidadPorcentual, 0) AS decimal(18,6)) AS UtilidadPorcentual,
-                    CAST(ISNULL(e.EsVigente, 1) AS bit) AS EsVigente
-                FROM dbo.Escala e WITH (NOLOCK)
-                INNER JOIN dbo.UnidadItemListaPrecios uilp WITH (NOLOCK) ON uilp.PKID = e.IDUnidadItemListaPrecios
-                INNER JOIN dbo.ItemListaPrecios ilp WITH (NOLOCK) ON ilp.PKID = uilp.IDItemListaPrecios
-                INNER JOIN dbo.ListaPrecios lp WITH (NOLOCK) ON lp.PKID = ilp.IDListaPrecios
-                WHERE e.PKID IN ({inClause});";
+                var sql = $@"
+                    SELECT 
+                        e.PKID AS ID_Escala,
+                        uilp.PKID AS ID_UnidadItemLista,
+                        ilp.PKID AS ID_ItemLista,
+                        lp.PKID AS ID_ListaPrecio,
+                        LTRIM(RTRIM(ISNULL(lp.Descripcion, ''))) AS NombreListaPrecio,
+                        CAST(ISNULL(lp.Activo, 1) AS bit) AS EstadoListaPrecio,
+                        ilp.IDProducto AS ID_Producto,
+                        uilp.IDUnidad AS ID_Unidad,
+                        CAST(ISNULL(ilp.Desactivado, 0) AS bit) AS DesactivadoItem,
+                        CAST(ISNULL(ilp.Credito, 1) AS bit) AS Credito,
+                        CAST(ISNULL(ilp.Contado, 1) AS bit) AS Contado,
+                        CAST(ISNULL(uilp.Venta, 1) AS bit) AS PermiteVentaUnidad,
+                        CAST(ISNULL(e.Desde, 0) AS decimal(18,4)) AS Desde,
+                        CAST(ISNULL(e.Hasta, 999999) AS decimal(18,4)) AS Hasta,
+                        CAST(ISNULL(e.Precio, 0) AS decimal(18,6)) AS Precio,
+                        CAST(ISNULL(e.PrecioIncImpto, 0) AS decimal(18,6)) AS PrecioIncImpto,
+                        CAST(ISNULL(e.UtilidadMonto, 0) AS decimal(18,6)) AS UtilidadMonto,
+                        CAST(ISNULL(e.UtilidadPorcentual, 0) AS decimal(18,6)) AS UtilidadPorcentual,
+                        CAST(ISNULL(e.EsVigente, 1) AS bit) AS EsVigente
+                    FROM dbo.Escala e WITH (NOLOCK)
+                    INNER JOIN dbo.UnidadItemListaPrecios uilp WITH (NOLOCK) ON uilp.PKID = e.IDUnidadItemListaPrecios
+                    INNER JOIN dbo.ItemListaPrecios ilp WITH (NOLOCK) ON ilp.PKID = uilp.IDItemListaPrecios
+                    INNER JOIN dbo.ListaPrecios lp WITH (NOLOCK) ON lp.PKID = ilp.IDListaPrecios
+                    WHERE e.PKID IN ({inClause});";
 
-            using var cmdRead = new SqlCommand(sql, connAntiguo) { CommandTimeout = 120 };
-            using var r = await cmdRead.ExecuteReaderAsync(ct);
-
-            using var connForce = new SqlConnection(_connectionStringForce);
-            await connForce.OpenAsync(ct);
+                using var cmdRead = new SqlCommand(sql, connAntiguo) { CommandTimeout = 120 };
+                using var r = await cmdRead.ExecuteReaderAsync(ct);
+                while (await r.ReadAsync(ct))
+                {
+                    items.Add(new EscalaOrigenItem
+                    {
+                        IdEscala = r.GetInt32(0),
+                        IdUnidadItemLista = r.GetInt32(1),
+                        IdItemLista = r.GetInt32(2),
+                        IdListaPrecio = r.GetInt32(3),
+                        NombreListaPrecio = r.GetString(4),
+                        EstadoListaPrecio = r.GetBoolean(5),
+                        IdProducto = r.GetInt32(6),
+                        IdUnidad = r.GetInt32(7),
+                        DesactivadoItem = r.GetBoolean(8),
+                        Credito = r.GetBoolean(9),
+                        Contado = r.GetBoolean(10),
+                        PermiteVentaUnidad = r.GetBoolean(11),
+                        Desde = r.GetDecimal(12),
+                        Hasta = r.GetDecimal(13),
+                        Precio = r.GetDecimal(14),
+                        PrecioIncImpto = r.GetDecimal(15),
+                        UtilidadMonto = r.GetDecimal(16),
+                        UtilidadPorcentual = r.GetDecimal(17),
+                        EsVigente = r.GetBoolean(18)
+                    });
+                }
+            }
 
             const string sqlDirectUpdate = @"
                 UPDATE dbo.prc_PrecioEscala
@@ -1414,64 +1466,69 @@ namespace IntegradorFlexForce.Services
                     FechaModificacion = GETDATE()
                 WHERE IDExtra = @ID_Escala_Origen;";
 
-            while (await r.ReadAsync(ct))
+            using var connForce = new SqlConnection(_connectionStringForce);
+            await connForce.OpenAsync(ct);
+
+            using var cmdUpd = new SqlCommand(sqlDirectUpdate, connForce) { CommandTimeout = 30 };
+            cmdUpd.Parameters.Add("@ID_Escala_Origen", SqlDbType.Int);
+            cmdUpd.Parameters.Add("@Precio", SqlDbType.Decimal); cmdUpd.Parameters["@Precio"].Precision = 18; cmdUpd.Parameters["@Precio"].Scale = 6;
+            cmdUpd.Parameters.Add("@PrecioIncImpto", SqlDbType.Decimal); cmdUpd.Parameters["@PrecioIncImpto"].Precision = 18; cmdUpd.Parameters["@PrecioIncImpto"].Scale = 6;
+            cmdUpd.Parameters.Add("@UtilidadMonto", SqlDbType.Decimal); cmdUpd.Parameters["@UtilidadMonto"].Precision = 18; cmdUpd.Parameters["@UtilidadMonto"].Scale = 6;
+            cmdUpd.Parameters.Add("@UtilidadPorcentual", SqlDbType.Decimal); cmdUpd.Parameters["@UtilidadPorcentual"].Precision = 18; cmdUpd.Parameters["@UtilidadPorcentual"].Scale = 6;
+            cmdUpd.Parameters.Add("@Desde", SqlDbType.Decimal); cmdUpd.Parameters["@Desde"].Precision = 18; cmdUpd.Parameters["@Desde"].Scale = 4;
+            cmdUpd.Parameters.Add("@Hasta", SqlDbType.Decimal); cmdUpd.Parameters["@Hasta"].Precision = 18; cmdUpd.Parameters["@Hasta"].Scale = 4;
+            cmdUpd.Parameters.Add("@EsVigente", SqlDbType.Bit);
+            cmdUpd.Prepare();
+
+            foreach (var it in items)
             {
                 try
                 {
-                    int idEscalaOrigen = r.GetInt32(0);
-                    decimal desde = r.GetDecimal(12);
-                    decimal hasta = r.GetDecimal(13);
-                    decimal precio = r.GetDecimal(14);
-                    decimal precioIncImpto = r.GetDecimal(15);
-                    decimal utilidadMonto = r.GetDecimal(16);
-                    decimal utilidadPorc = r.GetDecimal(17);
-                    bool esVigente = r.GetBoolean(18);
-
-                    // 1. Intentar UPDATE directo ultrarrápido si la escala ya existe por IDExtra
-                    using (var cmdUpd = new SqlCommand(sqlDirectUpdate, connForce))
+                    if (connForce.State != ConnectionState.Open)
                     {
-                        cmdUpd.CommandTimeout = 30;
-                        cmdUpd.Parameters.AddWithValue("@ID_Escala_Origen", idEscalaOrigen);
-                        cmdUpd.Parameters.AddWithValue("@Precio", precio);
-                        cmdUpd.Parameters.AddWithValue("@PrecioIncImpto", precioIncImpto);
-                        cmdUpd.Parameters.AddWithValue("@UtilidadMonto", utilidadMonto);
-                        cmdUpd.Parameters.AddWithValue("@UtilidadPorcentual", utilidadPorc);
-                        cmdUpd.Parameters.AddWithValue("@Desde", desde);
-                        cmdUpd.Parameters.AddWithValue("@Hasta", hasta);
-                        cmdUpd.Parameters.AddWithValue("@EsVigente", esVigente);
-
-                        int rowsUpdated = await cmdUpd.ExecuteNonQueryAsync(ct);
-                        if (rowsUpdated > 0)
-                        {
-                            procesados++;
-                            continue; // Actualizado con éxito inmediato en BDForceGVD
-                        }
+                        await connForce.OpenAsync(ct);
                     }
 
-                    // 2. Si es una escala nueva que aún no existe en Force, invocar SP para crear la estructura completa
+                    cmdUpd.Parameters["@ID_Escala_Origen"].Value = it.IdEscala;
+                    cmdUpd.Parameters["@Precio"].Value = it.Precio;
+                    cmdUpd.Parameters["@PrecioIncImpto"].Value = it.PrecioIncImpto;
+                    cmdUpd.Parameters["@UtilidadMonto"].Value = it.UtilidadMonto;
+                    cmdUpd.Parameters["@UtilidadPorcentual"].Value = it.UtilidadPorcentual;
+                    cmdUpd.Parameters["@Desde"].Value = it.Desde;
+                    cmdUpd.Parameters["@Hasta"].Value = it.Hasta;
+                    cmdUpd.Parameters["@EsVigente"].Value = it.EsVigente;
+
+                    int rowsUpdated = await cmdUpd.ExecuteNonQueryAsync(ct);
+                    if (rowsUpdated > 0)
+                    {
+                        procesados++;
+                        continue; // Actualizado con éxito inmediato en BDForceGVD
+                    }
+
+                    // 2. Si no existía por IDExtra, invocar SP para crear la estructura completa
                     using (var cmd = new SqlCommand("dbo.usp_Sync_UpsertPrecioEscala", connForce))
                     {
                         cmd.CommandType = CommandType.StoredProcedure;
                         cmd.CommandTimeout = 60;
-                        cmd.Parameters.AddWithValue("@ID_Escala_Origen", idEscalaOrigen);
-                        cmd.Parameters.AddWithValue("@ID_UnidadItemLista_Origen", r.GetInt32(1));
-                        cmd.Parameters.AddWithValue("@ID_ItemLista_Origen", r.GetInt32(2));
-                        cmd.Parameters.AddWithValue("@ID_ListaPrecio_Origen", r.GetInt32(3));
-                        cmd.Parameters.AddWithValue("@NombreListaPrecio", r.GetString(4));
-                        cmd.Parameters.AddWithValue("@EstadoListaPrecio", r.GetBoolean(5));
-                        cmd.Parameters.AddWithValue("@ID_Producto_Origen", r.GetInt32(6));
-                        cmd.Parameters.AddWithValue("@ID_Unidad_Origen", r.GetInt32(7));
-                        cmd.Parameters.AddWithValue("@DesactivadoItem", r.GetBoolean(8));
-                        cmd.Parameters.AddWithValue("@Credito", r.GetBoolean(9));
-                        cmd.Parameters.AddWithValue("@Contado", r.GetBoolean(10));
-                        cmd.Parameters.AddWithValue("@PermiteVentaUnidad", r.GetBoolean(11));
-                        cmd.Parameters.AddWithValue("@Desde", desde);
-                        cmd.Parameters.AddWithValue("@Hasta", hasta);
-                        cmd.Parameters.AddWithValue("@Precio", precio);
-                        cmd.Parameters.AddWithValue("@PrecioIncImpto", precioIncImpto);
-                        cmd.Parameters.AddWithValue("@UtilidadMonto", utilidadMonto);
-                        cmd.Parameters.AddWithValue("@UtilidadPorcentual", utilidadPorc);
-                        cmd.Parameters.AddWithValue("@EsVigente", esVigente);
+                        cmd.Parameters.AddWithValue("@ID_Escala_Origen", it.IdEscala);
+                        cmd.Parameters.AddWithValue("@ID_UnidadItemLista_Origen", it.IdUnidadItemLista);
+                        cmd.Parameters.AddWithValue("@ID_ItemLista_Origen", it.IdItemLista);
+                        cmd.Parameters.AddWithValue("@ID_ListaPrecio_Origen", it.IdListaPrecio);
+                        cmd.Parameters.AddWithValue("@NombreListaPrecio", it.NombreListaPrecio);
+                        cmd.Parameters.AddWithValue("@EstadoListaPrecio", it.EstadoListaPrecio);
+                        cmd.Parameters.AddWithValue("@ID_Producto_Origen", it.IdProducto);
+                        cmd.Parameters.AddWithValue("@ID_Unidad_Origen", it.IdUnidad);
+                        cmd.Parameters.AddWithValue("@DesactivadoItem", it.DesactivadoItem);
+                        cmd.Parameters.AddWithValue("@Credito", it.Credito);
+                        cmd.Parameters.AddWithValue("@Contado", it.Contado);
+                        cmd.Parameters.AddWithValue("@PermiteVentaUnidad", it.PermiteVentaUnidad);
+                        cmd.Parameters.AddWithValue("@Desde", it.Desde);
+                        cmd.Parameters.AddWithValue("@Hasta", it.Hasta);
+                        cmd.Parameters.AddWithValue("@Precio", it.Precio);
+                        cmd.Parameters.AddWithValue("@PrecioIncImpto", it.PrecioIncImpto);
+                        cmd.Parameters.AddWithValue("@UtilidadMonto", it.UtilidadMonto);
+                        cmd.Parameters.AddWithValue("@UtilidadPorcentual", it.UtilidadPorcentual);
+                        cmd.Parameters.AddWithValue("@EsVigente", it.EsVigente);
 
                         await cmd.ExecuteNonQueryAsync(ct);
                         procesados++;
@@ -1480,7 +1537,7 @@ namespace IntegradorFlexForce.Services
                 catch (Exception ex)
                 {
                     errores++;
-                    _logger.LogWarning(ex, "Error sincronizando escala precio ID {Id}", r.GetInt32(0));
+                    _logger.LogWarning(ex, "Error sincronizando escala precio ID {Id}", it.IdEscala);
                 }
             }
 

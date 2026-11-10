@@ -3838,6 +3838,30 @@
             cambiosProductosCache = data.detalleCambios || [];
             irPaginaCambiosProd(1);
             actualizarResumenGlobalDashboard();
+
+            // Actualizar contadores en los botones de acción del módulo
+            const rProd = resumen.find(x => x.codigoTabla === 'PRODUCTOS');
+            const rUnid = resumen.find(x => x.codigoTabla === 'UNIDADES_FACTORES');
+            const rCat  = resumen.find(x => x.codigoTabla === 'CATALOGOS_PORTAFOLIO');
+            const rPrc  = resumen.find(x => x.codigoTabla === 'PRECIOS_ESCALAS');
+
+            const dProd = rProd ? ((rProd.insertsDetectados || 0) + (rProd.updatesDetectados || 0) + (rProd.deletesBajasDetectados || 0)) : 0;
+            const dUnid = rUnid ? ((rUnid.insertsDetectados || 0) + (rUnid.updatesDetectados || 0) + (rUnid.deletesBajasDetectados || 0)) : 0;
+            const dCat  = rCat  ? ((rCat.insertsDetectados || 0)  + (rCat.updatesDetectados || 0)  + (rCat.deletesBajasDetectados || 0))  : 0;
+            const dPrc  = rPrc  ? ((rPrc.insertsDetectados || 0)  + (rPrc.updatesDetectados || 0)  + (rPrc.deletesBajasDetectados || 0))  : 0;
+
+            const btnProd = document.getElementById('btnSyncProdMaestro');
+            const btnUnid = document.getElementById('btnSyncProdUnidades');
+            const btnCat  = document.getElementById('btnSyncProdCatalogos');
+            const btnPrc  = document.getElementById('btnSyncProdPrecios');
+            const btnTodo = document.getElementById('btnSyncProdTodo');
+
+            if (btnProd) btnProd.innerHTML = `2. Sincronizar Productos ${dProd === 0 ? '<span style="opacity:0.8; font-size:11px;">(0)</span>' : `<span style="background:#ea580c; color:#fff; border-radius:10px; padding:1px 6px; font-size:11px; margin-left:4px;">${dProd}</span>`}`;
+            if (btnUnid) btnUnid.innerHTML = `3. Sincronizar Factores ${dUnid === 0 ? '<span style="opacity:0.8; font-size:11px;">(0)</span>' : `<span style="background:#ea580c; color:#fff; border-radius:10px; padding:1px 6px; font-size:11px; margin-left:4px;">${dUnid}</span>`}`;
+            if (btnCat)  btnCat.innerHTML  = `4. Sincronizar Catálogos ${dCat === 0 ? '<span style="opacity:0.8; font-size:11px;">(0)</span>' : `<span style="background:#ea580c; color:#fff; border-radius:10px; padding:1px 6px; font-size:11px; margin-left:4px;">${dCat}</span>`}`;
+            if (btnPrc)  btnPrc.innerHTML  = `5. Sincronizar Precios ${dPrc === 0 ? '<span style="opacity:0.8; font-size:11px;">(0)</span>' : `<span style="background:#ea580c; color:#fff; border-radius:10px; padding:1px 6px; font-size:11px; margin-left:4px;">${dPrc}</span>`}`;
+            if (btnTodo) btnTodo.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Sincronizar Todo ${totalDiffProd > 0 ? `(${totalDiffProd.toLocaleString()})` : ''}`;
+
             cargarEstadoProductos();
         } catch (e) {
             console.error('Error al validar diferencias de productos:', e);
@@ -3954,6 +3978,17 @@
     }
 
     async function ejecutarSincronizacionProductos(subModulo) {
+        if (subModulo === 'PRODUCTOS' && resumenProductosCache && resumenProductosCache.length > 0) {
+            const rProd = resumenProductosCache.find(x => x.codigoTabla === 'PRODUCTOS');
+            const dProd = rProd ? ((rProd.insertsDetectados || 0) + (rProd.updatesDetectados || 0) + (rProd.deletesBajasDetectados || 0)) : 0;
+            if (dProd === 0) {
+                const proceder = confirm('ℹ El Maestro de Productos ya está 100% al día (0 diferencias).\n\nLas diferencias pendientes están en:\n- 4. Listas de Precios y Escalas (314 diferencias)\n- 3. Catálogos y Portafolios (24 diferencias)\n\n¿Deseas sincronizar PRECIOS Y ESCALAS ahora?');
+                if (proceder) {
+                    subModulo = 'PRECIOS_ESCALAS';
+                }
+            }
+        }
+
         try {
             const res = await fetch(`/api/sync/productos/trigger?subModulo=${encodeURIComponent(subModulo)}`, { method: 'POST' });
             const data = await res.json();
