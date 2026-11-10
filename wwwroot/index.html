@@ -584,6 +584,284 @@
         .status-pill.error .dot { background: #dc2626; }
 
         /* ==============================================================
+           BANNER SUPERIOR DE MODO OPERATIVO (AUTOMÁTICO / MANUAL)
+           ============================================================== */
+        .hub-system-banner {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafd 100%);
+            border: 1px solid #dbeafe;
+            border-radius: var(--radius-xl);
+            padding: 16px 24px;
+            margin-bottom: 22px;
+            box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .hub-mode-badge-wrap {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .hub-mode-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            padding: 7px 16px;
+            border-radius: 999px;
+            font-size: 12.5px;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+
+        .hub-mode-pill.auto {
+            background: #dcfce7;
+            color: #15803d;
+            border: 1px solid #86efac;
+        }
+
+        .hub-mode-pill.manual {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+        }
+
+        .pulsing-radar {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #16a34a;
+            position: relative;
+        }
+
+        .hub-mode-pill.auto .pulsing-radar::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border-radius: 50%;
+            border: 2px solid #22c55e;
+            animation: radarPulse 1.8s infinite cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .hub-mode-pill.manual .pulsing-radar {
+            background: #3b82f6;
+        }
+
+        @keyframes radarPulse {
+            0% { transform: scale(0.9); opacity: 1; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }
+
+        .hub-mode-desc {
+            font-size: 13px;
+            color: #475569;
+            font-weight: 600;
+        }
+
+        .hub-servers-status {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            background: #f1f5f9;
+            padding: 8px 16px;
+            border-radius: 999px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .server-status-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 12px;
+            color: #334155;
+        }
+
+        .server-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .server-dot.green { background: #10b981; box-shadow: 0 0 6px rgba(16, 185, 129, 0.5); }
+
+        .server-badge-ro {
+            background: #e2e8f0;
+            color: #475569;
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 6px;
+        }
+
+        .server-badge-rw {
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 6px;
+        }
+
+        .btn-toggle-mode {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 18px;
+            border-radius: 999px;
+            font-size: 12.5px;
+            font-weight: 700;
+            cursor: pointer;
+            border: 1.5px solid #cbd5e1;
+            background: #ffffff;
+            color: #1e293b;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .btn-toggle-mode:hover {
+            border-color: #94a3b8;
+            background: #f8fafc;
+            transform: translateY(-1px);
+        }
+
+        /* ==============================================================
+           TARJETAS EJECUTIVAS ROBUSTAS PARA MÓDULOS DEL HUB
+           ============================================================== */
+        .hub-module-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 22px 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.03);
+            transition: all 0.22s ease;
+            cursor: pointer;
+        }
+        .hub-module-card:hover {
+            border-color: #93c5fd;
+            box-shadow: 0 8px 26px rgba(37, 99, 235, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .hub-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .hub-card-title-group {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .hub-card-diag-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            background: #f8fafd;
+            border: 1px solid #edf2f7;
+            border-radius: 12px;
+            padding: 12px 18px;
+            margin-bottom: 16px;
+        }
+        @media (max-width: 900px) {
+            .hub-card-diag-bar { grid-template-columns: 1fr 1fr; }
+        }
+
+        .hub-diag-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .hub-diag-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: #64748b;
+            letter-spacing: 0.03em;
+        }
+        .hub-diag-value {
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .hub-diag-value.ok { color: #16a34a; }
+        .hub-diag-value.warn { color: #ea580c; }
+        .hub-diag-value.mono { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+
+        .hub-subentities-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        @media (max-width: 900px) {
+            .hub-subentities-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        .hub-subentity-box {
+            background: #ffffff;
+            border: 1px solid #f1f5f9;
+            border-radius: 10px;
+            padding: 9px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .hub-subentity-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .hub-subentity-name {
+            font-size: 12px;
+            font-weight: 700;
+            color: #334155;
+        }
+        .hub-subentity-count {
+            font-size: 11px;
+            color: #94a3b8;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .hub-subentity-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+        .hub-subentity-badge.ok {
+            background: #dcfce7;
+            color: #15803d;
+        }
+        .hub-subentity-badge.warn {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+
+        .hub-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 12px;
+            border-top: 1px solid #f1f5f9;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        /* ==============================================================
            GRILLA INFERIOR DE 3 TARJETAS (RENDIMIENTO, DONUT, ACTIVIDAD)
            ============================================================== */
         .bottom-widgets-grid {
@@ -1368,6 +1646,39 @@
             </div>
         </header>
 
+        <!-- BANNER PROFESIONAL DE ESTADO DE AUTOMATIZACIÓN Y CONECTIVIDAD -->
+        <div class="hub-system-banner" id="hubAutoBanner">
+            <div class="hub-mode-badge-wrap">
+                <div id="hubModePill" class="hub-mode-pill auto">
+                    <span class="pulsing-radar"></span>
+                    <strong id="hubModeTitle">AUTOMÁTICO ACTIVO</strong>
+                </div>
+                <div class="hub-mode-desc">
+                    <span id="hubModeDetail">Sincronización periódica programada cada 3 min · Ventana 05:00 a 23:30 · BDForceGVD</span>
+                </div>
+            </div>
+            <div class="hub-servers-status">
+                <div class="server-status-item">
+                    <span class="server-dot green"></span>
+                    <span style="font-weight:700;">ERP Antiguo:</span>
+                    <span class="mono" style="font-weight:600;">192.168.2.16 (digalimenta41)</span>
+                    <span class="server-badge-ro">Solo Lectura</span>
+                </div>
+                <div class="server-status-item">
+                    <span class="server-dot green"></span>
+                    <span style="font-weight:700;">Force ERP:</span>
+                    <span class="mono" style="font-weight:600;">192.168.2.93 (BDForceGVD)</span>
+                    <span class="server-badge-rw">Escritura Activa</span>
+                </div>
+            </div>
+            <div class="hub-mode-action">
+                <button id="btnToggleAutoMode" class="btn-toggle-mode" onclick="toggleModoAutomaticoRapido()" title="Alternar entre modo automático y manual">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <span id="btnToggleAutoText">Pausar Automático</span>
+                </button>
+            </div>
+        </div>
+
         <!-- 4 TARJETAS KPI SUPERIORES -->
         <section class="kpi-row">
             <!-- KPI 1: Sub-Procesos Totales -->
@@ -1447,70 +1758,208 @@
             </div>
         </section>
 
-        <!-- TARJETA CENTRAL: PROCESOS EN EJECUCIÓN / MÓDULOS DE NEGOCIO -->
-        <div class="white-card">
-            <div class="card-header-clean">
+        <!-- SECCIÓN DE MÓDULOS EJECUTIVOS ROBUSTOS -->
+        <div style="margin-bottom: 24px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
                 <div class="card-title-row">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1877f2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                    <h2>Procesos en Ejecución y Módulos de Integración</h2>
+                    <h2>Módulos de Integración en Tiempo Real</h2>
                 </div>
-                <span style="font-size:12.5px; color:var(--text-muted); font-weight:600;">Haga clic en un módulo para abrir su consola detallada</span>
+                <span style="font-size:12.5px; color:var(--text-muted); font-weight:600;">Supervisión detallada de última ejecución, salud e integridad por sub-entidad</span>
             </div>
 
-            <div class="process-list">
-                <!-- MÓDULO 1: MAESTRO INTEGRAL DE CLIENTES (CLIENTES + DIRECCIONES + RUTAS + CRÉDITOS) -->
-                <div class="process-row" onclick="navegarVista('clientes')" style="cursor:pointer;">
-                    <div class="proc-info">
+            <!-- TARJETA MÓDULO 1: CLIENTES, DIRECCIONES, RUTAS Y CRÉDITOS -->
+            <div class="hub-module-card" onclick="navegarVista('clientes')">
+                <div class="hub-card-header">
+                    <div class="hub-card-title-group">
                         <div class="proc-icon blue">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                         </div>
                         <div>
-                            <div class="proc-name" style="font-size:14.5px; font-weight:800;">1. Módulo Integral de Clientes, Rutas y Créditos</div>
-                            <div class="proc-sub" id="hubRow1Sub">Clientes, Direcciones, Cartera de Zonas/Rutas y Líneas de Crédito</div>
+                            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                                <h3 style="font-size:16px; font-weight:800; color:#0f172a; margin:0;">1. Módulo Integral de Clientes, Rutas y Créditos</h3>
+                                <span id="hubRow1Status" class="status-pill completed"><span class="dot"></span>Al Día</span>
+                            </div>
+                            <div id="hubRow1Sub" style="font-size:12.5px; color:#64748b; margin-top:3px; font-weight:500;">
+                                Clientes y Personas, Direcciones Físicas, Cartera de Zonas/Rutas y Líneas de Crédito
+                            </div>
                         </div>
                     </div>
-                    <div class="proc-bar-track">
-                        <div id="hubRow1Bar" class="proc-bar-fill blue" style="width: 100%;"></div>
-                    </div>
-                    <div id="hubRow1Pct" class="proc-pct">100%</div>
-                    <div class="proc-time">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        <span id="hubRow1Time">00:00:16</span>
-                    </div>
-                    <div>
-                        <span id="hubRow1Status" class="status-pill completed"><span class="dot"></span>Al Día</span>
-                    </div>
-                    <div style="text-align:right; display:flex; gap:8px; justify-content:flex-end;">
-                        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); ejecutarSincronizacion('todo')">Sincronizar</button>
-                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); navegarVista('clientes')">Abrir Módulo →</button>
+                    <div style="display:flex; align-items:center; gap:14px;">
+                        <div style="text-align:right;">
+                            <div id="hubRow1Pct" style="font-size:18px; font-weight:800; color:#0f172a; line-height:1;">100%</div>
+                            <div style="font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase;">Salud Módulo</div>
+                        </div>
+                        <div class="proc-bar-track" style="width:140px;">
+                            <div id="hubRow1Bar" class="proc-bar-fill blue" style="width: 100%;"></div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- MÓDULO 2: CATÁLOGO DE PRODUCTOS, FACTORES Y PRECIOS -->
-                <div class="process-row" onclick="navegarVista('productos')" style="cursor:pointer;">
-                    <div class="proc-info">
+                <!-- DIAGNÓSTICO PRÁCTICO DE ÚLTIMA EJECUCIÓN (CLIENTES) -->
+                <div class="hub-card-diag-bar">
+                    <div class="hub-diag-item">
+                        <span class="hub-diag-label">⏱ Última Sincronización</span>
+                        <span id="hubMod1UltimaEjecucion" class="hub-diag-value mono">Cargando...</span>
+                    </div>
+                    <div class="hub-diag-item">
+                        <span class="hub-diag-label">⏳ Duración del Proceso</span>
+                        <span id="hubMod1Duracion" class="hub-diag-value mono">00:00:00</span>
+                    </div>
+                    <div class="hub-diag-item">
+                        <span class="hub-diag-label">🛡 Auditoría & Errores</span>
+                        <span id="hubMod1Errores" class="hub-diag-value ok">0 Errores · 100% Conforme</span>
+                    </div>
+                    <div class="hub-diag-item">
+                        <span class="hub-diag-label">📦 Registros en Último Lote</span>
+                        <span id="hubMod1Procesados" class="hub-diag-value">0 aplicados</span>
+                    </div>
+                </div>
+
+                <!-- DESGLOSE DE SUB-TABLAS DE CLIENTES -->
+                <div class="hub-subentities-grid">
+                    <div class="hub-subentity-box">
+                        <div class="hub-subentity-info">
+                            <span class="hub-subentity-name">1. Clientes y Personas</span>
+                            <span id="hubCountCli" class="hub-subentity-count">369,627 reg.</span>
+                        </div>
+                        <span id="hubBadgeCli" class="hub-subentity-badge ok">Al día</span>
+                    </div>
+                    <div class="hub-subentity-box">
+                        <div class="hub-subentity-info">
+                            <span class="hub-subentity-name">2. Direcciones de Clientes</span>
+                            <span id="hubCountDir" class="hub-subentity-count">369,618 reg.</span>
+                        </div>
+                        <span id="hubBadgeDir" class="hub-subentity-badge ok">Al día</span>
+                    </div>
+                    <div class="hub-subentity-box">
+                        <div class="hub-subentity-info">
+                            <span class="hub-subentity-name">3. Zonas, Rutas y Vendedor</span>
+                            <span id="hubCountZon" class="hub-subentity-count">902,407 reg.</span>
+                        </div>
+                        <span id="hubBadgeZon" class="hub-subentity-badge ok">Al día</span>
+                    </div>
+                    <div class="hub-subentity-box">
+                        <div class="hub-subentity-info">
+                            <span class="hub-subentity-name">4. Líneas y Modalidades</span>
+                            <span id="hubCountCre" class="hub-subentity-count">1,122,011 reg.</span>
+                        </div>
+                        <span id="hubBadgeCre" class="hub-subentity-badge ok">Al día</span>
+                    </div>
+                </div>
+
+                <!-- FOOTER DE ACCIÓN (CLIENTES) -->
+                <div class="hub-card-footer">
+                    <div style="font-size:12px; color:#64748b; font-weight:600; display:flex; align-items:center; gap:6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span id="hubMod1SyncMsg">Base de datos sincronizada: digalimenta41 → BDForceGVD</span>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); ejecutarSincronizacion('todo')">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                            Sincronizar Módulo
+                        </button>
+                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); navegarVista('clientes')">
+                            Abrir Consola y Detalle →
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TARJETA MÓDULO 2: PRODUCTOS, FACTORES, CATÁLOGOS Y PRECIOS -->
+            <div class="hub-module-card" onclick="navegarVista('productos')">
+                <div class="hub-card-header">
+                    <div class="hub-card-title-group">
                         <div class="proc-icon orange">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                         </div>
                         <div>
-                            <div class="proc-name" style="font-size:14.5px; font-weight:800;">2. Módulo de Productos, Catálogo y Escalas de Precios</div>
-                            <div class="proc-sub" id="hubRow4Sub">Artículos Maestros, Unidades/Factores, Portafolios y Precios por Escala</div>
+                            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                                <h3 style="font-size:16px; font-weight:800; color:#0f172a; margin:0;">2. Módulo de Productos, Catálogo y Escalas de Precios</h3>
+                                <span id="hubRow4Status" class="status-pill completed"><span class="dot"></span>Al Día</span>
+                            </div>
+                            <div id="hubRow4Sub" style="font-size:12.5px; color:#64748b; margin-top:3px; font-weight:500;">
+                                Catálogo Maestro, Presentaciones/Factores, Portafolios y Precios por Escala
+                            </div>
                         </div>
                     </div>
-                    <div class="proc-bar-track">
-                        <div id="hubRow4Bar" class="proc-bar-fill orange" style="width: 100%;"></div>
+                    <div style="display:flex; align-items:center; gap:14px;">
+                        <div style="text-align:right;">
+                            <div id="hubRow4Pct" style="font-size:18px; font-weight:800; color:#0f172a; line-height:1;">100%</div>
+                            <div style="font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase;">Salud Módulo</div>
+                        </div>
+                        <div class="proc-bar-track" style="width:140px;">
+                            <div id="hubRow4Bar" class="proc-bar-fill orange" style="width: 100%;"></div>
+                        </div>
                     </div>
-                    <div id="hubRow4Pct" class="proc-pct">100%</div>
-                    <div class="proc-time">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        <span id="hubRow4Time">00:00:00</span>
+                </div>
+
+                <!-- DIAGNÓSTICO PRÁCTICO DE ÚLTIMA EJECUCIÓN (PRODUCTOS) -->
+                <div class="hub-card-diag-bar">
+                    <div class="hub-diag-item">
+                        <span class="hub-diag-label">⏱ Última Sincronización</span>
+                        <span id="hubMod2UltimaEjecucion" class="hub-diag-value mono">Cargando...</span>
                     </div>
-                    <div>
-                        <span id="hubRow4Status" class="status-pill completed"><span class="dot"></span>Al Día</span>
+                    <div class="hub-diag-item">
+                        <span class="hub-diag-label">⏳ Duración del Proceso</span>
+                        <span id="hubMod2Duracion" class="hub-diag-value mono">00:00:00</span>
                     </div>
-                    <div style="text-align:right; display:flex; gap:8px; justify-content:flex-end;">
-                        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); ejecutarSincronizacionProductos('TODOS')">Sincronizar</button>
-                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); navegarVista('productos')">Abrir Módulo →</button>
+                    <div class="hub-diag-item">
+                        <span class="hub-diag-label">🛡 Auditoría & Errores</span>
+                        <span id="hubMod2Errores" class="hub-diag-value ok">0 Errores · 100% Conforme</span>
+                    </div>
+                    <div class="hub-diag-item">
+                        <span class="hub-diag-label">📦 Registros en Último Lote</span>
+                        <span id="hubMod2Procesados" class="hub-diag-value">0 aplicados</span>
+                    </div>
+                </div>
+
+                <!-- DESGLOSE DE SUB-TABLAS DE PRODUCTOS -->
+                <div class="hub-subentities-grid">
+                    <div class="hub-subentity-box">
+                        <div class="hub-subentity-info">
+                            <span class="hub-subentity-name">1. Catálogo Maestro</span>
+                            <span id="hubCountProd" class="hub-subentity-count">25,466 reg.</span>
+                        </div>
+                        <span id="hubBadgeProd" class="hub-subentity-badge ok">Al día</span>
+                    </div>
+                    <div class="hub-subentity-box">
+                        <div class="hub-subentity-info">
+                            <span class="hub-subentity-name">2. Presentaciones y Factores</span>
+                            <span id="hubCountUnid" class="hub-subentity-count">39,630 reg.</span>
+                        </div>
+                        <span id="hubBadgeUnid" class="hub-subentity-badge ok">Al día</span>
+                    </div>
+                    <div class="hub-subentity-box">
+                        <div class="hub-subentity-info">
+                            <span class="hub-subentity-name">3. Catálogos y Portafolios</span>
+                            <span id="hubCountCat" class="hub-subentity-count">69,871 reg.</span>
+                        </div>
+                        <span id="hubBadgeCat" class="hub-subentity-badge ok">Al día</span>
+                    </div>
+                    <div class="hub-subentity-box">
+                        <div class="hub-subentity-info">
+                            <span class="hub-subentity-name">4. Listas de Precios y Escalas</span>
+                            <span id="hubCountPrc" class="hub-subentity-count">43,634 reg.</span>
+                        </div>
+                        <span id="hubBadgePrc" class="hub-subentity-badge ok">Al día</span>
+                    </div>
+                </div>
+
+                <!-- FOOTER DE ACCIÓN (PRODUCTOS) -->
+                <div class="hub-card-footer">
+                    <div style="font-size:12px; color:#64748b; font-weight:600; display:flex; align-items:center; gap:6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span id="hubMod2SyncMsg">Base de datos sincronizada: digalimenta41 → BDForceGVD</span>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); ejecutarSincronizacionProductos('TODOS')">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                            Sincronizar Módulo
+                        </button>
+                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); navegarVista('productos')">
+                            Abrir Consola y Detalle →
+                        </button>
                     </div>
                 </div>
             </div>
@@ -2754,7 +3203,43 @@
         container.innerHTML = html;
     }
 
-    // Actualizar KPIs Superiores y Donut Chart según los 2 Módulos Principales
+    // Cachés de Estado Global y Diagnóstico Ejecutivo
+    let configGlobalCache = null;
+    let statusCliCache = null;
+    let statusProdCache = null;
+
+    // Alternar modo automático / manual en 1 solo clic desde el Hub
+    async function toggleModoAutomaticoRapido() {
+        const btnText = document.getElementById('btnToggleAutoText');
+        if (btnText) btnText.textContent = 'Actualizando...';
+        try {
+            const res = await fetch('/api/sync/config');
+            const c = await res.json();
+            const nuevoEstado = !c.sincronizacionActiva;
+            const body = {
+                sincronizacionActiva: nuevoEstado,
+                intervaloMinutos: c.intervaloMinutos || 3,
+                horaInicioVentana: c.horaInicioVentana || '05:00',
+                horaFinVentana: c.horaFinVentana || '23:30',
+                tamanoLote: c.tamanoLote || 500,
+                reintentosMaximos: c.reintentosMaximos || 3
+            };
+            const postRes = await fetch('/api/sync/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (postRes.ok) {
+                configGlobalCache = body;
+                await cargarConfiguracion();
+                await cargarEstado();
+            }
+        } catch (e) {
+            alert('Error al alternar modo: ' + e.message);
+        }
+    }
+
+    // Actualizar KPIs Superiores, Donut Chart y Tarjetas Ejecutivas del Hub
     function actualizarResumenGlobalDashboard() {
         const diffCli = (resumenClientesCache || []).reduce((acc, r) => acc + (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0), 0);
         const diffProd = (resumenProductosCache || []).reduce((acc, r) => acc + (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0), 0);
@@ -2788,6 +3273,138 @@
         if (elLegEx) elLegEx.textContent = alDia;
         const elLegPrc = document.getElementById('legendValProceso');
         if (elLegPrc) elLegPrc.textContent = conCambios;
+
+        // 1. BANNER PROFESIONAL DE ESTADO DE AUTOMATIZACIÓN (AUTOMÁTICO / MANUAL)
+        if (configGlobalCache) {
+            const isAuto = configGlobalCache.sincronizacionActiva;
+            const pill = document.getElementById('hubModePill');
+            const title = document.getElementById('hubModeTitle');
+            const detail = document.getElementById('hubModeDetail');
+            const btnText = document.getElementById('btnToggleAutoText');
+
+            if (pill) pill.className = 'hub-mode-pill ' + (isAuto ? 'auto' : 'manual');
+            if (title) title.textContent = isAuto ? 'AUTOMÁTICO ACTIVO' : 'MODO MANUAL';
+            if (detail) {
+                detail.textContent = isAuto
+                    ? `Sincronización periódica cada ${configGlobalCache.intervaloMinutos} min · Ventana ${configGlobalCache.horaInicioVentana} a ${configGlobalCache.horaFinVentana} · BDForceGVD al día`
+                    : 'Sincronización automática en pausa. Los datos se actualizan bajo demanda con el botón "Sincronizar".';
+            }
+            if (btnText) btnText.textContent = isAuto ? 'Pausar Automático' : 'Activar Automático';
+        }
+
+        // 2. MÓDULO 1: CLIENTES, DIRECCIONES, RUTAS Y CRÉDITOS
+        if (statusCliCache) {
+            const fecStr = statusCliCache.ultimaEjecucion ? formatearHoraPeru(statusCliCache.ultimaEjecucion) : 'Sin ejecución previa';
+            const durStr = segundosAHms(statusCliCache.ultimaDuracionSegundos);
+            const errs = statusCliCache.ultimoLoteErrores || 0;
+            const procs = statusCliCache.ultimoLoteProcesados || 0;
+
+            const elFec = document.getElementById('hubMod1UltimaEjecucion');
+            if (elFec) elFec.textContent = fecStr;
+            const elDur = document.getElementById('hubMod1Duracion');
+            if (elDur) elDur.textContent = `${durStr} (${Math.round(statusCliCache.ultimaDuracionSegundos || 0)}s)`;
+            const elErr = document.getElementById('hubMod1Errores');
+            if (elErr) {
+                elErr.className = 'hub-diag-value ' + (errs === 0 ? 'ok' : 'warn');
+                elErr.textContent = errs === 0 ? '0 Errores · 100% Conforme' : `${errs} Error(es) detectados`;
+            }
+            const elProc = document.getElementById('hubMod1Procesados');
+            if (elProc) elProc.textContent = `${procs.toLocaleString()} registros aplicados`;
+        }
+
+        if (resumenClientesCache && resumenClientesCache.length > 0) {
+            const rCli = resumenClientesCache.find(x => x.codigoTabla === 'CLIENTES');
+            const rDir = resumenClientesCache.find(x => x.codigoTabla === 'DIRECCIONES');
+            const rZon = resumenClientesCache.find(x => x.codigoTabla === 'ZONAS_RUTAS');
+            const rCre = resumenClientesCache.find(x => x.codigoTabla === 'CREDITOS');
+
+            const dCli = rCli ? ((rCli.insertsDetectados || 0) + (rCli.updatesDetectados || 0) + (rCli.deletesBajasDetectados || 0)) : 0;
+            const dDir = rDir ? ((rDir.insertsDetectados || 0) + (rDir.updatesDetectados || 0) + (rDir.deletesBajasDetectados || 0)) : 0;
+            const dZon = rZon ? ((rZon.insertsDetectados || 0) + (rZon.updatesDetectados || 0) + (rZon.deletesBajasDetectados || 0)) : 0;
+            const dCre = rCre ? ((rCre.insertsDetectados || 0) + (rCre.updatesDetectados || 0) + (rCre.deletesBajasDetectados || 0)) : 0;
+
+            const bCli = document.getElementById('hubBadgeCli');
+            if (bCli) { bCli.className = 'hub-subentity-badge ' + (dCli === 0 ? 'ok' : 'warn'); bCli.textContent = dCli === 0 ? 'Al día' : `${dCli} dif`; }
+            const bDir = document.getElementById('hubBadgeDir');
+            if (bDir) { bDir.className = 'hub-subentity-badge ' + (dDir === 0 ? 'ok' : 'warn'); bDir.textContent = dDir === 0 ? 'Al día' : `${dDir} dif`; }
+            const bZon = document.getElementById('hubBadgeZon');
+            if (bZon) { bZon.className = 'hub-subentity-badge ' + (dZon === 0 ? 'ok' : 'warn'); bZon.textContent = dZon === 0 ? 'Al día' : `${dZon} dif`; }
+            const bCre = document.getElementById('hubBadgeCre');
+            if (bCre) { bCre.className = 'hub-subentity-badge ' + (dCre === 0 ? 'ok' : 'warn'); bCre.textContent = dCre === 0 ? 'Al día' : `${dCre} dif`; }
+
+            if (rCli && document.getElementById('hubCountCli')) document.getElementById('hubCountCli').textContent = `${(rCli.totalOrigen || 0).toLocaleString()} reg.`;
+            if (rDir && document.getElementById('hubCountDir')) document.getElementById('hubCountDir').textContent = `${(rDir.totalOrigen || 0).toLocaleString()} reg.`;
+            if (rZon && document.getElementById('hubCountZon')) document.getElementById('hubCountZon').textContent = `${(rZon.totalOrigen || 0).toLocaleString()} reg.`;
+            if (rCre && document.getElementById('hubCountCre')) document.getElementById('hubCountCre').textContent = `${(rCre.totalOrigen || 0).toLocaleString()} reg.`;
+
+            const totalDiffCli = dCli + dDir + dZon + dCre;
+            const elStat1 = document.getElementById('hubRow1Status');
+            if (elStat1) {
+                elStat1.className = 'status-pill ' + (totalDiffCli === 0 ? 'completed' : 'running');
+                elStat1.innerHTML = `<span class="dot"></span>${totalDiffCli === 0 ? 'Al Día' : totalDiffCli.toLocaleString() + ' Cambios'}`;
+            }
+            const elSub1 = document.getElementById('hubRow1Sub');
+            if (elSub1) {
+                elSub1.textContent = `Clientes y Personas, Direcciones Físicas, Cartera de Zonas/Rutas y Líneas de Crédito · ${totalDiffCli === 0 ? 'Al día (0 diferencias)' : totalDiffCli.toLocaleString() + ' diferencias detectadas'}`;
+            }
+        }
+
+        // 3. MÓDULO 2: PRODUCTOS, FACTORES, CATÁLOGOS Y PRECIOS
+        if (statusProdCache) {
+            const fecStrProd = statusProdCache.ultimaEjecucion ? formatearHoraPeru(statusProdCache.ultimaEjecucion) : 'Sin ejecución previa';
+            const durStrProd = segundosAHms(statusProdCache.ultimaDuracionSegundos);
+            const errsProd = statusProdCache.ultimoLoteErrores || 0;
+            const procsProd = statusProdCache.ultimoLoteProcesados || 0;
+
+            const elFecP = document.getElementById('hubMod2UltimaEjecucion');
+            if (elFecP) elFecP.textContent = fecStrProd;
+            const elDurP = document.getElementById('hubMod2Duracion');
+            if (elDurP) elDurP.textContent = `${durStrProd} (${Math.round(statusProdCache.ultimaDuracionSegundos || 0)}s)`;
+            const elErrP = document.getElementById('hubMod2Errores');
+            if (elErrP) {
+                elErrP.className = 'hub-diag-value ' + (errsProd === 0 ? 'ok' : 'warn');
+                elErrP.textContent = errsProd === 0 ? '0 Errores · 100% Conforme' : `${errsProd} Error(es) detectados`;
+            }
+            const elProcP = document.getElementById('hubMod2Procesados');
+            if (elProcP) elProcP.textContent = `${procsProd.toLocaleString()} registros aplicados`;
+        }
+
+        if (resumenProductosCache && resumenProductosCache.length > 0) {
+            const rProd = resumenProductosCache.find(x => x.codigoTabla === 'PRODUCTOS');
+            const rUnid = resumenProductosCache.find(x => x.codigoTabla === 'UNIDADES_FACTORES');
+            const rCat  = resumenProductosCache.find(x => x.codigoTabla === 'CATALOGOS_PORTAFOLIO');
+            const rPrc  = resumenProductosCache.find(x => x.codigoTabla === 'PRECIOS_ESCALAS');
+
+            const dProd = rProd ? ((rProd.insertsDetectados || 0) + (rProd.updatesDetectados || 0) + (rProd.deletesBajasDetectados || 0)) : 0;
+            const dUnid = rUnid ? ((rUnid.insertsDetectados || 0) + (rUnid.updatesDetectados || 0) + (rUnid.deletesBajasDetectados || 0)) : 0;
+            const dCat  = rCat  ? ((rCat.insertsDetectados || 0)  + (rCat.updatesDetectados || 0)  + (rCat.deletesBajasDetectados || 0))  : 0;
+            const dPrc  = rPrc  ? ((rPrc.insertsDetectados || 0)  + (rPrc.updatesDetectados || 0)  + (rPrc.deletesBajasDetectados || 0))  : 0;
+
+            const bProd = document.getElementById('hubBadgeProd');
+            if (bProd) { bProd.className = 'hub-subentity-badge ' + (dProd === 0 ? 'ok' : 'warn'); bProd.textContent = dProd === 0 ? 'Al día' : `${dProd} dif`; }
+            const bUnid = document.getElementById('hubBadgeUnid');
+            if (bUnid) { bUnid.className = 'hub-subentity-badge ' + (dUnid === 0 ? 'ok' : 'warn'); bUnid.textContent = dUnid === 0 ? 'Al día' : `${dUnid} dif`; }
+            const bCat = document.getElementById('hubBadgeCat');
+            if (bCat) { bCat.className = 'hub-subentity-badge ' + (dCat === 0 ? 'ok' : 'warn'); bCat.textContent = dCat === 0 ? 'Al día' : `${dCat} dif`; }
+            const bPrc = document.getElementById('hubBadgePrc');
+            if (bPrc) { bPrc.className = 'hub-subentity-badge ' + (dPrc === 0 ? 'ok' : 'warn'); bPrc.textContent = dPrc === 0 ? 'Al día' : `${dPrc} dif`; }
+
+            if (rProd && document.getElementById('hubCountProd')) document.getElementById('hubCountProd').textContent = `${(rProd.totalOrigen || 0).toLocaleString()} reg.`;
+            if (rUnid && document.getElementById('hubCountUnid')) document.getElementById('hubCountUnid').textContent = `${(rUnid.totalOrigen || 0).toLocaleString()} reg.`;
+            if (rCat && document.getElementById('hubCountCat')) document.getElementById('hubCountCat').textContent = `${(rCat.totalOrigen || 0).toLocaleString()} reg.`;
+            if (rPrc && document.getElementById('hubCountPrc')) document.getElementById('hubCountPrc').textContent = `${(rPrc.totalOrigen || 0).toLocaleString()} reg.`;
+
+            const totalDiffP = dProd + dUnid + dCat + dPrc;
+            const elStat4 = document.getElementById('hubRow4Status');
+            if (elStat4) {
+                elStat4.className = 'status-pill ' + (totalDiffP === 0 ? 'completed' : 'running');
+                elStat4.innerHTML = `<span class="dot"></span>${totalDiffP === 0 ? 'Al Día' : totalDiffP.toLocaleString() + ' Cambios'}`;
+            }
+            const elSub4 = document.getElementById('hubRow4Sub');
+            if (elSub4) {
+                elSub4.textContent = `Catálogo Maestro, Presentaciones/Factores, Portafolios y Precios por Escala · ${totalDiffP === 0 ? 'Al día (0 diferencias)' : totalDiffP.toLocaleString() + ' diferencias detectadas'}`;
+            }
+        }
     }
 
     // 1. Auditoría y Pre-Visualización Clientes
@@ -2987,6 +3604,9 @@
             document.getElementById('kpiErrores').textContent = s.ultimoLoteErrores || 0;
             document.getElementById('legendValError').textContent = s.ultimoLoteErrores || 0;
 
+            statusCliCache = s;
+            actualizarResumenGlobalDashboard();
+
             if (syncCliEstabaCorriendo && !s.isRunning && s.estadoActual === 'COMPLETADO') {
                 syncCliEstabaCorriendo = false;
                 validarDiferencias();
@@ -3005,11 +3625,18 @@
         try {
             const res = await fetch('/api/sync/config');
             const c = await res.json();
-            document.getElementById('chkActiva').checked = c.sincronizacionActiva;
-            document.getElementById('txtIntervalo').value = c.intervaloMinutos;
-            document.getElementById('txtHoraInicio').value = c.horaInicioVentana;
-            document.getElementById('txtHoraFin').value = c.horaFinVentana;
-            document.getElementById('txtTamanoLote').value = c.tamanoLote;
+            configGlobalCache = c;
+            actualizarResumenGlobalDashboard();
+            const chk = document.getElementById('chkActiva');
+            if (chk) chk.checked = c.sincronizacionActiva;
+            const tInt = document.getElementById('txtIntervalo');
+            if (tInt) tInt.value = c.intervaloMinutos;
+            const tIni = document.getElementById('txtHoraInicio');
+            if (tIni) tIni.value = c.horaInicioVentana;
+            const tFin = document.getElementById('txtHoraFin');
+            if (tFin) tFin.value = c.horaFinVentana;
+            const tLot = document.getElementById('txtTamanoLote');
+            if (tLot) tLot.value = c.tamanoLote;
         } catch (e) { console.error(e); }
     }
 
@@ -4025,6 +4652,9 @@
             const badge = document.getElementById('badgeEstadoProd');
             badge.className = 'status-pill ' + (s.isRunning ? 'running' : 'completed');
             badge.innerHTML = `<span class="dot"></span>${s.estadoActual}`;
+
+            statusProdCache = s;
+            actualizarResumenGlobalDashboard();
 
             document.getElementById('btnSyncProdMaestro').disabled = s.isRunning;
             document.getElementById('btnSyncProdUnidades').disabled = s.isRunning;
