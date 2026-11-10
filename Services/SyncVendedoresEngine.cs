@@ -830,13 +830,18 @@ END;";
                 // G. VENDEDORES Y PERSONAS (vnd_Vendedor + per_Persona)
                 // -----------------------------------------------------------------
                 var vendedoresForce = new Dictionary<int, (int ID, string Codigo, string Nombre, string Doc, bool Estado)>();
+                var docToVendorIdForce = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                 using (var cmd = new SqlCommand("SELECT ID, RTRIM(Codigo) AS Codigo, RTRIM(NombreCompleto) AS NombreCompleto, RTRIM(ISNULL(DocumentoIdentidad, '')) AS Doc, Estado, IDExtra FROM dbo.vnd_Vendedor WITH (NOLOCK) WHERE Eliminado = 0;", connForce))
                 using (var r = await cmd.ExecuteReaderAsync(ct))
                 {
                     while (await r.ReadAsync(ct))
                     {
+                        int idVend = r.GetInt32(0);
+                        string docVend = r.GetString(3).Trim();
                         if (!r.IsDBNull(5))
-                            vendedoresForce[r.GetInt32(5)] = (r.GetInt32(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetBoolean(4));
+                            vendedoresForce[r.GetInt32(5)] = (idVend, r.GetString(1), r.GetString(2), docVend, r.GetBoolean(4));
+                        if (!string.IsNullOrWhiteSpace(docVend) && !docToVendorIdForce.ContainsKey(docVend))
+                            docToVendorIdForce[docVend] = idVend;
                     }
                 }
 
@@ -850,7 +855,7 @@ END;";
                             WHEN LTRIM(RTRIM(p.DocIdentidad)) IN ('0', '00', '000', '0000', '00000000', '-', '.', 'S/D', '') 
                                  OR LTRIM(RTRIM(p.DocIdentidad)) IS NULL
                             THEN RTRIM(p.Codigo)
-                            ELSE LTRIM(RTRIM(p.DocIdentidad))
+                            ELSE LTRIM(RTRIM(REPLACE(REPLACE(p.DocIdentidad, '.', ''), ' ', '')))
                         END AS DocIdentidad,
                         p.Activo AS Estado,
                         ISNULL(v.IDGrupoVentas, 0) AS IDGrupoVentas,
@@ -888,9 +893,16 @@ END;";
                                 });
                             }
                         }
-                        else if (!string.Equals(f.Nombre, nombre, StringComparison.OrdinalIgnoreCase) || f.Estado != estado || !string.Equals(f.Doc, doc, StringComparison.OrdinalIgnoreCase))
+                        else
                         {
-                            updatesVendedores.Add(pkid);
+                            string docLimpio = doc.Trim().TrimEnd('.');
+                            bool docColisionaConOtro = docToVendorIdForce.TryGetValue(docLimpio, out var idOtro) && idOtro != f.ID;
+                            bool docYaProtegidoPorUQ = docColisionaConOtro && (string.Equals(f.Doc, f.Codigo, StringComparison.OrdinalIgnoreCase) || f.Doc.StartsWith("V" + pkid));
+                            bool hayCambioDoc = !docYaProtegidoPorUQ && !string.Equals(f.Doc, docLimpio, StringComparison.OrdinalIgnoreCase) && !string.Equals(f.Doc, doc, StringComparison.OrdinalIgnoreCase);
+
+                            if (!string.Equals(f.Nombre, nombre, StringComparison.OrdinalIgnoreCase) || f.Estado != estado || hayCambioDoc)
+                            {
+                                updatesVendedores.Add(pkid);
                             if (countDetalles++ < maxDetallePorSubmodulo)
                             {
                                 preview.DetalleCambios.Add(new CambioDetectadoItemDto
@@ -906,6 +918,7 @@ END;";
                                 });
                             }
                         }
+                    }
                     }
                 }
 
@@ -1253,7 +1266,7 @@ END;";
                             WHEN LTRIM(RTRIM(p.DocIdentidad)) IN ('0', '00', '000', '0000', '00000000', '-', '.', 'S/D', '') 
                                  OR LTRIM(RTRIM(p.DocIdentidad)) IS NULL
                             THEN RTRIM(p.Codigo)
-                            ELSE LTRIM(RTRIM(p.DocIdentidad))
+                            ELSE LTRIM(RTRIM(REPLACE(REPLACE(p.DocIdentidad, '.', ''), ' ', '')))
                         END AS DocIdentidad,
                         p.Activo AS Estado,
                         ISNULL(v.IDGrupoVentas, 0) AS IDGrupoVentas,

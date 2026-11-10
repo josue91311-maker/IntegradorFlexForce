@@ -386,7 +386,7 @@ BEGIN
             SELECT TOP 1 @IDVendedor = ID FROM dbo.vnd_Vendedor WHERE Codigo = LTRIM(RTRIM(@CodigoVendedor));
 
         -- Normalizar y garantizar unicidad en DocumentoIdentidad (para respetar UQ_Vendedor_Documento)
-        DECLARE @DocFinal nvarchar(20) = LTRIM(RTRIM(ISNULL(@DocumentoIdentidad, '')));
+        DECLARE @DocFinal nvarchar(20) = REPLACE(REPLACE(LTRIM(RTRIM(ISNULL(@DocumentoIdentidad, ''))), '.', ''), ' ', '');
         IF @DocFinal IN ('0', '00', '000', '0000', '00000000', '-', '.', 'S/D', '') OR @DocFinal IS NULL
             SET @DocFinal = LEFT(LTRIM(RTRIM(@CodigoVendedor)), 20);
 

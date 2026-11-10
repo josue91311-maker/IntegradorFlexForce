@@ -6481,12 +6481,16 @@ async function ejecutarSincronizacion(modo) {
             const lblUlt = document.getElementById('lblUltimaEjecucionVend');
             const btnSync = document.getElementById('btnSyncVend');
 
-            const esError = s.estadoActual === 'ERROR' || s.estadoActual === 'FALLIDO' || (s.faseDetalle && s.faseDetalle.toLowerCase().includes('error'));
+            const esCompletado = s.estadoActual === 'COMPLETADO' && (s.ultimoLoteErrores === 0 || s.ultimoLoteErrores == null);
+            const esError = !s.isRunning && !esCompletado && (s.estadoActual === 'ERROR' || s.estadoActual === 'FALLIDO' || (s.ultimoLoteErrores > 0));
 
             if (badge) {
                 if (s.isRunning) {
                     badge.className = 'status-pill running';
                     badge.innerHTML = `<span class="dot"></span>EN EJECUCIÓN (${s.porcentaje || 0}%)`;
+                } else if (esCompletado) {
+                    badge.className = 'status-pill completed';
+                    badge.innerHTML = `<span class="dot"></span>COMPLETADO`;
                 } else if (esError) {
                     badge.className = 'status-pill error';
                     badge.innerHTML = `<span class="dot"></span>DETENIDO POR ERROR`;
@@ -6497,7 +6501,9 @@ async function ejecutarSincronizacion(modo) {
             }
 
             if (lblFase) {
-                if (esError) {
+                if (esCompletado) {
+                    lblFase.innerHTML = `<span style="color:#059669; font-weight:700;">✓ ${s.faseDetalle}</span>`;
+                } else if (esError) {
                     lblFase.innerHTML = `<span style="color:#dc2626; font-weight:800;">⚠️ ${s.faseDetalle}</span>`;
                 } else {
                     lblFase.textContent = s.faseDetalle || 'Consola de Vendedores, Supervisores, Fuerzas y Grupos';
@@ -6509,12 +6515,12 @@ async function ejecutarSincronizacion(modo) {
                 if (s.isRunning) {
                     barra.style.width = `${Math.max(s.porcentaje || 0, 4)}%`;
                     barra.style.background = 'linear-gradient(90deg, #9333ea, #7e22ce)';
+                } else if (esCompletado) {
+                    barra.style.width = '100%';
+                    barra.style.background = 'linear-gradient(90deg, #10b981, #059669)';
                 } else if (esError) {
                     barra.style.width = '100%';
                     barra.style.background = 'linear-gradient(90deg, #ef4444, #dc2626)';
-                } else if (s.estadoActual === 'COMPLETADO') {
-                    barra.style.width = '100%';
-                    barra.style.background = 'linear-gradient(90deg, #10b981, #059669)';
                 } else {
                     barra.style.width = `${s.porcentaje || 0}%`;
                 }
