@@ -154,14 +154,21 @@ namespace IntegradorFlexForce.Services
                 // -----------------------------------------------------------------
                 // A. SUCURSALES (cat_Sucursal)
                 // -----------------------------------------------------------------
-                var sucursalesForce = new Dictionary<string, (int ID, string Descripcion, bool Estado, int? IDExtra)>(StringComparer.OrdinalIgnoreCase);
+                var sucursalesForcePorExtra = new Dictionary<int, (int ID, string Codigo, string Descripcion, bool Estado)>();
+                var sucursalesForcePorCodigo = new Dictionary<string, (int ID, string Codigo, string Descripcion, bool Estado, int? IDExtra)>(StringComparer.OrdinalIgnoreCase);
                 using (var cmd = new SqlCommand("SELECT ID, RTRIM(Codigo) AS Codigo, RTRIM(Descripcion) AS Descripcion, Estado, IDExtra FROM dbo.cat_Sucursal WITH (NOLOCK);", connForce))
                 using (var r = await cmd.ExecuteReaderAsync(ct))
                 {
                     while (await r.ReadAsync(ct))
                     {
+                        var id = r.GetInt32(0);
                         var cod = r.GetString(1);
-                        sucursalesForce[cod] = (r.GetInt32(0), r.GetString(2), r.GetBoolean(3), r.IsDBNull(4) ? null : r.GetInt32(4));
+                        var desc = r.GetString(2);
+                        var est = r.GetBoolean(3);
+                        int? idExtra = r.IsDBNull(4) ? null : r.GetInt32(4);
+
+                        if (idExtra.HasValue) sucursalesForcePorExtra[idExtra.Value] = (id, cod, desc, est);
+                        sucursalesForcePorCodigo[cod] = (id, cod, desc, est, idExtra);
                     }
                 }
 
@@ -177,7 +184,11 @@ namespace IntegradorFlexForce.Services
                         string desc = r.GetString(2);
                         bool activo = r.GetBoolean(3);
 
-                        if (!sucursalesForce.TryGetValue(cod, out var f))
+                        bool existe = sucursalesForcePorExtra.TryGetValue(pkid, out var fExtra);
+                        var f = existe ? (fExtra.ID, fExtra.Descripcion, fExtra.Estado, (int?)pkid) 
+                                       : (sucursalesForcePorCodigo.TryGetValue(cod, out var fCod) ? (fCod.ID, fCod.Descripcion, fCod.Estado, fCod.IDExtra) : default);
+
+                        if (!existe && !sucursalesForcePorCodigo.ContainsKey(cod))
                         {
                             nuevosIdsSuc.Add(pkid);
                             if (countDetalles++ < maxDetallePorSubmodulo)
@@ -195,7 +206,7 @@ namespace IntegradorFlexForce.Services
                                 });
                             }
                         }
-                        else if (!string.Equals(f.Descripcion, desc, StringComparison.OrdinalIgnoreCase) || f.Estado != activo || f.IDExtra != pkid)
+                        else if (!string.Equals(f.Descripcion, desc, StringComparison.OrdinalIgnoreCase) || f.Estado != activo || f.Item4 != pkid)
                         {
                             updatesIdsSuc.Add(pkid);
                             if (countDetalles++ < maxDetallePorSubmodulo)
@@ -222,7 +233,7 @@ namespace IntegradorFlexForce.Services
                     NombreTabla = "1. Sucursales de Venta",
                     TablasForce = "dbo.cat_Sucursal",
                     TotalOrigen = totalSucOrigen,
-                    TotalDestino = sucursalesForce.Count,
+                    TotalDestino = sucursalesForcePorCodigo.Count,
                     InsertsDetectados = nuevosIdsSuc.Count,
                     UpdatesDetectados = updatesIdsSuc.Count,
                     DeletesBajasDetectados = 0,
@@ -961,7 +972,7 @@ namespace IntegradorFlexForce.Services
                         ISNULL(g.IDFuerzaVentas, 0) AS IDFuerzaVentas,
                         ISNULL(pSup.Codigo, '') AS CodigoSupervisor,
                         ISNULL(g.Observacion, '') AS Observacion,
-                        0 AS IDSucursal
+                        ISNULL((SELECT TOP 1 v.IDSucursal FROM dbo.Vendedor v WITH (NOLOCK) WHERE v.IDGrupoVentas = g.PKID AND v.IDSucursal IS NOT NULL), 0) AS IDSucursal
                     FROM dbo.GrupoVentas g WITH (NOLOCK)
                     LEFT JOIN dbo.Persona pSup WITH (NOLOCK) ON pSup.PKID = g.IDSupervisor;";
 
