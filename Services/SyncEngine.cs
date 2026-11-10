@@ -53,11 +53,16 @@ namespace IntegradorFlexForce.Services
                 var scripts = new[] { "03_SP_Upsert_Cliente_Force.sql", "07_SP_Vincular_Cliente_Ruta.sql", "09_SP_Upsert_Cliente_Credito_Catalogo.sql", "10_SP_Upsert_Producto_Force.sql" };
                 foreach (var fileName in scripts)
                 {
-                    var path = Path.Combine(Directory.GetCurrentDirectory(), fileName);
-                    if (!File.Exists(path))
-                        path = Path.Combine(AppContext.BaseDirectory, fileName);
+                    string[] possiblePaths = new[]
+                    {
+                        Path.Combine(Directory.GetCurrentDirectory(), fileName),
+                        Path.Combine(AppContext.BaseDirectory, fileName),
+                        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", fileName),
+                        Path.Combine(@"C:\Users\iraula.j\Desktop\ProyectoInterfaz\IntegradorFlexForce", fileName)
+                    };
+                    string? path = possiblePaths.FirstOrDefault(File.Exists);
 
-                    if (File.Exists(path))
+                    if (!string.IsNullOrEmpty(path))
                     {
                         var sqlContent = await File.ReadAllTextAsync(path, ct);
                         var bloques = Regex.Split(sqlContent, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
@@ -1547,8 +1552,9 @@ namespace IntegradorFlexForce.Services
             await conn.OpenAsync(ct);
 
             // 1. Ejecutar Stored Procedure de vinculación
-            using (var cmd = new SqlCommand("dbo.usp_Sync_VincularCarteraRuta", conn))
+            try
             {
+                using var cmd = new SqlCommand("dbo.usp_Sync_VincularCarteraRuta", conn);
                 cmd.CommandType = CommandType.StoredProcedure;
                 cmd.CommandTimeout = 60;
 
@@ -1567,43 +1573,151 @@ namespace IntegradorFlexForce.Services
 
                 await cmd.ExecuteNonQueryAsync(ct);
             }
+            catch (Exception exSp)
+            {
+                _logger.LogWarning(exSp, "Aviso SP usp_Sync_VincularCarteraRuta cliente {Cod}: procediendo con sincronización directa atómica", r.CodigoCliente);
+            }
 
-            // 2. Desactivar de forma contundente cualquier vendedor/ruta anterior para esta misma zona y día en Force
-            const string sqlCleanRutaDia = @"
-                UPDATE rzd
-                SET rzd.Estado = 0, rzd.FechaModificacion = GETDATE()
-                FROM dbo.rut_RutaZonaDia rzd
-                INNER JOIN dbo.cat_Zona z ON z.ID = rzd.IDZona
-                INNER JOIN dbo.rut_Ruta rr ON rr.ID = rzd.IDRuta
-                INNER JOIN dbo.vnd_Vendedor v ON v.ID = rr.IDVendedor
-                WHERE (z.Codigo = @CodigoZonaVenta OR z.Codigo LIKE @CodigoZonaVenta + '-%' OR @CodigoZonaVenta LIKE z.Codigo + '-%')
-                  AND rzd.IDDia = @DiaDeSemana
-                  AND v.Codigo <> @CodigoVendedor
-                  AND rzd.Estado = 1;
+            // 2. Vinculación atómica y directa en Force: garantiza que el vendedor y ruta vigentes queden en Estado = 1
+            //    e inactiva contundentemente cualquier vendedor o ruta obsoleta anterior (ej: 02VRP06 en Día 6).
+            const string sqlSincronizarRutaZonaDirecta = @"
+                -- A. Asegurar Vendedor
+                DECLARE @IDVend int;
+                SELECT TOP 1 @IDVend = ID FROM dbo.vnd_Vendedor WHERE Codigo = @CodigoVendedor;
+                IF @IDVend IS NULL AND @CodigoVendedor IS NOT NULL AND LTRIM(RTRIM(@CodigoVendedor)) <> ''
+                BEGIN
+                    INSERT INTO dbo.vnd_Vendedor (Codigo, NombreCompleto, DocumentoIdentidad, Estado, FechaCreacion, FechaModificacion, Eliminado)
+                    VALUES (@CodigoVendedor, CASE WHEN LTRIM(RTRIM(@NombreVendedor)) = '' THEN 'VENDEDOR ' + @CodigoVendedor ELSE @NombreVendedor END, @CodigoVendedor, 1, GETDATE(), GETDATE(), 0);
+                    SET @IDVend = SCOPE_IDENTITY();
+                END
+                ELSE IF @IDVend IS NOT NULL
+                BEGIN
+                    UPDATE dbo.vnd_Vendedor SET Estado = 1, Eliminado = 0, FechaModificacion = GETDATE() WHERE ID = @IDVend AND (Estado = 0 OR Eliminado = 1);
+                END
 
-                -- Desactivar zonas obsoletas con sufijo (-VENDEDOR) para esta misma dirección física
-                UPDATE dz
-                SET dz.Estado = 0, dz.EsPrincipalVenta = 0, dz.FechaModificacion = GETDATE()
-                FROM dbo.dir_DireccionZona dz
-                INNER JOIN dbo.dir_Direccion dd ON dd.ID = dz.IDDireccion
-                INNER JOIN dbo.cat_Zona z ON z.ID = dz.IDZona
-                WHERE dd.IDExtra = @ID_Direccion_Origen
-                  AND (z.Codigo LIKE @CodigoZonaVenta + '-%' OR (@CodigoZonaVenta LIKE z.Codigo + '-%' AND z.Codigo <> @CodigoZonaVenta))
-                  AND dz.Estado = 1;";
+                -- B. Asegurar Zona
+                DECLARE @IDZona int;
+                SELECT TOP 1 @IDZona = ID FROM dbo.cat_Zona WHERE Codigo = @CodigoZonaVenta;
+                IF @IDZona IS NULL AND @CodigoZonaVenta IS NOT NULL AND LTRIM(RTRIM(@CodigoZonaVenta)) <> ''
+                BEGIN
+                    INSERT INTO dbo.cat_Zona (Codigo, Descripcion, EsVenta, EsReparto, Estado, FechaCreacion, FechaModificacion)
+                    VALUES (@CodigoZonaVenta, 'ZONA ' + @CodigoZonaVenta, 1, 0, 1, GETDATE(), GETDATE());
+                    SET @IDZona = SCOPE_IDENTITY();
+                END
+                ELSE IF @IDZona IS NOT NULL
+                BEGIN
+                    UPDATE dbo.cat_Zona SET Estado = 1, FechaModificacion = GETDATE() WHERE ID = @IDZona AND Estado = 0;
+                END
+
+                -- C. Asegurar Ruta
+                DECLARE @IDRuta int;
+                IF @IDVend IS NOT NULL AND @CodigoRuta IS NOT NULL AND LTRIM(RTRIM(@CodigoRuta)) <> ''
+                BEGIN
+                    SELECT TOP 1 @IDRuta = ID FROM dbo.rut_Ruta WHERE Codigo = @CodigoRuta AND IDVendedor = @IDVend;
+                    IF @IDRuta IS NULL
+                    BEGIN
+                        SELECT TOP 1 @IDRuta = ID FROM dbo.rut_Ruta WHERE Codigo = @CodigoRuta;
+                        IF @IDRuta IS NOT NULL
+                        BEGIN
+                            UPDATE dbo.rut_Ruta SET IDVendedor = @IDVend, Estado = 1, Eliminado = 0, FechaModificacion = GETDATE() WHERE ID = @IDRuta;
+                        END
+                        ELSE
+                        BEGIN
+                            INSERT INTO dbo.rut_Ruta (Codigo, Nombre, IDVendedor, Estado, FechaCreacion, FechaModificacion, Eliminado)
+                            VALUES (@CodigoRuta, 'RUTA ' + @CodigoRuta, @IDVend, 1, GETDATE(), GETDATE(), 0);
+                            SET @IDRuta = SCOPE_IDENTITY();
+                        END
+                    END
+                    ELSE
+                    BEGIN
+                        UPDATE dbo.rut_Ruta SET Estado = 1, Eliminado = 0, FechaModificacion = GETDATE() WHERE ID = @IDRuta AND (Estado = 0 OR Eliminado = 1);
+                    END
+                END
+
+                -- D. Inactivar rutas y vendedores anteriores para esta zona y este día en rut_RutaZonaDia
+                IF @IDZona IS NOT NULL
+                BEGIN
+                    UPDATE rzd
+                    SET rzd.Estado = 0, rzd.FechaModificacion = GETDATE()
+                    FROM dbo.rut_RutaZonaDia rzd
+                    INNER JOIN dbo.cat_Zona z ON z.ID = rzd.IDZona
+                    INNER JOIN dbo.rut_Ruta rr ON rr.ID = rzd.IDRuta
+                    INNER JOIN dbo.vnd_Vendedor v ON v.ID = rr.IDVendedor
+                    WHERE (z.Codigo = @CodigoZonaVenta OR z.Codigo LIKE @CodigoZonaVenta + '-%' OR @CodigoZonaVenta LIKE z.Codigo + '-%')
+                      AND rzd.IDDia = @DiaDeSemana
+                      AND (v.Codigo <> @CodigoVendedor OR (@IDRuta IS NOT NULL AND rzd.IDRuta <> @IDRuta))
+                      AND rzd.Estado = 1;
+
+                    -- E. Activar o insertar la asignación vigente en rut_RutaZonaDia
+                    IF @IDRuta IS NOT NULL
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM dbo.rut_RutaZonaDia WHERE IDZona = @IDZona AND IDRuta = @IDRuta AND IDDia = @DiaDeSemana)
+                        BEGIN
+                            INSERT INTO dbo.rut_RutaZonaDia (IDZona, IDRuta, IDDia, OrdenVisita, Estado, FechaCreacion, FechaModificacion)
+                            VALUES (@IDZona, @IDRuta, @DiaDeSemana, 1, 1, GETDATE(), GETDATE());
+                        END
+                        ELSE
+                        BEGIN
+                            UPDATE dbo.rut_RutaZonaDia SET Estado = 1, FechaModificacion = GETDATE() WHERE IDZona = @IDZona AND IDRuta = @IDRuta AND IDDia = @DiaDeSemana;
+                        END
+                    END
+                END
+
+                -- F. Vincular la dirección física del cliente con la zona activa y desactivar zonas obsoletas con sufijo
+                DECLARE @IDCli int, @IDDir int;
+                SELECT TOP 1 @IDCli = ID FROM dbo.cli_Cliente WHERE Codigo = @CodigoCliente OR (IDExtra IS NOT NULL AND IDExtra = @ID_Cliente_Origen);
+
+                IF @IDCli IS NOT NULL
+                BEGIN
+                    SELECT TOP 1 @IDDir = ID FROM dbo.dir_Direccion WHERE IDExtra = @ID_Direccion_Origen;
+                    IF @IDDir IS NULL
+                    BEGIN
+                        SELECT TOP 1 @IDDir = IDDireccion FROM dbo.dir_EntidadDireccion WHERE IDEntidad = @IDCli AND TipoEntidad = 'CLIENTE' ORDER BY EsPrincipal DESC, Estado DESC, ID DESC;
+                    END
+
+                    IF @IDDir IS NOT NULL AND @IDZona IS NOT NULL
+                    BEGIN
+                        -- Desactivar zonas obsoletas con sufijo para esta misma dirección física
+                        UPDATE dz
+                        SET dz.Estado = 0, dz.EsPrincipalVenta = 0, dz.FechaModificacion = GETDATE()
+                        FROM dbo.dir_DireccionZona dz
+                        INNER JOIN dbo.cat_Zona z ON z.ID = dz.IDZona
+                        WHERE dz.IDDireccion = @IDDir
+                          AND dz.IDZona <> @IDZona
+                          AND (z.Codigo LIKE @CodigoZonaVenta + '-%' OR (@CodigoZonaVenta LIKE z.Codigo + '-%' AND z.Codigo <> @CodigoZonaVenta))
+                          AND dz.Estado = 1;
+
+                        -- Activar la zona vigente en dir_DireccionZona
+                        IF NOT EXISTS (SELECT 1 FROM dbo.dir_DireccionZona WHERE IDDireccion = @IDDir AND IDZona = @IDZona)
+                        BEGIN
+                            INSERT INTO dbo.dir_DireccionZona (IDDireccion, IDZona, EsPrincipalVenta, EsPrincipalReparto, Estado, FechaCreacion, FechaModificacion)
+                            VALUES (@IDDir, @IDZona, 1, 0, 1, GETDATE(), GETDATE());
+                        END
+                        ELSE
+                        BEGIN
+                            UPDATE dbo.dir_DireccionZona SET Estado = 1, FechaModificacion = GETDATE() WHERE IDDireccion = @IDDir AND IDZona = @IDZona;
+                        END
+                    END
+                END;";
 
             try
             {
-                using var cmdClean = new SqlCommand(sqlCleanRutaDia, conn);
-                cmdClean.CommandTimeout = 60;
-                cmdClean.Parameters.AddWithValue("@CodigoZonaVenta", r.CodigoZonaVenta);
-                cmdClean.Parameters.AddWithValue("@DiaDeSemana", r.DiaDeSemana);
-                cmdClean.Parameters.AddWithValue("@CodigoVendedor", r.CodigoVendedor);
-                cmdClean.Parameters.AddWithValue("@ID_Direccion_Origen", r.ID_Direccion);
-                await cmdClean.ExecuteNonQueryAsync(ct);
+                using var cmdDirecto = new SqlCommand(sqlSincronizarRutaZonaDirecta, conn);
+                cmdDirecto.CommandTimeout = 60;
+                cmdDirecto.Parameters.AddWithValue("@ID_Cliente_Origen", r.ID_Cliente);
+                cmdDirecto.Parameters.AddWithValue("@ID_Direccion_Origen", r.ID_Direccion);
+                cmdDirecto.Parameters.AddWithValue("@CodigoCliente", r.CodigoCliente ?? "");
+                cmdDirecto.Parameters.AddWithValue("@CodigoZonaVenta", r.CodigoZonaVenta ?? "");
+                cmdDirecto.Parameters.AddWithValue("@NombreZonaVenta", r.NombreZonaVenta ?? "");
+                cmdDirecto.Parameters.AddWithValue("@CodigoRuta", r.CodigoRuta ?? "");
+                cmdDirecto.Parameters.AddWithValue("@CodigoVendedor", r.CodigoVendedor ?? "");
+                cmdDirecto.Parameters.AddWithValue("@NombreVendedor", r.NombreVendedor ?? "");
+                cmdDirecto.Parameters.AddWithValue("@DiaDeSemana", r.DiaDeSemana);
+                await cmdDirecto.ExecuteNonQueryAsync(ct);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Aviso de limpieza de rutas obsoletas en Force para zona {Zona}, día {Dia}", r.CodigoZonaVenta, r.DiaDeSemana);
+                _logger.LogWarning(ex, "Aviso de sincronización directa de rutas en Force para zona {Zona}, día {Dia}, vendedor {Vend}", r.CodigoZonaVenta, r.DiaDeSemana, r.CodigoVendedor);
             }
         }
 
