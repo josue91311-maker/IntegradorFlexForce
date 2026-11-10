@@ -742,12 +742,17 @@ namespace IntegradorFlexForce.Services
                             CAST(ISNULL(pe.Esvigente, 1) AS bit) AS EsVigente,
                             LTRIM(RTRIM(ISNULL(lp.Nombre, ''))) AS NombreLista,
                             LTRIM(RTRIM(ISNULL(p.Codigo, ''))) AS CodProducto
-                        FROM dbo.prc_PrecioEscala pe WITH (NOLOCK)
+                        FROM (
+                            SELECT pe.*,
+                                   ROW_NUMBER() OVER (PARTITION BY pe.IDExtra ORDER BY pe.ID DESC) AS rn
+                            FROM dbo.prc_PrecioEscala pe WITH (NOLOCK)
+                            WHERE pe.Eliminado = 0 AND pe.IDExtra IS NOT NULL
+                        ) pe
                         INNER JOIN dbo.prc_PrecioProductoUnidad ppu WITH (NOLOCK) ON ppu.ID = pe.IDUnidadItemListaPrecios
                         INNER JOIN dbo.prc_ItemPrecioProducto ipp WITH (NOLOCK) ON ipp.ID = ppu.IDItemPrecioProducto
                         INNER JOIN dbo.prc_ListaPrecio lp WITH (NOLOCK) ON lp.ID = ipp.IDListaPrecios
                         INNER JOIN dbo.prd_Producto p WITH (NOLOCK) ON p.ID = ipp.IDProducto
-                        WHERE pe.Eliminado = 0 AND ipp.Eliminado = 0 AND lp.Eliminado = 0;";
+                        WHERE pe.rn = 1 AND ipp.Eliminado = 0 AND lp.Eliminado = 0;";
 
                     using var cmd = new SqlCommand(sqlPrcForce, connForce) { CommandTimeout = 120 };
                     using var r = await cmd.ExecuteReaderAsync(ct);
@@ -766,7 +771,12 @@ namespace IntegradorFlexForce.Services
                         if (esVig) totalPrcForce++;
 
                         if (idExtra.HasValue)
-                            escalasForcePorExtra[idExtra.Value] = (idForce, precio, precioIgv, desde, hasta, esVig, nomLista, codProd);
+                        {
+                            if (!escalasForcePorExtra.TryGetValue(idExtra.Value, out var existing) || idForce > existing.IDForce)
+                            {
+                                escalasForcePorExtra[idExtra.Value] = (idForce, precio, precioIgv, desde, hasta, esVig, nomLista, codProd);
+                            }
+                        }
                     }
                 }
 
