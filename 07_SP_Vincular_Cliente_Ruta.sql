@@ -36,23 +36,18 @@ BEGIN
         BEGIN TRANSACTION;
 
         -- -------------------------------------------------------------
-        -- 1. OBTENER ID CLIENTE E ID DIRECCION EN FORCE POR SUS IDExtra O CODIGO
+        -- 1. OBTENER ID CLIENTE E ID DIRECCION EN FORCE POR CODIGO O IDExtra
         -- -------------------------------------------------------------
         DECLARE @IDCliente int, @IDDireccion int;
-        SELECT TOP 1 @IDCliente = ID FROM cli_Cliente WHERE IDExtra = @ID_Cliente_Origen;
-        SELECT TOP 1 @IDDireccion = ID FROM dir_Direccion WHERE IDExtra = @ID_Direccion_Origen;
-
-        -- Si no se encontró por IDExtra, buscar por CodigoCliente
-        IF @IDCliente IS NULL AND @CodigoCliente IS NOT NULL AND LTRIM(RTRIM(@CodigoCliente)) <> ''
+        IF @CodigoCliente IS NOT NULL AND LTRIM(RTRIM(@CodigoCliente)) <> ''
         BEGIN
-            SELECT TOP 1 @IDCliente = ID FROM cli_Cliente WHERE Codigo = LTRIM(RTRIM(@CodigoCliente));
-            IF @IDCliente IS NOT NULL
-            BEGIN
-                UPDATE cli_Cliente
-                SET IDExtra = @ID_Cliente_Origen, FechaModificacion = GETDATE()
-                WHERE ID = @IDCliente;
-            END
+            SELECT TOP 1 @IDCliente = ID FROM cli_Cliente WHERE LTRIM(RTRIM(Codigo)) = LTRIM(RTRIM(@CodigoCliente));
         END
+        IF @IDCliente IS NULL
+        BEGIN
+            SELECT TOP 1 @IDCliente = ID FROM cli_Cliente WHERE IDExtra = @ID_Cliente_Origen;
+        END
+        SELECT TOP 1 @IDDireccion = ID FROM dir_Direccion WHERE IDExtra = @ID_Direccion_Origen;
 
         -- Si se encontró la dirección pero el cliente tenía IDExtra NULL en cli_Cliente, resolverlo desde dir_EntidadDireccion
         IF @IDCliente IS NULL AND @IDDireccion IS NOT NULL
@@ -202,14 +197,12 @@ BEGIN
             END
             ELSE
             BEGIN
-                -- Si existe pero con otro vendedor: verificar si hay clientes activos en otras zonas usándola
+                -- Si existe pero con otro vendedor: verificar si está en uso activo en rut_RutaZonaDia
                 IF NOT EXISTS (
                     SELECT 1 
                     FROM rut_RutaZonaDia rzd
-                    INNER JOIN cat_Zona z ON z.ID = rzd.IDZona
                     WHERE rzd.IDRuta = @IDRutaExistente 
-                      AND rzd.Estado = 1 
-                      AND z.Codigo <> @CodigoZonaVenta
+                      AND rzd.Estado = 1
                 )
                 BEGIN
                     UPDATE rut_Ruta 
@@ -268,7 +261,7 @@ BEGIN
         IF @DiaDeSemana = 1 AND (@CodigoZonaVenta LIKE '%MAR%' OR @CodigoRuta LIKE '%MAR%') SET @DiaDeSemana = 2;
 
         DECLARE @IDZona int;
-        SELECT TOP 1 @IDZona = ID FROM cat_Zona WHERE Codigo = @CodigoZonaVenta;
+        SELECT TOP 1 @IDZona = ID FROM cat_Zona WHERE LTRIM(RTRIM(Codigo)) = LTRIM(RTRIM(@CodigoZonaVenta)) ORDER BY Estado DESC, ID ASC;
 
         IF @IDZona IS NULL AND @CodigoZonaVenta IS NOT NULL AND LTRIM(RTRIM(@CodigoZonaVenta)) <> ''
         BEGIN
@@ -291,20 +284,12 @@ BEGIN
 
         -- -------------------------------------------------------------
         -- 5. VINCULAR ZONA + RUTA + DÍA EN rut_RutaZonaDia
-        -- NOTA: Una zona puede visitarse en varios días (ej. Lunes y Jueves).
-        --       Solo se desactiva otra ruta asignada para este MISMO día.
+        -- NOTA: Una misma zona puede tener múltiples rutas/vendedores activos
+        --       en un mismo día si así viene del ERP Antiguo.
         -- -------------------------------------------------------------
         IF @IDZona IS NOT NULL AND @IDRuta IS NOT NULL
         BEGIN
-            -- Desactivar cualquier otra ruta distinta asignada a esta zona exclusivamente en ESTE MISMO DÍA
-            UPDATE rut_RutaZonaDia
-            SET Estado = 0, FechaModificacion = GETDATE()
-            WHERE IDZona = @IDZona
-              AND IDRuta <> @IDRuta
-              AND IDDia = @DiaDeSemana
-              AND Estado = 1;
-
-            -- Desactivar también en cualquier zona con sufijo (-VENDEDOR) para este día
+            -- Desactivar únicamente zonas obsoletas con sufijo (-VENDEDOR) para este día
             UPDATE rzd
             SET rzd.Estado = 0, rzd.FechaModificacion = GETDATE()
             FROM rut_RutaZonaDia rzd
@@ -334,21 +319,18 @@ BEGIN
 
         -- -------------------------------------------------------------
         -- 6. VINCULAR LA DIRECCIÓN DEL CLIENTE CON LA ZONA EN dir_DireccionZona
-        -- NOTA: Una misma dirección puede tener múltiples zonas activas para
-        --       distintos vendedores o días. Solo garantizamos que esta zona
-        --       quede activa para la dirección.
         -- -------------------------------------------------------------
         IF @IDDireccion IS NOT NULL AND @IDZona IS NOT NULL
         BEGIN
             -- Si no tiene ninguna zona con EsPrincipalVenta = 1, marcar esta como principal
             DECLARE @EsPrincVenta bit = CASE WHEN EXISTS (SELECT 1 FROM dir_DireccionZona WHERE IDDireccion = @IDDireccion AND EsPrincipalVenta = 1 AND IDZona <> @IDZona) THEN 0 ELSE 1 END;
 
-            -- Desactivar cualquier zona obsoleta con sufijo para esta misma dirección física
+            -- Desactivar cualquier zona obsoleta con sufijo para cualquier dirección de este cliente
             UPDATE dz
             SET dz.Estado = 0, dz.EsPrincipalVenta = 0, dz.FechaModificacion = GETDATE()
             FROM dir_DireccionZona dz
             INNER JOIN cat_Zona z ON z.ID = dz.IDZona
-            WHERE dz.IDDireccion = @IDDireccion
+            WHERE (dz.IDDireccion = @IDDireccion OR dz.IDDireccion IN (SELECT IDDireccion FROM dir_EntidadDireccion WHERE IDEntidad = @IDCliente AND TipoEntidad = 'CLIENTE'))
               AND dz.IDZona <> @IDZona
               AND (z.Codigo LIKE @CodigoZonaVenta + '-%' OR (@CodigoZonaVenta LIKE z.Codigo + '-%' AND z.Codigo <> @CodigoZonaVenta))
               AND dz.Estado = 1;
