@@ -615,8 +615,8 @@ namespace IntegradorFlexForce.Services
                             CAST(ISNULL(ps.Activo, 0) AS bit) AS ProductoActivo
                         FROM dbo.ItemPortafolioProductoProducto ip WITH (NOLOCK)
                         INNER JOIN dbo.PortafolioProducto pp WITH (NOLOCK) ON pp.PKID = ip.IDPortafolioProducto
-                        INNER JOIN dbo.ProductoServicio ps WITH (NOLOCK) ON ps.PKID = ip.IDProducto
-                        WHERE pp.Activo = 1 AND ps.Activo = 1;";
+                        LEFT JOIN dbo.ProductoServicio ps WITH (NOLOCK) ON ps.PKID = ip.IDProducto
+                        WHERE pp.Activo = 1;";
 
                     using var cmd = new SqlCommand(sqlCatAntiguo, connAntiguo) { CommandTimeout = 120 };
                     using var r = await cmd.ExecuteReaderAsync(ct);
@@ -632,7 +632,7 @@ namespace IntegradorFlexForce.Services
                         string nomProd = r.GetString(7);
                         bool prodActivo = r.GetBoolean(8);
 
-                        if (!portActivo || !prodActivo) continue; // Solo portafolios y productos activos
+                        if (!portActivo) continue; // Solo portafolios activos
 
                         totalCatOrigen++;
                         string key = $"{idPort}_{idProd}";
@@ -752,17 +752,12 @@ namespace IntegradorFlexForce.Services
                             CAST(ISNULL(pe.Esvigente, 1) AS bit) AS EsVigente,
                             LTRIM(RTRIM(ISNULL(lp.Nombre, ''))) AS NombreLista,
                             LTRIM(RTRIM(ISNULL(p.Codigo, ''))) AS CodProducto
-                        FROM (
-                            SELECT pe.*,
-                                   ROW_NUMBER() OVER (PARTITION BY pe.IDExtra ORDER BY pe.ID DESC) AS rn
-                            FROM dbo.prc_PrecioEscala pe WITH (NOLOCK)
-                            WHERE pe.Eliminado = 0 AND pe.IDExtra IS NOT NULL
-                        ) pe
+                        FROM dbo.prc_PrecioEscala pe WITH (NOLOCK)
                         INNER JOIN dbo.prc_PrecioProductoUnidad ppu WITH (NOLOCK) ON ppu.ID = pe.IDUnidadItemListaPrecios
                         INNER JOIN dbo.prc_ItemPrecioProducto ipp WITH (NOLOCK) ON ipp.ID = ppu.IDItemPrecioProducto
                         INNER JOIN dbo.prc_ListaPrecio lp WITH (NOLOCK) ON lp.ID = ipp.IDListaPrecios
                         INNER JOIN dbo.prd_Producto p WITH (NOLOCK) ON p.ID = ipp.IDProducto
-                        WHERE pe.rn = 1 AND ipp.Eliminado = 0 AND lp.Eliminado = 0;";
+                        WHERE pe.Eliminado = 0 AND ipp.Eliminado = 0 AND lp.Eliminado = 0 AND pe.IDExtra IS NOT NULL;";
 
                     using var cmd = new SqlCommand(sqlPrcForce, connForce) { CommandTimeout = 120 };
                     using var r = await cmd.ExecuteReaderAsync(ct);
@@ -1343,11 +1338,13 @@ namespace IntegradorFlexForce.Services
                     LTRIM(RTRIM(ISNULL(pp.Observacion, ''))) AS ObservacionPortafolio,
                     CAST(ISNULL(pp.Activo, 1) AS bit) AS EstadoPortafolio,
                     ip.IDProducto,
-                    LTRIM(RTRIM(ISNULL(ps.Codigo, ISNULL(ip.Codigo, '')))) AS CodigoProducto
+                    LTRIM(RTRIM(ISNULL(ps.Codigo, ISNULL(ip.Codigo, '')))) AS CodigoProducto,
+                    LTRIM(RTRIM(ISNULL(ps.Descripcion, ''))) AS NombreProducto,
+                    CAST(ISNULL(ps.Activo, 0) AS bit) AS EstadoProducto
                 FROM dbo.ItemPortafolioProductoProducto ip WITH (NOLOCK)
                 INNER JOIN dbo.PortafolioProducto pp WITH (NOLOCK) ON pp.PKID = ip.IDPortafolioProducto
-                INNER JOIN dbo.ProductoServicio ps WITH (NOLOCK) ON ps.PKID = ip.IDProducto
-                WHERE pp.Activo = 1 AND ps.Activo = 1
+                LEFT JOIN dbo.ProductoServicio ps WITH (NOLOCK) ON ps.PKID = ip.IDProducto
+                WHERE pp.Activo = 1
                   AND ip.PKID IN ({inClause});";
 
             using var cmdRead = new SqlCommand(sql, connAntiguo) { CommandTimeout = 120 };
@@ -1366,6 +1363,25 @@ namespace IntegradorFlexForce.Services
                     INSERT INTO dbo.ctg_Catalogo (Codigo, Nombre, Descripcion, Estado, FechaCreacion, FechaModificacion, IDExtra, Eliminado)
                     VALUES (@CodPort, @NomPort, @ObsPort, @EstadoPort, GETDATE(), GETDATE(), @IDPort, 0);
                     SET @IDCat = SCOPE_IDENTITY();
+                END
+
+                IF @IDProd IS NULL AND @CodProd <> ''
+                BEGIN
+                    DECLARE @IDMarcaDef int, @IDLineaDef int, @IDCategoriaDef int, @IDProveedorDef int;
+                    SELECT TOP 1 @IDMarcaDef = ID FROM dbo.prd_Marca WHERE Estado = 1 AND Eliminado = 0 ORDER BY ID;
+                    SELECT TOP 1 @IDLineaDef = ID FROM dbo.prd_LineaProducto WHERE Estado = 1 ORDER BY ID;
+                    SELECT TOP 1 @IDCategoriaDef = ID FROM dbo.prd_CategoriaProducto WHERE Estado = 1 ORDER BY ID;
+                    SELECT TOP 1 @IDProveedorDef = ID FROM dbo.prd_Proveedor WHERE Estado = 1 AND Eliminado = 0 ORDER BY ID;
+
+                    INSERT INTO dbo.prd_Producto (
+                        Codigo, Nombre, Descripcion, IDMarca, IDCategoria, IDLinea, IDProveedor, Estado, Eliminado, IDExtra, FechaCreacion, FechaModificacion
+                    )
+                    VALUES (
+                        @CodProd, ISNULL(NULLIF(@NomProd, ''), @CodProd), ISNULL(NULLIF(@NomProd, ''), @CodProd),
+                        ISNULL(@IDMarcaDef, 1), ISNULL(@IDCategoriaDef, 1), ISNULL(@IDLineaDef, 1), ISNULL(@IDProveedorDef, 1),
+                        @EstadoProd, 0, @IDProdEx, GETDATE(), GETDATE()
+                    );
+                    SET @IDProd = SCOPE_IDENTITY();
                 END
 
                 IF @IDCat IS NOT NULL AND @IDProd IS NOT NULL
@@ -1393,6 +1409,8 @@ namespace IntegradorFlexForce.Services
                     cmd.Parameters.AddWithValue("@EstadoPort", r.GetBoolean(4));
                     cmd.Parameters.AddWithValue("@IDProdEx", r.GetInt32(5));
                     cmd.Parameters.AddWithValue("@CodProd", r.GetString(6));
+                    cmd.Parameters.AddWithValue("@NomProd", r.IsDBNull(7) ? "" : r.GetString(7));
+                    cmd.Parameters.AddWithValue("@EstadoProd", r.GetBoolean(8));
 
                     await cmd.ExecuteNonQueryAsync(ct);
                     procesados++;
