@@ -226,11 +226,10 @@ BEGIN
         IF @IDFuerza IS NULL
         BEGIN
             INSERT INTO dbo.vnd_FuerzaVenta (
-                Codigo, Descripcion, IDCanal, IDJefeVenta, Estado,
+                Descripcion, IDCanal, IDJefeVenta, Estado,
                 FechaCreacion, FechaModificacion, IDExtra, Eliminado
             )
             VALUES (
-                LEFT(LTRIM(RTRIM(@CodigoFuerzaVenta)), 50),
                 LEFT(LTRIM(RTRIM(ISNULL(@DescripcionFuerzaVenta, @CodigoFuerzaVenta))), 255),
                 @IDCanal, @IDJefeVenta, @EstadoFuerzaVenta,
                 GETDATE(), GETDATE(), @ID_FuerzaVenta_Origen, 0
@@ -316,11 +315,10 @@ BEGIN
         IF @IDGrupo IS NULL
         BEGIN
             INSERT INTO dbo.vnd_GrupoVentas (
-                Codigo, Nombre, IDFuerzaVenta, IDSupervisor, Estado,
+                Nombre, IDFuerzaVenta, IDSupervisor, Estado,
                 FechaCreacion, FechaModificacion, IDJefeVenta, IDExtra, Eliminado, IDSucursal
             )
             VALUES (
-                LEFT(LTRIM(RTRIM(@CodigoGrupoVenta)), 50),
                 LEFT(LTRIM(RTRIM(ISNULL(@NombreGrupoVenta, @CodigoGrupoVenta))), 255),
                 @IDFuerzaVenta, @IDSupervisor, @EstadoGrupoVenta,
                 GETDATE(), GETDATE(), @IDJefeVenta, @ID_GrupoVenta_Origen, 0, @IDSucursal
