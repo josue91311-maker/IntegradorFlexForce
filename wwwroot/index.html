@@ -1470,10 +1470,111 @@
             background: #059669;
             box-shadow: 0 6px 14px rgba(16,185,129,0.4);
         }
-        .btn-pill-outline:disabled, .btn-pill-primary:disabled, .btn-pill-success:disabled {
+        .btn-pill-outline:disabled, .btn-pill-primary:disabled, .btn-pill-success:disabled, .btn-pill-consultar:disabled {
             opacity: 0.55;
             cursor: not-allowed;
             pointer-events: none;
+        }
+
+        /* Botón Prominente y Llamativo: 1. Consultar Diferencias */
+        .btn-pill-consultar {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border: 2px solid #2563eb;
+            color: #1d4ed8;
+            border-radius: 999px;
+            padding: 9px 22px;
+            font-size: 13.5px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: inherit;
+            letter-spacing: -0.01em;
+        }
+        .btn-pill-consultar:hover:not(:disabled) {
+            background: #2563eb;
+            color: #ffffff;
+            border-color: #1d4ed8;
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+            transform: translateY(-1.5px);
+        }
+        .btn-pill-consultar:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        .btn-pill-consultar.prod {
+            background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+            border: 2px solid #ea580c;
+            color: #c2410c;
+            box-shadow: 0 4px 14px rgba(234, 88, 12, 0.25);
+        }
+        .btn-pill-consultar.prod:hover:not(:disabled) {
+            background: #ea580c;
+            color: #ffffff;
+            border-color: #c2410c;
+            box-shadow: 0 6px 20px rgba(234, 88, 12, 0.4);
+        }
+
+        /* Botón Ejecutivo Grande para Auditoría y Detalles */
+        .btn-auditoria-lg {
+            padding: 8px 18px;
+            font-weight: 800;
+            border-radius: 12px;
+            font-size: 13px;
+            border: 1.5px solid #3b82f6;
+            color: #1d4ed8;
+            background: #eff6ff;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
+            transition: all 0.18s ease;
+            font-family: inherit;
+        }
+        .btn-auditoria-lg:hover {
+            background: #dbeafe;
+            border-color: #2563eb;
+            color: #1e40af;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+        }
+        .btn-auditoria-lg.prod {
+            border-color: #ea580c;
+            color: #c2410c;
+            background: #fff7ed;
+            box-shadow: 0 2px 8px rgba(234, 88, 12, 0.15);
+        }
+        .btn-auditoria-lg.prod:hover {
+            background: #ffedd5;
+            border-color: #c2410c;
+            color: #9a3412;
+            box-shadow: 0 4px 12px rgba(234, 88, 12, 0.25);
+        }
+        .btn-historial-lg {
+            padding: 8px 18px;
+            font-weight: 700;
+            border-radius: 12px;
+            font-size: 13px;
+            border: 1.5px solid #cbd5e1;
+            color: #334155;
+            background: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            transition: all 0.18s ease;
+            font-family: inherit;
+        }
+        .btn-historial-lg:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+            color: #0f172a;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
         }
 
         /* Banner de Estado con Icono Cilíndrico */
@@ -2221,8 +2322,9 @@
             <button class="btn-pill-outline" onclick="navegarVista('hub')">
                 ← Volver al Módulo
             </button>
-            <button id="btnValidar" class="btn-pill-outline" onclick="validarDiferencias()">
-                1. Consolidar Diferencias
+            <button id="btnValidar" class="btn-pill-consultar" onclick="validarDiferencias()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                1. Consultar Diferencias
             </button>
             <button id="btnSyncClientes" class="btn-pill-primary" onclick="ejecutarSincronizacion('clientes')">
                 2. Sincronizar Clientes
@@ -2257,10 +2359,16 @@
                         <div id="lblUltimaEjecucion" style="font-size:12px; color:#64748b; font-weight:500; margin-top:4px;">
                             ⏱ Sin ejecución previa
                         </div>
-                        <button id="btnAuditDetalleCli" class="btn btn-outline btn-xs" onclick="abrirModalAuditoriaUltimaEjecucion('clientes')" style="margin-top:6px; font-weight:700; border-radius:20px; font-size:12px; padding:3px 12px; border-color:#93c5fd; color:#1d4ed8; background:#eff6ff; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                            Ver Detalles y Errores de Auditoría
-                        </button>
+                        <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
+                            <button id="btnAuditDetalleCli" class="btn-auditoria-lg" onclick="abrirModalAuditoriaUltimaEjecucion('clientes')">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                Ver Detalles y Errores de Auditoría
+                            </button>
+                            <button class="btn-historial-lg" onclick="navegarVista('historial')">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                Ver Historial de Ejecuciones
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -2301,8 +2409,14 @@
                     </thead>
                     <tbody id="tblResumenTablas">
                         <tr>
-                            <td colspan="10" style="text-align:center; color:var(--text-muted); padding:26px;">
-                                Consultando estado actual de las tablas entre ambos servidores...
+                            <td colspan="10" style="text-align:center; padding:36px 20px; color:#475569; background:#f8fafc;">
+                                <div style="display:inline-flex; flex-direction:column; align-items:center; gap:10px;">
+                                    <div style="width:48px; height:48px; border-radius:50%; background:#dbeafe; color:#2563eb; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(37,99,235,0.15);">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                    </div>
+                                    <div style="font-weight:800; font-size:15px; color:#1e293b;">Debe ejecutar el botón «1. Consultar Diferencias»</div>
+                                    <div style="font-size:12.5px; color:#64748b; max-width:520px; line-height:1.5;">Haga clic en el botón superior para realizar la comparación directa de lectura limpia (NOLOCK) entre el ERP Antiguo y Force ERP en tiempo real.</div>
+                                </div>
                             </td>
                         </tr>
                     </tbody>
@@ -2350,8 +2464,11 @@
                     </thead>
                     <tbody id="tblDetalleCambios">
                         <tr>
-                            <td colspan="8" style="text-align:center; color:var(--text-muted); padding:26px;">
-                                No hay cambios pendientes cargados. Presione "1. Consolidar Diferencias".
+                            <td colspan="8" style="text-align:center; padding:32px 20px; color:#475569; background:#f8fafc;">
+                                <div style="display:inline-flex; flex-direction:column; align-items:center; gap:8px;">
+                                    <div style="font-weight:700; font-size:14px; color:#334155;">Debe presionar el botón «1. Consultar Diferencias» para pre-visualizar el detalle de registros con cambios.</div>
+                                    <div style="font-size:12px; color:#94a3b8;">Los registros detectados (INSERT, UPDATE y Bajas) se listarán detalladamente aquí tras la consulta.</div>
+                                </div>
                             </td>
                         </tr>
                     </tbody>
@@ -2432,8 +2549,9 @@
             <button class="btn-pill-outline" onclick="navegarVista('hub')">
                 ← Volver al Hub
             </button>
-            <button id="btnValidarProd" class="btn-pill-outline" onclick="validarDiferenciasProductos()">
-                1. Consolidar Diferencias
+            <button id="btnValidarProd" class="btn-pill-consultar prod" onclick="validarDiferenciasProductos()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                1. Consultar Diferencias
             </button>
             <button id="btnSyncProdMaestro" class="btn-pill-primary" onclick="ejecutarSincronizacionProductos('PRODUCTOS')">
                 2. Sincronizar Productos
@@ -2474,10 +2592,16 @@
                         <div id="lblUltimaEjecucionProd" style="font-size:12px; color:#64748b; font-weight:500; margin-top:4px;">
                             ⏱ Sin ejecución previa
                         </div>
-                        <button id="btnAuditDetalleProd" class="btn btn-outline btn-xs" onclick="abrirModalAuditoriaUltimaEjecucion('productos')" style="margin-top:6px; font-weight:700; border-radius:20px; font-size:12px; padding:3px 12px; border-color:#fed7aa; color:#c2410c; background:#fff7ed; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                            Ver Detalles y Errores de Auditoría
-                        </button>
+                        <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
+                            <button id="btnAuditDetalleProd" class="btn-auditoria-lg prod" onclick="abrirModalAuditoriaUltimaEjecucion('productos')">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                Ver Detalles y Errores de Auditoría
+                            </button>
+                            <button class="btn-historial-lg" onclick="navegarVista('historial')">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                Ver Historial de Ejecuciones
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -2518,8 +2642,14 @@
                     </thead>
                     <tbody id="tblResumenTablasProd">
                         <tr>
-                            <td colspan="10" style="text-align:center; color:var(--text-muted); padding:26px;">
-                                Presione "1. Consolidar Diferencias" para comparar Productos, Factores, Catálogos y Precios...
+                            <td colspan="10" style="text-align:center; padding:36px 20px; color:#475569; background:#fffaf5;">
+                                <div style="display:inline-flex; flex-direction:column; align-items:center; gap:10px;">
+                                    <div style="width:48px; height:48px; border-radius:50%; background:#ffedd5; color:#ea580c; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(234,88,12,0.15);">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                    </div>
+                                    <div style="font-weight:800; font-size:15px; color:#1e293b;">Debe ejecutar el botón «1. Consultar Diferencias»</div>
+                                    <div style="font-size:12.5px; color:#64748b; max-width:520px; line-height:1.5;">Haga clic en el botón superior para comparar en vivo Productos, Factores, Catálogos y Escalas de Precios entre el ERP Antiguo y Force ERP.</div>
+                                </div>
                             </td>
                         </tr>
                     </tbody>
@@ -2567,8 +2697,11 @@
                     </thead>
                     <tbody id="tblDetalleCambiosProd">
                         <tr>
-                            <td colspan="8" style="text-align:center; color:var(--text-muted); padding:26px;">
-                                No hay cambios pendientes cargados. Presione "1. Consolidar Diferencias".
+                            <td colspan="8" style="text-align:center; padding:32px 20px; color:#475569; background:#fffaf5;">
+                                <div style="display:inline-flex; flex-direction:column; align-items:center; gap:8px;">
+                                    <div style="font-weight:700; font-size:14px; color:#334155;">Debe presionar el botón «1. Consultar Diferencias» para pre-visualizar el detalle de productos con cambios.</div>
+                                    <div style="font-size:12px; color:#94a3b8;">Los productos, factores, catálogos o precios con diferencias se listarán aquí tras la consulta.</div>
+                                </div>
                             </td>
                         </tr>
                     </tbody>
@@ -3834,7 +3967,7 @@
             ocultarLoading();
             if (btn) {
                 btn.disabled = false;
-                btn.textContent = '1. Consultar Diferencias';
+                btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 1. Consultar Diferencias`;
             }
         }
     }
@@ -5082,7 +5215,7 @@
             ocultarLoading();
             if (btn) {
                 btn.disabled = false;
-                btn.textContent = '1. Consultar Diferencias';
+                btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 1. Consultar Diferencias`;
             }
         }
     }
