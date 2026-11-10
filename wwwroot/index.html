@@ -3322,9 +3322,13 @@
         document.getElementById(targetBtn)?.classList.add('active');
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        if (vista === 'productos' && !yaConsultoProductos) {
-            yaConsultoProductos = true;
+        // Consultar diferencias bajo demanda según el módulo que se abra
+        if (vista === 'clientes') {
+            validarDiferencias();
+        } else if (vista === 'productos') {
             validarDiferenciasProductos();
+        } else if (vista === 'config') {
+            cargarConfiguracion();
         }
     }
 
@@ -3756,7 +3760,8 @@
             btn.disabled = true;
             btn.textContent = 'Analizando tablas...';
         }
-        document.getElementById('lblTiempoAnalisis').textContent = 'Comparando registros en vivo con Hora Perú...';
+        const lblTiempo = document.getElementById('lblTiempoAnalisis');
+        if (lblTiempo) lblTiempo.textContent = 'Comparando registros en vivo con Hora Perú...';
         mostrarLoading('Analizando Módulo Clientes y Rutas...', 'Comparando tablas en vivo con lectura limpia (NOLOCK) entre ERP Antiguo y Force...');
 
         try {
@@ -3766,9 +3771,11 @@
             const horaAuditPeru = formatearSoloHoraPeru(data.fechaAnalisis);
             const tiempoHms = segundosAHms(data.tiempoEscaneoSegundos);
 
-            document.getElementById('lblTiempoAnalisis').textContent =
-                `Última consulta: ${horaAuditPeru} (Escaneo en ${data.tiempoEscaneoSegundos} s / ${tiempoHms})`;
-            document.getElementById('lblUltimaConsultaTop').textContent = `Auditado: ${horaAuditPeru} · Hora Perú`;
+            if (lblTiempo) {
+                lblTiempo.textContent = `Última consulta: ${horaAuditPeru} (Escaneo en ${data.tiempoEscaneoSegundos} s / ${tiempoHms})`;
+            }
+            const lblTop = document.getElementById('lblUltimaConsultaTop');
+            if (lblTop) lblTop.textContent = `Auditado: ${horaAuditPeru} · Hora Perú`;
 
             const resumen = data.resumenPorTabla || [];
             resumenClientesCache = resumen;
@@ -4988,7 +4995,8 @@
             btn.disabled = true;
             btn.textContent = 'Analizando Productos y Precios...';
         }
-        document.getElementById('lblTiempoAnalisisProd').textContent = 'Comparando maestros de productos, factores, catálogos y precios...';
+        const lblTiempoProd = document.getElementById('lblTiempoAnalisisProd');
+        if (lblTiempoProd) lblTiempoProd.textContent = 'Comparando maestros de productos, factores, catálogos y precios...';
         mostrarLoading('Analizando Módulo Productos y Precios...', 'Comparando maestros de productos, factores, catálogos y escalas de precios con ERP Antiguo (NOLOCK)...');
 
         try {
@@ -4998,17 +5006,23 @@
             const horaAuditPeru = formatearSoloHoraPeru(data.fechaAnalisis);
             const tiempoHms = segundosAHms(data.tiempoEscaneoSegundos);
 
-            document.getElementById('lblTiempoAnalisisProd').textContent =
-                `Última consulta: ${horaAuditPeru} (Escaneo en ${data.tiempoEscaneoSegundos} s / ${tiempoHms})`;
+            if (lblTiempoProd) {
+                lblTiempoProd.textContent = `Última consulta: ${horaAuditPeru} (Escaneo en ${data.tiempoEscaneoSegundos} s / ${tiempoHms})`;
+            }
 
             const resumen = data.resumenPorTabla || [];
             resumenProductosCache = resumen;
 
             const totalDiffProd = resumen.reduce((acc, r) => acc + (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0), 0);
-            document.getElementById('hubRow4Sub').textContent = `Productos, Factores, Catálogos y Precios · ${totalDiffProd.toLocaleString()} diferencias`;
-            document.getElementById('hubRow4Time').textContent = tiempoHms;
-            document.getElementById('hubRow4Status').className = 'status-pill ' + (totalDiffProd === 0 ? 'completed' : 'running');
-            document.getElementById('hubRow4Status').innerHTML = `<span class="dot"></span>${totalDiffProd === 0 ? 'Al Día' : totalDiffProd.toLocaleString() + ' Cambios'}`;
+            const elSub4 = document.getElementById('hubRow4Sub');
+            if (elSub4) elSub4.textContent = `Productos, Factores, Catálogos y Precios · ${totalDiffProd.toLocaleString()} diferencias`;
+            const elTime4 = document.getElementById('hubRow4Time');
+            if (elTime4) elTime4.textContent = tiempoHms;
+            const elStat4 = document.getElementById('hubRow4Status');
+            if (elStat4) {
+                elStat4.className = 'status-pill ' + (totalDiffProd === 0 ? 'completed' : 'running');
+                elStat4.innerHTML = `<span class="dot"></span>${totalDiffProd === 0 ? 'Al Día' : totalDiffProd.toLocaleString() + ' Cambios'}`;
+            }
 
             const tbodyResumen = document.getElementById('tblResumenTablasProd');
             tbodyResumen.innerHTML = resumen.map(r => {
@@ -5230,17 +5244,27 @@
             statusProdCache = s;
             actualizarResumenGlobalDashboard();
 
-            document.getElementById('btnSyncProdMaestro').disabled = s.isRunning;
-            document.getElementById('btnSyncProdUnidades').disabled = s.isRunning;
-            document.getElementById('btnSyncProdCatalogos').disabled = s.isRunning;
-            document.getElementById('btnSyncProdPrecios').disabled = s.isRunning;
-            document.getElementById('btnSyncProdTodo').disabled = s.isRunning;
+            const bMaestro = document.getElementById('btnSyncProdMaestro');
+            if (bMaestro) bMaestro.disabled = s.isRunning;
+            const bUnidades = document.getElementById('btnSyncProdUnidades');
+            if (bUnidades) bUnidades.disabled = s.isRunning;
+            const bCatalogos = document.getElementById('btnSyncProdCatalogos');
+            if (bCatalogos) bCatalogos.disabled = s.isRunning;
+            const bPrecios = document.getElementById('btnSyncProdPrecios');
+            if (bPrecios) bPrecios.disabled = s.isRunning;
+            const bTodo = document.getElementById('btnSyncProdTodo');
+            if (bTodo) bTodo.disabled = s.isRunning;
 
             if (s.isRunning) {
-                document.getElementById('hubRow4Bar').style.width = Math.max(pct, 8) + '%';
-                document.getElementById('hubRow4Pct').textContent = `${pct}%`;
-                document.getElementById('hubRow4Status').className = 'status-pill running';
-                document.getElementById('hubRow4Status').innerHTML = `<span class="dot"></span>En Proceso`;
+                const elBar4 = document.getElementById('hubRow4Bar');
+                if (elBar4) elBar4.style.width = Math.max(pct, 8) + '%';
+                const elPct4 = document.getElementById('hubRow4Pct');
+                if (elPct4) elPct4.textContent = `${pct}%`;
+                const elStat4 = document.getElementById('hubRow4Status');
+                if (elStat4) {
+                    elStat4.className = 'status-pill running';
+                    elStat4.innerHTML = `<span class="dot"></span>En Proceso`;
+                }
             }
 
             if (syncProdEstabaCorriendo && !s.isRunning && s.estadoActual === 'COMPLETADO') {
@@ -5258,14 +5282,14 @@
         }
     }
 
-    // Inicialización al abrir el portal
+    // Inicialización al abrir el portal (Carga ligera para Inicio: métricas, estados y lotes)
     cargarConfiguracion();
     cargarEstado();
     cargarEstadoProductos();
     cargarLotes();
     cargarLogs();
-    validarDiferencias();
-    validarDiferenciasProductos();
+    // NOTA: validarDiferencias() y validarDiferenciasProductos() NO se ejecutan al inicio,
+    // sino bajo demanda al abrir cada módulo correspondiente.
 
     setInterval(() => { cargarEstado(); cargarEstadoProductos(); }, 2000);
     setInterval(() => { cargarLotes(); cargarLogs(); }, 6000);
