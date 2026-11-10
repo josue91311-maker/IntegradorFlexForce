@@ -103,6 +103,176 @@ namespace IntegradorFlexForce.Services
                 using var cmdAlinear = new SqlCommand(sqlAlinearVendedores, conn) { CommandTimeout = 60 };
                 await cmdAlinear.ExecuteNonQueryAsync(ct);
 
+                // Sanitizar DocumentoIdentidad placeholder ('0', '00', etc.) en vnd_Vendedor y per_Persona
+                const string sqlSanitizarDocs = @"
+                    UPDATE dbo.vnd_Vendedor
+                    SET DocumentoIdentidad = LEFT(Codigo, 20)
+                    WHERE DocumentoIdentidad IN ('0', '00', '000', '0000', '00000000', '-', '.', '');
+
+                    UPDATE p
+                    SET p.DocIdentidad = LEFT(v.Codigo, 20)
+                    FROM dbo.per_Persona p
+                    INNER JOIN dbo.vnd_Vendedor v ON p.IDVendedor = v.ID
+                    WHERE p.TipoEntidad = 'VENDEDOR' AND p.DocIdentidad IN ('0', '00', '000', '0000', '00000000', '-', '.', '');";
+                using var cmdSanitizar = new SqlCommand(sqlSanitizarDocs, conn) { CommandTimeout = 60 };
+                await cmdSanitizar.ExecuteNonQueryAsync(ct);
+
+                // Asegurar SP de Vendedores con normalización anticolisión de DocumentoIdentidad
+                const string sqlSpVendedorNorm = @"
+CREATE OR ALTER PROCEDURE dbo.usp_Sync_UpsertVendedorMaestro
+    @ID_Vendedor_Origen     int,
+    @CodigoVendedor         nvarchar(50),
+    @NombreCompleto         nvarchar(200),
+    @NombreCorto            nvarchar(100) = NULL,
+    @DocumentoIdentidad     nvarchar(20) = NULL,
+    @IDTipoDocIdentidad     int = 19,
+    @FechaNacimiento        date = NULL,
+    @Email                  nvarchar(150) = NULL,
+    @Telefono               nvarchar(50) = NULL,
+    @EstadoVendedor         bit = 1,
+    @ID_GrupoVenta_Origen   int = 0,
+    @ID_Sucursal_Origen     int = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @IDGrupoVenta int;
+        IF @ID_GrupoVenta_Origen > 0
+            SELECT TOP 1 @IDGrupoVenta = ID FROM dbo.vnd_GrupoVentas WHERE IDExtra = @ID_GrupoVenta_Origen;
+        IF @IDGrupoVenta IS NULL
+            SELECT TOP 1 @IDGrupoVenta = ID FROM dbo.vnd_GrupoVentas WHERE Estado = 1 AND Eliminado = 0 ORDER BY ID;
+
+        DECLARE @IDVendedor int;
+        IF @ID_Vendedor_Origen > 0
+            SELECT TOP 1 @IDVendedor = ID FROM dbo.vnd_Vendedor WHERE IDExtra = @ID_Vendedor_Origen;
+
+        IF @IDVendedor IS NULL AND LTRIM(RTRIM(@CodigoVendedor)) <> ''
+            SELECT TOP 1 @IDVendedor = ID FROM dbo.vnd_Vendedor WHERE Codigo = LTRIM(RTRIM(@CodigoVendedor));
+
+        DECLARE @DocFinal nvarchar(20) = LTRIM(RTRIM(ISNULL(@DocumentoIdentidad, '')));
+        IF @DocFinal IN ('0', '00', '000', '0000', '00000000', '-', '.', 'S/D', '') OR @DocFinal IS NULL
+            SET @DocFinal = LEFT(LTRIM(RTRIM(@CodigoVendedor)), 20);
+
+        IF EXISTS (SELECT 1 FROM dbo.vnd_Vendedor WHERE DocumentoIdentidad = @DocFinal AND ID <> ISNULL(@IDVendedor, 0))
+        BEGIN
+            SET @DocFinal = LEFT(LTRIM(RTRIM(@CodigoVendedor)), 20);
+        END
+
+        IF EXISTS (SELECT 1 FROM dbo.vnd_Vendedor WHERE DocumentoIdentidad = @DocFinal AND ID <> ISNULL(@IDVendedor, 0))
+        BEGIN
+            SET @DocFinal = LEFT(CONCAT('V', @ID_Vendedor_Origen, '-', RTRIM(@CodigoVendedor)), 20);
+        END
+
+        -- Garantía absoluta de unicidad con el ID del vendedor origen
+        IF EXISTS (SELECT 1 FROM dbo.vnd_Vendedor WHERE DocumentoIdentidad = @DocFinal AND ID <> ISNULL(@IDVendedor, 0))
+        BEGIN
+            SET @DocFinal = CONCAT('V', @ID_Vendedor_Origen);
+        END
+
+        IF @IDVendedor IS NULL
+        BEGIN
+            INSERT INTO dbo.vnd_Vendedor (
+                NombreCompleto, NombreCorto, IDTipoVendedor, DocumentoIdentidad,
+                IDTipoDocIdentidad, FechaNacimiento, Sexo, Telefono, Email,
+                Observacion, FechaIngreso, FechaBaja, IDEstadoLaboral, Estado,
+                FechaCreacion, FechaModificacion, IDGrupoVenta, Eliminado, Codigo, IDExtra
+            )
+            VALUES (
+                LEFT(LTRIM(RTRIM(@NombreCompleto)), 200),
+                LEFT(LTRIM(RTRIM(ISNULL(@NombreCorto, @NombreCompleto))), 100),
+                1,
+                @DocFinal,
+                ISNULL(@IDTipoDocIdentidad, 19),
+                @FechaNacimiento,
+                NULL,
+                NULLIF(@Telefono, ''),
+                NULLIF(@Email, ''),
+                NULL, NULL, NULL,
+                1,
+                @EstadoVendedor,
+                GETDATE(), GETDATE(),
+                @IDGrupoVenta,
+                0,
+                LEFT(LTRIM(RTRIM(@CodigoVendedor)), 50),
+                @ID_Vendedor_Origen
+            );
+            SET @IDVendedor = SCOPE_IDENTITY();
+        END
+        ELSE
+        BEGIN
+            UPDATE dbo.vnd_Vendedor
+            SET IDExtra = @ID_Vendedor_Origen,
+                NombreCompleto = LEFT(LTRIM(RTRIM(@NombreCompleto)), 200),
+                NombreCorto = LEFT(LTRIM(RTRIM(ISNULL(@NombreCorto, @NombreCompleto))), 100),
+                DocumentoIdentidad = @DocFinal,
+                IDTipoDocIdentidad = ISNULL(@IDTipoDocIdentidad, IDTipoDocIdentidad),
+                FechaNacimiento = CASE WHEN @FechaNacimiento IS NOT NULL THEN @FechaNacimiento ELSE FechaNacimiento END,
+                Telefono = CASE WHEN @Telefono IS NOT NULL THEN @Telefono ELSE Telefono END,
+                Email = CASE WHEN @Email IS NOT NULL THEN @Email ELSE Email END,
+                Estado = @EstadoVendedor,
+                IDGrupoVenta = ISNULL(@IDGrupoVenta, IDGrupoVenta),
+                FechaModificacion = GETDATE()
+            WHERE ID = @IDVendedor;
+        END
+
+        DECLARE @IDPersona int;
+        SELECT TOP 1 @IDPersona = ID FROM dbo.per_Persona WHERE TipoEntidad = 'VENDEDOR' AND IDVendedor = @IDVendedor;
+
+        IF @IDPersona IS NULL
+        BEGIN
+            INSERT INTO dbo.per_Persona (
+                TipoEntidad, IDCliente, IDProveedor, IDVendedor,
+                NombreCompleto, NombreComercial, DocIdentidad, IDTipoDocIdentidad,
+                Telefono, Email, Observacion, Estado,
+                FechaCreacion, FechaModificacion, Eliminado
+            )
+            VALUES (
+                'VENDEDOR', NULL, NULL, @IDVendedor,
+                LEFT(LTRIM(RTRIM(@NombreCompleto)), 200),
+                LEFT(LTRIM(RTRIM(ISNULL(@NombreCorto, @NombreCompleto))), 200),
+                @DocFinal,
+                ISNULL(@IDTipoDocIdentidad, 19),
+                NULLIF(@Telefono, ''), NULLIF(@Email, ''), NULL,
+                @EstadoVendedor,
+                GETDATE(), GETDATE(), 0
+            );
+        END
+        ELSE
+        BEGIN
+            UPDATE dbo.per_Persona
+            SET NombreCompleto = LEFT(LTRIM(RTRIM(@NombreCompleto)), 200),
+                NombreComercial = LEFT(LTRIM(RTRIM(ISNULL(@NombreCorto, @NombreCompleto))), 200),
+                DocIdentidad = @DocFinal,
+                IDTipoDocIdentidad = ISNULL(@IDTipoDocIdentidad, IDTipoDocIdentidad),
+                Telefono = CASE WHEN @Telefono IS NOT NULL THEN @Telefono ELSE Telefono END,
+                Email = CASE WHEN @Email IS NOT NULL THEN @Email ELSE Email END,
+                Estado = @EstadoVendedor,
+                FechaModificacion = GETDATE()
+            WHERE ID = @IDPersona;
+        END
+
+        DECLARE @IDCatalogo int;
+        SELECT TOP 1 @IDCatalogo = ID FROM dbo.ctg_Catalogo WHERE Estado = 1 ORDER BY ID;
+
+        IF @IDCatalogo IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.ctg_CatalogoVendedor WHERE IDCatalogo = @IDCatalogo AND IDVendedor = @IDVendedor)
+        BEGIN
+            INSERT INTO dbo.ctg_CatalogoVendedor (IDCatalogo, IDVendedor, Estado, FechaCreacion, FechaModificacion)
+            VALUES (@IDCatalogo, @IDVendedor, 1, GETDATE(), GETDATE());
+        END
+
+        COMMIT TRANSACTION;
+        SELECT @IDVendedor AS IDVendedor;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END;";
+                using var cmdSpVend = new SqlCommand(sqlSpVendedorNorm, conn) { CommandTimeout = 60 };
+                await cmdSpVend.ExecuteNonQueryAsync(ct);
+
                 _esquemaVerificado = true;
             }
             catch (Exception ex)
@@ -647,7 +817,12 @@ namespace IntegradorFlexForce.Services
                         v.PKID AS IDExtra,
                         RTRIM(p.Codigo) AS Codigo,
                         RTRIM(p.Nombre) AS NombreCompleto,
-                        COALESCE(NULLIF(RTRIM(p.DocIdentidad), ''), RTRIM(p.Codigo)) AS DocIdentidad,
+                        CASE 
+                            WHEN LTRIM(RTRIM(p.DocIdentidad)) IN ('0', '00', '000', '0000', '00000000', '-', '.', 'S/D', '') 
+                                 OR LTRIM(RTRIM(p.DocIdentidad)) IS NULL
+                            THEN RTRIM(p.Codigo)
+                            ELSE LTRIM(RTRIM(p.DocIdentidad))
+                        END AS DocIdentidad,
                         p.Activo AS Estado,
                         ISNULL(v.IDGrupoVentas, 0) AS IDGrupoVentas,
                         ISNULL(v.IDSucursal, 0) AS IDSucursal
@@ -1045,7 +1220,12 @@ namespace IntegradorFlexForce.Services
                         RTRIM(p.Codigo) AS Codigo,
                         RTRIM(p.Nombre) AS NombreCompleto,
                         RTRIM(p.Nombre) AS NombreCorto,
-                        COALESCE(NULLIF(RTRIM(p.DocIdentidad), ''), RTRIM(p.Codigo)) AS DocIdentidad,
+                        CASE 
+                            WHEN LTRIM(RTRIM(p.DocIdentidad)) IN ('0', '00', '000', '0000', '00000000', '-', '.', 'S/D', '') 
+                                 OR LTRIM(RTRIM(p.DocIdentidad)) IS NULL
+                            THEN RTRIM(p.Codigo)
+                            ELSE LTRIM(RTRIM(p.DocIdentidad))
+                        END AS DocIdentidad,
                         p.Activo AS Estado,
                         ISNULL(v.IDGrupoVentas, 0) AS IDGrupoVentas,
                         ISNULL(v.IDSucursal, 0) AS IDSucursal

@@ -356,7 +356,7 @@ CREATE OR ALTER PROCEDURE dbo.usp_Sync_UpsertVendedorMaestro
     @CodigoVendedor         nvarchar(50),
     @NombreCompleto         nvarchar(200),
     @NombreCorto            nvarchar(100) = NULL,
-    @DocumentoIdentidad     nvarchar(20) = '0',
+    @DocumentoIdentidad     nvarchar(20) = NULL,
     @IDTipoDocIdentidad     int = 19,
     @FechaNacimiento        date = NULL,
     @Email                  nvarchar(150) = NULL,
@@ -385,6 +385,29 @@ BEGIN
         IF @IDVendedor IS NULL AND LTRIM(RTRIM(@CodigoVendedor)) <> ''
             SELECT TOP 1 @IDVendedor = ID FROM dbo.vnd_Vendedor WHERE Codigo = LTRIM(RTRIM(@CodigoVendedor));
 
+        -- Normalizar y garantizar unicidad en DocumentoIdentidad (para respetar UQ_Vendedor_Documento)
+        DECLARE @DocFinal nvarchar(20) = LTRIM(RTRIM(ISNULL(@DocumentoIdentidad, '')));
+        IF @DocFinal IN ('0', '00', '000', '0000', '00000000', '-', '.', 'S/D', '') OR @DocFinal IS NULL
+            SET @DocFinal = LEFT(LTRIM(RTRIM(@CodigoVendedor)), 20);
+
+        -- Si el documento ya está asignado a otro vendedor distinto en Force, usar el código único del vendedor
+        IF EXISTS (SELECT 1 FROM dbo.vnd_Vendedor WHERE DocumentoIdentidad = @DocFinal AND ID <> ISNULL(@IDVendedor, 0))
+        BEGIN
+            SET @DocFinal = LEFT(LTRIM(RTRIM(@CodigoVendedor)), 20);
+        END
+
+        -- Si aún existiera colisión con el código de vendedor:
+        IF EXISTS (SELECT 1 FROM dbo.vnd_Vendedor WHERE DocumentoIdentidad = @DocFinal AND ID <> ISNULL(@IDVendedor, 0))
+        BEGIN
+            SET @DocFinal = LEFT(CONCAT('V', @ID_Vendedor_Origen, '-', RTRIM(@CodigoVendedor)), 20);
+        END
+
+        -- Garantía absoluta de unicidad con el ID del vendedor origen
+        IF EXISTS (SELECT 1 FROM dbo.vnd_Vendedor WHERE DocumentoIdentidad = @DocFinal AND ID <> ISNULL(@IDVendedor, 0))
+        BEGIN
+            SET @DocFinal = CONCAT('V', @ID_Vendedor_Origen);
+        END
+
         -- C. Insertar o Actualizar en vnd_Vendedor
         IF @IDVendedor IS NULL
         BEGIN
@@ -398,7 +421,7 @@ BEGIN
                 LEFT(LTRIM(RTRIM(@NombreCompleto)), 200),
                 LEFT(LTRIM(RTRIM(ISNULL(@NombreCorto, @NombreCompleto))), 100),
                 1, -- Vendedor Estándar
-                LEFT(LTRIM(RTRIM(ISNULL(@DocumentoIdentidad, @CodigoVendedor))), 20),
+                @DocFinal,
                 ISNULL(@IDTipoDocIdentidad, 19),
                 @FechaNacimiento,
                 NULL,
@@ -421,84 +444,69 @@ BEGIN
             SET IDExtra = @ID_Vendedor_Origen,
                 NombreCompleto = LEFT(LTRIM(RTRIM(@NombreCompleto)), 200),
                 NombreCorto = LEFT(LTRIM(RTRIM(ISNULL(@NombreCorto, @NombreCompleto))), 100),
-                DocumentoIdentidad = LEFT(LTRIM(RTRIM(ISNULL(@DocumentoIdentidad, DocumentoIdentidad))), 20),
+                DocumentoIdentidad = @DocFinal,
                 IDTipoDocIdentidad = ISNULL(@IDTipoDocIdentidad, IDTipoDocIdentidad),
                 FechaNacimiento = CASE WHEN @FechaNacimiento IS NOT NULL THEN @FechaNacimiento ELSE FechaNacimiento END,
                 Telefono = CASE WHEN @Telefono IS NOT NULL THEN @Telefono ELSE Telefono END,
                 Email = CASE WHEN @Email IS NOT NULL THEN @Email ELSE Email END,
-                IDGrupoVenta = ISNULL(@IDGrupoVenta, IDGrupoVenta),
                 Estado = @EstadoVendedor,
-                Eliminado = 0,
+                IDGrupoVenta = ISNULL(@IDGrupoVenta, IDGrupoVenta),
                 FechaModificacion = GETDATE()
             WHERE ID = @IDVendedor;
         END
 
-        -- D. SINCRONIZAR per_Persona (TipoEntidad = 'VENDEDOR')
-        IF @IDVendedor IS NOT NULL
+        -- D. Insertar o Actualizar en per_Persona (TipoEntidad = 'VENDEDOR')
+        DECLARE @IDPersona int;
+        SELECT TOP 1 @IDPersona = ID FROM dbo.per_Persona WHERE TipoEntidad = 'VENDEDOR' AND IDVendedor = @IDVendedor;
+
+        IF @IDPersona IS NULL
         BEGIN
-            IF EXISTS (SELECT 1 FROM dbo.per_Persona WHERE IDVendedor = @IDVendedor AND TipoEntidad = 'VENDEDOR')
-            BEGIN
-                UPDATE dbo.per_Persona
-                SET NombreCompleto    = LEFT(LTRIM(RTRIM(@NombreCompleto)), 200),
-                    NombreComercial   = LEFT(LTRIM(RTRIM(ISNULL(@NombreCorto, @NombreCompleto))), 200),
-                    DocIdentidad      = LEFT(LTRIM(RTRIM(ISNULL(@DocumentoIdentidad, @CodigoVendedor))), 20),
-                    IDTipoDocIdentidad= ISNULL(@IDTipoDocIdentidad, 19),
-                    Telefono          = CASE WHEN @Telefono IS NOT NULL THEN @Telefono ELSE Telefono END,
-                    Email             = CASE WHEN @Email IS NOT NULL THEN @Email ELSE Email END,
-                    Estado            = @EstadoVendedor,
-                    Eliminado         = 0,
-                    FechaModificacion = GETDATE()
-                WHERE IDVendedor = @IDVendedor AND TipoEntidad = 'VENDEDOR';
-            END
-            ELSE
-            BEGIN
-                INSERT INTO dbo.per_Persona (
-                    TipoEntidad, IDCliente, IDProveedor, IDVendedor,
-                    NombreCompleto, NombreComercial,
-                    DocIdentidad, IDTipoDocIdentidad,
-                    Telefono, Email, Observacion,
-                    Estado, FechaCreacion, FechaModificacion, Eliminado
-                )
-                VALUES (
-                    'VENDEDOR', NULL, NULL, @IDVendedor,
-                    LEFT(LTRIM(RTRIM(@NombreCompleto)), 200),
-                    LEFT(LTRIM(RTRIM(ISNULL(@NombreCorto, @NombreCompleto))), 200),
-                    LEFT(LTRIM(RTRIM(ISNULL(@DocumentoIdentidad, @CodigoVendedor))), 20),
-                    ISNULL(@IDTipoDocIdentidad, 19),
-                    NULLIF(@Telefono, ''), NULLIF(@Email, ''), NULL,
-                    @EstadoVendedor, GETDATE(), GETDATE(), 0
-                );
-            END
+            INSERT INTO dbo.per_Persona (
+                TipoEntidad, IDCliente, IDProveedor, IDVendedor,
+                NombreCompleto, NombreComercial, DocIdentidad, IDTipoDocIdentidad,
+                Telefono, Email, Observacion, Estado,
+                FechaCreacion, FechaModificacion, Eliminado
+            )
+            VALUES (
+                'VENDEDOR', NULL, NULL, @IDVendedor,
+                LEFT(LTRIM(RTRIM(@NombreCompleto)), 200),
+                LEFT(LTRIM(RTRIM(ISNULL(@NombreCorto, @NombreCompleto))), 200),
+                @DocFinal,
+                ISNULL(@IDTipoDocIdentidad, 19),
+                NULLIF(@Telefono, ''), NULLIF(@Email, ''), NULL,
+                @EstadoVendedor,
+                GETDATE(), GETDATE(), 0
+            );
+        END
+        ELSE
+        BEGIN
+            UPDATE dbo.per_Persona
+            SET NombreCompleto = LEFT(LTRIM(RTRIM(@NombreCompleto)), 200),
+                NombreComercial = LEFT(LTRIM(RTRIM(ISNULL(@NombreCorto, @NombreCompleto))), 200),
+                DocIdentidad = @DocFinal,
+                IDTipoDocIdentidad = ISNULL(@IDTipoDocIdentidad, IDTipoDocIdentidad),
+                Telefono = CASE WHEN @Telefono IS NOT NULL THEN @Telefono ELSE Telefono END,
+                Email = CASE WHEN @Email IS NOT NULL THEN @Email ELSE Email END,
+                Estado = @EstadoVendedor,
+                FechaModificacion = GETDATE()
+            WHERE ID = @IDPersona;
         END
 
-        -- E. VINCULAR A CATÁLOGO ACTIVO (ctg_CatalogoVendedor)
-        DECLARE @IDCatalogoDef int;
-        SELECT TOP 1 @IDCatalogoDef = ID FROM dbo.ctg_Catalogo WHERE ID = 1;
-        IF @IDCatalogoDef IS NULL
-            SELECT TOP 1 @IDCatalogoDef = ID FROM dbo.ctg_Catalogo WHERE Estado = 1 ORDER BY ID;
+        -- E. Catálogo de Vendedor (ctg_CatalogoVendedor)
+        DECLARE @IDCatalogo int;
+        SELECT TOP 1 @IDCatalogo = ID FROM dbo.ctg_Catalogo WHERE Estado = 1 ORDER BY ID;
 
-        IF @IDCatalogoDef IS NOT NULL AND @IDVendedor IS NOT NULL
+        IF @IDCatalogo IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.ctg_CatalogoVendedor WHERE IDCatalogo = @IDCatalogo AND IDVendedor = @IDVendedor)
         BEGIN
-            IF NOT EXISTS (SELECT 1 FROM dbo.ctg_CatalogoVendedor WHERE IDCatalogo = @IDCatalogoDef AND IDVendedor = @IDVendedor)
-            BEGIN
-                INSERT INTO dbo.ctg_CatalogoVendedor (IDCatalogo, IDVendedor, Estado, FechaCreacion, FechaModificacion)
-                VALUES (@IDCatalogoDef, @IDVendedor, 1, GETDATE(), GETDATE());
-            END
-            ELSE
-            BEGIN
-                UPDATE dbo.ctg_CatalogoVendedor
-                SET Estado = 1, FechaModificacion = GETDATE()
-                WHERE IDCatalogo = @IDCatalogoDef AND IDVendedor = @IDVendedor AND Estado = 0;
-            END
+            INSERT INTO dbo.ctg_CatalogoVendedor (IDCatalogo, IDVendedor, Estado, FechaCreacion, FechaModificacion)
+            VALUES (@IDCatalogo, @IDVendedor, 1, GETDATE(), GETDATE());
         END
 
         COMMIT TRANSACTION;
-
         SELECT @IDVendedor AS IDVendedor;
     END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0
-            ROLLBACK TRANSACTION;
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
         THROW;
     END CATCH
 END
