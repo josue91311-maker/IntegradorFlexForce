@@ -774,13 +774,11 @@ namespace IntegradorFlexForce.Services
                         INNER JOIN dbo.ZonaRutaVendedor zrv WITH (NOLOCK) ON zrv.IDZona = z.PKID
                         INNER JOIN dbo.RutaVendedor rr WITH (NOLOCK) ON rr.PKID = zrv.IDRutaVendedor
                         INNER JOIN dbo.AsignacionRutaZonaVendedor ass WITH (NOLOCK) ON ass.PKID = rr.IDAsignacionRutaZonaVendedor
-                        INNER JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = ass.IDVendedor
-                        INNER JOIN dbo.Persona pv WITH (NOLOCK) ON pv.PKID = v.PKID
-                        WHERE z.Activo = 1 
-                          AND rr.Activo = 1 
-                          AND ass.Activo = 1 
-                          AND v.Activo = 1
-                          AND p.Activo = 1;";
+                        INNER JOIN dbo.Persona pv WITH (NOLOCK) ON pv.PKID = ass.IDVendedor
+                        LEFT JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = pv.PKID
+                        WHERE dd.Activo = 1 
+                          AND p.Activo = 1
+                          AND pv.Activo = 1;";
 
                     using var cmd = new SqlCommand(sqlZonasAntiguo, conn) { CommandTimeout = 180 };
                     using var r = await cmd.ExecuteReaderAsync(ct);
