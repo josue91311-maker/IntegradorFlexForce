@@ -252,13 +252,13 @@ namespace IntegradorFlexForce.Services
             preview.ResumenPorTabla.Add(resZonas);
             preview.ResumenPorTabla.Add(resCred);
 
-            // Consolidar detalles hasta un máximo seguro para la UI
+            // Consolidar detalles garantizando representación equilibrada de cada entidad
             preview.DetalleCambios.AddRange(detallesCli);
             preview.DetalleCambios.AddRange(detallesZonas);
             preview.DetalleCambios.AddRange(detallesCred);
-            if (preview.DetalleCambios.Count > 2500)
+            if (preview.DetalleCambios.Count > 4000)
             {
-                preview.DetalleCambios = preview.DetalleCambios.Take(2500).ToList();
+                preview.DetalleCambios = preview.DetalleCambios.Take(4000).ToList();
             }
 
             // Actualizar cachés de IDs con diferencias para la sincronización
@@ -279,7 +279,8 @@ namespace IntegradorFlexForce.Services
         // -------------------------------------------------------------------------
         private async Task<(TablaComparacionResumenDto ResCli, TablaComparacionResumenDto ResDir, List<CambioDetectadoItemDto> Detalles, HashSet<int> NuevosIds)> AnalizarClientesYDireccionesAsync(CancellationToken ct)
         {
-            var detalles = new List<CambioDetectadoItemDto>();
+            var detallesCliList = new List<CambioDetectadoItemDto>();
+            var detallesDirList = new List<CambioDetectadoItemDto>();
             var nuevosIdsClientes = new HashSet<int>();
 
             var clientesForcePorIdExtra = new Dictionary<int, (int IDForce, string Codigo, string Nombre, bool Estado, int? IDCategoria, int? IDTipoCliente, int? IDTipoNegocio, string? Campo1, string? Campo2, string? Campo3, string? Campo4)>(380000);
@@ -293,10 +294,15 @@ namespace IntegradorFlexForce.Services
                 await conn.OpenAsync(ct);
                 const string sql = @"
                     SELECT c.ID, c.IDExtra, LTRIM(RTRIM(ISNULL(c.Codigo, ''))), LTRIM(RTRIM(ISNULL(c.NombreCompleto, ''))), CAST(ISNULL(c.Estado, 0) AS bit),
-                           c.IDCategoriaCliente, c.IDTipoCliente, c.IDTipoNegocio,
+                           COALESCE(cat.IDExtra, TRY_CAST(cat.Codigo AS int), c.IDCategoriaCliente) AS IDCategoriaExtra,
+                           COALESCE(tc.IDExtra, TRY_CAST(tc.Codigo AS int), c.IDTipoCliente) AS IDTipoClienteExtra,
+                           COALESCE(tn.IDExtra, TRY_CAST(tn.Codigo AS int), c.IDTipoNegocio) AS IDTipoNegocioExtra,
                            LTRIM(RTRIM(ISNULL(cc.Campo1, ''))), LTRIM(RTRIM(ISNULL(cc.Campo2, ''))),
                            LTRIM(RTRIM(ISNULL(cc.Campo3, ''))), LTRIM(RTRIM(ISNULL(cc.Campo4, '')))
                     FROM dbo.cli_Cliente c WITH (NOLOCK)
+                    LEFT JOIN dbo.cat_CategoriaCliente cat WITH (NOLOCK) ON cat.ID = c.IDCategoriaCliente
+                    LEFT JOIN dbo.cat_TipoCliente tc WITH (NOLOCK) ON tc.ID = c.IDTipoCliente
+                    LEFT JOIN dbo.cat_TipoNegocio tn WITH (NOLOCK) ON tn.ID = c.IDTipoNegocio
                     LEFT JOIN dbo.cli_CamposCliente cc WITH (NOLOCK) ON cc.IDCliente = c.ID
                     WHERE c.Eliminado = 0;";
                 using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 };
@@ -401,15 +407,24 @@ namespace IntegradorFlexForce.Services
                         cliForce = (cliPorCod.IDForce, codigo, cliPorCod.Nombre, cliPorCod.Estado, cliPorCod.IDCategoria, cliPorCod.IDTipoCliente, cliPorCod.IDTipoNegocio, cliPorCod.Campo1, cliPorCod.Campo2, cliPorCod.Campo3, cliPorCod.Campo4);
                     }
 
+                    static bool SonValoresCamposIguales(string? valForce, string? valErp)
+                    {
+                        var f = (valForce ?? "").Trim();
+                        var e = (valErp ?? "").Trim();
+                        if (f == "0") f = "";
+                        if (e == "0") e = "";
+                        return string.Equals(f, e, StringComparison.OrdinalIgnoreCase);
+                    }
+
                     if (!existeCli)
                     {
                         if (activoCli)
                         {
                             cliInserts++;
                             nuevosIdsClientes.Add(idCliente);
-                            if (detalles.Count < 2500)
+                            if (detallesCliList.Count < 1000)
                             {
-                                detalles.Add(new CambioDetectadoItemDto
+                                detallesCliList.Add(new CambioDetectadoItemDto
                                 {
                                     Tabla = "CLIENTES",
                                     TipoOperacion = "INSERT",
@@ -429,9 +444,9 @@ namespace IntegradorFlexForce.Services
                         {
                             cliDeletes++;
                             nuevosIdsClientes.Add(idCliente);
-                            if (detalles.Count < 2500)
+                            if (detallesCliList.Count < 1000)
                             {
-                                detalles.Add(new CambioDetectadoItemDto
+                                detallesCliList.Add(new CambioDetectadoItemDto
                                 {
                                     Tabla = "CLIENTES",
                                     TipoOperacion = "BAJA / DELETE",
@@ -448,9 +463,9 @@ namespace IntegradorFlexForce.Services
                         {
                             cliUpdates++;
                             nuevosIdsClientes.Add(idCliente);
-                            if (detalles.Count < 2500)
+                            if (detallesCliList.Count < 1000)
                             {
-                                detalles.Add(new CambioDetectadoItemDto
+                                detallesCliList.Add(new CambioDetectadoItemDto
                                 {
                                     Tabla = "CLIENTES",
                                     TipoOperacion = "UPDATE",
@@ -474,28 +489,28 @@ namespace IntegradorFlexForce.Services
                                 valForceCli = cliForce.Nombre;
                                 valErpCli = nombre;
                             }
-                            if (idCatCli > 0 && cliForce.IDCategoria.HasValue && cliForce.IDCategoria.Value != idCatCli)
+                            if (idCatCli > 0 && cliForce.IDCategoria.HasValue && cliForce.IDCategoria.Value != 0 && cliForce.IDCategoria.Value != idCatCli)
                             {
                                 diffsCli.Add("Categoría");
                                 valForceCli = $"Cat: {cliForce.IDCategoria}";
                                 valErpCli = $"Cat: {idCatCli}";
                             }
-                            if (idTipoNeg > 0 && cliForce.IDTipoNegocio.HasValue && cliForce.IDTipoNegocio.Value != idTipoNeg)
+                            if (idTipoNeg > 0 && cliForce.IDTipoNegocio.HasValue && cliForce.IDTipoNegocio.Value != 0 && cliForce.IDTipoNegocio.Value != idTipoNeg)
                             {
                                 diffsCli.Add("Tipo Negocio / Giro");
                                 valForceCli = $"Giro: {cliForce.IDTipoNegocio}";
                                 valErpCli = $"Giro: {idTipoNeg}";
                             }
-                            if (idTipoCli > 0 && cliForce.IDTipoCliente.HasValue && cliForce.IDTipoCliente.Value != idTipoCli)
+                            if (idTipoCli > 0 && cliForce.IDTipoCliente.HasValue && cliForce.IDTipoCliente.Value != 0 && cliForce.IDTipoCliente.Value != idTipoCli)
                             {
                                 diffsCli.Add("Tipo Cliente");
                                 valForceCli = $"TipoCli: {cliForce.IDTipoCliente}";
                                 valErpCli = $"TipoCli: {idTipoCli}";
                             }
-                            if (!string.Equals(cliForce.Campo1, campo1, StringComparison.OrdinalIgnoreCase) ||
-                                !string.Equals(cliForce.Campo2, campo2, StringComparison.OrdinalIgnoreCase) ||
-                                !string.Equals(cliForce.Campo3, campo3, StringComparison.OrdinalIgnoreCase) ||
-                                !string.Equals(cliForce.Campo4, campo4, StringComparison.OrdinalIgnoreCase))
+                            if (!SonValoresCamposIguales(cliForce.Campo1, campo1) ||
+                                !SonValoresCamposIguales(cliForce.Campo2, campo2) ||
+                                !SonValoresCamposIguales(cliForce.Campo3, campo3) ||
+                                !SonValoresCamposIguales(cliForce.Campo4, campo4))
                             {
                                 diffsCli.Add("Campos Libres / Características");
                                 valForceCli = $"Campos: [{cliForce.Campo1}|{cliForce.Campo2}]";
@@ -506,9 +521,9 @@ namespace IntegradorFlexForce.Services
                             {
                                 cliUpdates++;
                                 nuevosIdsClientes.Add(idCliente);
-                                if (detalles.Count < 2500)
+                                if (detallesCliList.Count < 1000)
                                 {
-                                    detalles.Add(new CambioDetectadoItemDto
+                                    detallesCliList.Add(new CambioDetectadoItemDto
                                     {
                                         Tabla = "CLIENTES",
                                         TipoOperacion = "UPDATE",
@@ -533,9 +548,9 @@ namespace IntegradorFlexForce.Services
                             {
                                 dirInserts++;
                                 nuevosIdsClientes.Add(idCliente);
-                                if (detalles.Count < 2500)
+                                if (detallesDirList.Count < 1000)
                                 {
-                                    detalles.Add(new CambioDetectadoItemDto
+                                    detallesDirList.Add(new CambioDetectadoItemDto
                                     {
                                         Tabla = "DIRECCIONES",
                                         TipoOperacion = "INSERT",
@@ -555,9 +570,9 @@ namespace IntegradorFlexForce.Services
                             {
                                 dirDeletes++;
                                 nuevosIdsClientes.Add(idCliente);
-                                if (detalles.Count < 2500)
+                                if (detallesDirList.Count < 1000)
                                 {
-                                    detalles.Add(new CambioDetectadoItemDto
+                                    detallesDirList.Add(new CambioDetectadoItemDto
                                     {
                                         Tabla = "DIRECCIONES",
                                         TipoOperacion = "BAJA / DELETE",
@@ -576,9 +591,9 @@ namespace IntegradorFlexForce.Services
                             {
                                 dirUpdates++;
                                 nuevosIdsClientes.Add(idCliente);
-                                if (detalles.Count < 2500)
+                                if (detallesDirList.Count < 1000)
                                 {
-                                    detalles.Add(new CambioDetectadoItemDto
+                                    detallesDirList.Add(new CambioDetectadoItemDto
                                     {
                                         Tabla = "DIRECCIONES",
                                         TipoOperacion = "UPDATE",
@@ -622,7 +637,11 @@ namespace IntegradorFlexForce.Services
                 Observacion = (dirInserts + dirUpdates + dirDeletes) == 0 ? "Al día (Sin diferencias)" : "Cambios pendientes de aplicar"
             };
 
-            return (resCli, resDir, detalles, nuevosIdsClientes);
+            var todosDetalles = new List<CambioDetectadoItemDto>(detallesCliList.Count + detallesDirList.Count);
+            todosDetalles.AddRange(detallesCliList);
+            todosDetalles.AddRange(detallesDirList);
+
+            return (resCli, resDir, todosDetalles, nuevosIdsClientes);
         }
 
         // -------------------------------------------------------------------------
