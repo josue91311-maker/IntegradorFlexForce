@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using IntegradorFlexForce.Models;
@@ -45,11 +47,81 @@ namespace IntegradorFlexForce.Services
         public SyncStatusDto GetCurrentStatus() => _currentStatus;
         public SyncPreviewDto? GetLastPreview() => _lastPreview;
 
+        private bool _esquemaVerificado = false;
+        private async Task AsegurarEsquemaBDForceAsync(CancellationToken ct)
+        {
+            if (_esquemaVerificado) return;
+            try
+            {
+                using var conn = new SqlConnection(_connectionStringForce);
+                await conn.OpenAsync(ct);
+
+                // 1. Actualizar procedimiento dbo.usp_Sync_UpsertProductoMaestro desde 10_SP_Upsert_Producto_Force.sql
+                string fileName = "10_SP_Upsert_Producto_Force.sql";
+                string[] possiblePaths = new[]
+                {
+                    Path.Combine(Directory.GetCurrentDirectory(), fileName),
+                    Path.Combine(AppContext.BaseDirectory, fileName),
+                    Path.Combine(AppContext.BaseDirectory, "..", "..", "..", fileName),
+                    Path.Combine(@"C:\Users\iraula.j\Desktop\ProyectoInterfaz\IntegradorFlexForce", fileName)
+                };
+                string? path = possiblePaths.FirstOrDefault(File.Exists);
+
+                if (!string.IsNullOrEmpty(path))
+                {
+                    var sqlContent = await File.ReadAllTextAsync(path, ct);
+                    var bloques = Regex.Split(sqlContent, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
+                    foreach (var bloque in bloques)
+                    {
+                        var b = bloque.Trim();
+                        if (string.IsNullOrWhiteSpace(b) || b.StartsWith("USE ", StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        using var cmdSp = new SqlCommand(b, conn) { CommandTimeout = 60 };
+                        await cmdSp.ExecuteNonQueryAsync(ct);
+                    }
+                }
+
+                // 2. Alinear retroactivamente per_Persona para proveedores existentes de prd_Proveedor que falten
+                const string sqlAlinearProveedores = @"
+                    INSERT INTO dbo.per_Persona (
+                        TipoEntidad, IDCliente, IDProveedor, IDVendedor,
+                        NombreCompleto, NombreComercial, DocIdentidad, IDTipoDocIdentidad,
+                        Telefono, Email, Observacion, Estado,
+                        FechaCreacion, FechaModificacion, Eliminado
+                    )
+                    SELECT 
+                        'PROVEEDOR', NULL, pr.ID, NULL,
+                        LEFT(LTRIM(RTRIM(ISNULL(pr.RazonSocial, pr.Codigo))), 200),
+                        LEFT(LTRIM(RTRIM(ISNULL(pr.RazonSocial, pr.Codigo))), 200),
+                        LEFT(LTRIM(RTRIM(ISNULL(pr.RUC, '0'))), 20),
+                        NULL,
+                        NULL, NULL, NULL,
+                        ISNULL(pr.Estado, 1),
+                        ISNULL(pr.FechaCreacion, GETDATE()),
+                        ISNULL(pr.FechaModificacion, GETDATE()),
+                        ISNULL(pr.Eliminado, 0)
+                    FROM dbo.prd_Proveedor pr
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM dbo.per_Persona p 
+                        WHERE p.TipoEntidad = 'PROVEEDOR' AND p.IDProveedor = pr.ID
+                    );";
+                using var cmdAlinear = new SqlCommand(sqlAlinearProveedores, conn) { CommandTimeout = 60 };
+                await cmdAlinear.ExecuteNonQueryAsync(ct);
+
+                _esquemaVerificado = true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "AsegurarEsquemaBDForceAsync (Productos): No se pudo aplicar esquema o SPs automáticamente: {Msg}", ex.Message);
+            }
+        }
+
         // =========================================================================
         // 1. ESCANEAR Y COMPARAR DIFERENCIAS (SOLO LECTURA EN DIGALIMENTA41)
         // =========================================================================
         public async Task<SyncPreviewDto> AnalizarCambiosPendientesAsync(CancellationToken ct = default)
         {
+            await AsegurarEsquemaBDForceAsync(ct);
             var sw = Stopwatch.StartNew();
             var preview = new SyncPreviewDto { FechaAnalisis = DateTime.Now };
 
@@ -312,7 +384,7 @@ namespace IntegradorFlexForce.Services
             {
                 CodigoTabla = "PRODUCTOS",
                 NombreTabla = "1. Catálogo Maestro de Productos, Marcas y Líneas",
-                TablasForce = "dbo.prd_Producto, dbo.prd_Marca, dbo.prd_LineaProducto, dbo.prd_Proveedor, dbo.prd_SubProveedor",
+                TablasForce = "dbo.prd_Producto, dbo.prd_Marca, dbo.prd_LineaProducto, dbo.prd_Proveedor, dbo.per_Persona, dbo.prd_SubProveedor",
                 TotalOrigen = totalProdOrigen,
                 TotalDestino = totalProdForce,
                 InsertsDetectados = prodInserts,

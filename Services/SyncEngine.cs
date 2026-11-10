@@ -174,7 +174,31 @@ namespace IntegradorFlexForce.Services
                               SELECT 1 FROM dbo.rut_RutaZonaDia rzd
                               WHERE rzd.IDZona = z.ID AND rzd.IDRuta = @IDRuta046 AND rzd.IDDia = 6
                           );
-                    END;";
+                    END;
+
+                    -- Alinear retroactivamente per_Persona para proveedores existentes de prd_Proveedor que falten
+                    INSERT INTO dbo.per_Persona (
+                        TipoEntidad, IDCliente, IDProveedor, IDVendedor,
+                        NombreCompleto, NombreComercial, DocIdentidad, IDTipoDocIdentidad,
+                        Telefono, Email, Observacion, Estado,
+                        FechaCreacion, FechaModificacion, Eliminado
+                    )
+                    SELECT 
+                        'PROVEEDOR', NULL, pr.ID, NULL,
+                        LEFT(LTRIM(RTRIM(ISNULL(pr.RazonSocial, pr.Codigo))), 200),
+                        LEFT(LTRIM(RTRIM(ISNULL(pr.RazonSocial, pr.Codigo))), 200),
+                        LEFT(LTRIM(RTRIM(ISNULL(pr.RUC, '0'))), 20),
+                        NULL,
+                        NULL, NULL, NULL,
+                        ISNULL(pr.Estado, 1),
+                        ISNULL(pr.FechaCreacion, GETDATE()),
+                        ISNULL(pr.FechaModificacion, GETDATE()),
+                        ISNULL(pr.Eliminado, 0)
+                    FROM dbo.prd_Proveedor pr
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM dbo.per_Persona p 
+                        WHERE p.TipoEntidad = 'PROVEEDOR' AND p.IDProveedor = pr.ID
+                    );";
                 using (var cmdFix = new SqlCommand(sqlFixLote, conn) { CommandTimeout = 60 })
                 {
                     await cmdFix.ExecuteNonQueryAsync(ct);
