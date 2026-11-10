@@ -273,11 +273,40 @@ END;";
                 using var cmdSpVend = new SqlCommand(sqlSpVendedorNorm, conn) { CommandTimeout = 60 };
                 await cmdSpVend.ExecuteNonQueryAsync(ct);
 
+                await CargarUltimoEstadoDesdeBDAsync(conn, ct);
+
                 _esquemaVerificado = true;
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "AsegurarEsquemaBDForceAsync (Vendedores): Advertencia al aplicar esquema: {Msg}", ex.Message);
+            }
+        }
+
+        private async Task CargarUltimoEstadoDesdeBDAsync(SqlConnection conn, CancellationToken ct)
+        {
+            try
+            {
+                const string sql = @"
+                    SELECT TOP 1 FechaInicio, DuracionSegundos, TotalEscaneados, TotalNuevos, TotalModificados, TotalErrores, Estado
+                    FROM dbo.sync_TransaccionLote WITH (NOLOCK)
+                    WHERE Entidad = 'MODULO_VENDEDORES'
+                    ORDER BY FechaInicio DESC;";
+                using var cmd = new SqlCommand(sql, conn);
+                using var r = await cmd.ExecuteReaderAsync(ct);
+                if (await r.ReadAsync(ct))
+                {
+                    _currentStatus.UltimaEjecucion = r.GetDateTime(0);
+                    _currentStatus.UltimaDuracionSegundos = r.IsDBNull(1) ? 0 : Convert.ToDouble(r.GetDecimal(1));
+                    _currentStatus.UltimoLoteProcesados = (r.IsDBNull(3) ? 0 : r.GetInt32(3)) + (r.IsDBNull(4) ? 0 : r.GetInt32(4));
+                    _currentStatus.UltimoLoteErrores = r.IsDBNull(5) ? 0 : r.GetInt32(5);
+                    _currentStatus.EstadoActual = r.GetString(6) == "COMPLETADO" ? "COMPLETADO" : (r.GetString(6) == "FALLIDO" ? "ERROR" : "EN_ESPERA");
+                    _currentStatus.FaseDetalle = $"Última ejecución: {_currentStatus.UltimoLoteProcesados} procesados ({_currentStatus.UltimoLoteErrores} errores).";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo precargar último estado de Vendedores.");
             }
         }
 

@@ -4733,9 +4733,10 @@
 
         if (btnAceptar) {
             btnAceptar.onclick = () => {
+                const accion = callbackConfirmacionAccion;
                 cerrarModalConfirmacion();
-                if (callbackConfirmacionAccion) {
-                    callbackConfirmacionAccion();
+                if (typeof accion === 'function') {
+                    accion();
                 }
             };
         }
