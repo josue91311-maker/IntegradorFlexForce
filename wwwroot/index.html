@@ -5825,6 +5825,19 @@
     let pageSizeCambiosVend = 15;
     let modoVendedoresActivo = 'INTERVALO';
 
+    function formatearNumero(val) {
+        if (val === null || val === undefined || isNaN(val)) return '0';
+        return Number(val).toLocaleString();
+    }
+
+    function mostrarNotificacion(mensaje, tipo = 'info') {
+        if (typeof mostrarToast === 'function') {
+            mostrarToast(mensaje, tipo);
+        } else {
+            console.log(`[${tipo.toUpperCase()}] ${mensaje}`);
+        }
+    }
+
     function cambiarModoVendedores(modo) {
         modoVendedoresActivo = modo;
         const btnInt = document.getElementById('btnModoVendInt');
@@ -5881,10 +5894,10 @@
             cambiosVendedoresCache = data.detalleCambios || [];
             filtrarCambiosVend();
 
-            mostrarNotificacion(`Escaneo finalizado en ${data.tiempoEscaneoSegundos}s. ${totalDiffVend} diferencias encontradas en Vendedores.`, totalDiffVend > 0 ? 'warning' : 'success');
+            mostrarToast(`Escaneo finalizado en ${data.tiempoEscaneoSegundos}s. ${totalDiffVend} diferencias encontradas en Vendedores.`, totalDiffVend > 0 ? 'warning' : 'success');
         } catch (e) {
             console.error(e);
-            mostrarNotificacion('Error al consultar diferencias de vendedores: ' + e.message, 'error');
+            mostrarToast('Error al consultar diferencias de vendedores: ' + e.message, 'error');
         } finally {
             ocultarLoading();
             if (btn) {
@@ -5904,20 +5917,21 @@
 
         tbody.innerHTML = resumen.map((r, i) => {
             const totalDif = (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0);
-            const diagClass = totalDif === 0 ? 'text-green' : 'text-orange';
-            const diagText = totalDif === 0 ? '✓ Al día' : `⚠️ ${r.observacion || 'Cambios pendientes'}`;
+            const diagPill = totalDif === 0
+                ? `<span class="pill-diag-ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Al día</span>`
+                : `<span class="pill-diag-warn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ${r.observacion || 'Cambios pendientes'}</span>`;
 
             return `<tr>
-                <td style="font-weight:700; color:#0f172a;">${r.nombreTabla}</td>
-                <td style="font-size:12px; font-family:monospace; color:#475569;">${r.tablasForce}</td>
-                <td class="num font-bold">${formatearNumero(r.totalOrigen)}</td>
-                <td class="num font-bold">${formatearNumero(r.totalDestino)}</td>
-                <td class="num ${r.insertsDetectados > 0 ? 'badge-new' : ''}">${formatearNumero(r.insertsDetectados)}</td>
-                <td class="num ${r.updatesDetectados > 0 ? 'badge-mod' : ''}">${formatearNumero(r.updatesDetectados)}</td>
-                <td class="num">${formatearNumero(r.deletesBajasDetectados)}</td>
-                <td class="num">-</td>
-                <td class="num font-bold ${totalDif > 0 ? 'text-orange' : 'text-green'}">${totalDif > 0 ? formatearNumero(totalDif) : '-'}</td>
-                <td class="${diagClass}" style="font-weight:700;">${diagText}</td>
+                <td style="font-weight:700; color:#0f172a;"><span style="color:#94a3b8; font-weight:800; margin-right:6px;">&gt;</span>${r.nombreTabla}</td>
+                <td class="mono" style="color:#64748b; font-size:12px;">${r.tablasForce}</td>
+                <td class="num" style="font-weight:700; color:#0f172a;">${(r.totalOrigen || 0).toLocaleString()}</td>
+                <td class="num" style="font-weight:700; color:#0f172a;">${(r.totalDestino || 0).toLocaleString()}</td>
+                <td class="num ${r.insertsDetectados > 0 ? 'val-ins' : ''}">${(r.insertsDetectados || 0).toLocaleString()}</td>
+                <td class="num ${r.updatesDetectados > 0 ? 'val-upd' : ''}">${(r.updatesDetectados || 0).toLocaleString()}</td>
+                <td class="num ${r.deletesBajasDetectados > 0 ? 'val-del' : ''}">${(r.deletesBajasDetectados || 0).toLocaleString()}</td>
+                <td class="num" style="color:#64748b;">-</td>
+                <td class="num" style="color:#0f172a; font-weight:800;">${totalDif > 0 ? totalDif.toLocaleString() : '-'}</td>
+                <td>${diagPill}</td>
             </tr>`;
         }).join('');
     }
