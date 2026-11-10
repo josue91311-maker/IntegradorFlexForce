@@ -10,18 +10,22 @@ namespace IntegradorFlexForce.Services
     {
         private readonly SyncEngine _syncEngine;
         private readonly SyncProductosEngine _syncProductosEngine;
+        private readonly SyncVendedoresEngine _syncVendedoresEngine;
         private readonly ILogger<SyncBackgroundWorker> _logger;
         private static readonly SemaphoreSlim _cycleLock = new(1, 1);
 
         private DateTime? _ultimaEjecucionClientes;
         private DateTime? _ultimaEjecucionProductos;
+        private DateTime? _ultimaEjecucionVendedores;
         private DateTime? _ultimoDiaMadrugadaClientes;
         private DateTime? _ultimoDiaMadrugadaProductos;
+        private DateTime? _ultimoDiaMadrugadaVendedores;
 
-        public SyncBackgroundWorker(SyncEngine syncEngine, SyncProductosEngine syncProductosEngine, ILogger<SyncBackgroundWorker> logger)
+        public SyncBackgroundWorker(SyncEngine syncEngine, SyncProductosEngine syncProductosEngine, SyncVendedoresEngine syncVendedoresEngine, ILogger<SyncBackgroundWorker> logger)
         {
             _syncEngine = syncEngine;
             _syncProductosEngine = syncProductosEngine;
+            _syncVendedoresEngine = syncVendedoresEngine;
             _logger = logger;
         }
 
@@ -55,6 +59,12 @@ namespace IntegradorFlexForce.Services
                     if (config.AutoProductosActivo && DebeEjecutarseProductos(config))
                     {
                         await EjecutarProductosConReintentosAsync(config, stoppingToken);
+                    }
+
+                    // 3. EVALUAR EJECUCIÓN MODULAR: VENDEDORES Y EQUIPOS
+                    if (config.AutoVendedoresActivo && DebeEjecutarseVendedores(config))
+                    {
+                        await EjecutarVendedoresConReintentosAsync(config, stoppingToken);
                     }
                 }
                 catch (OperationCanceledException)
@@ -138,6 +148,40 @@ namespace IntegradorFlexForce.Services
                 }
 
                 return (ahora - _ultimaEjecucionProductos.Value).TotalMinutes >= intervaloMin;
+            }
+        }
+
+        private bool DebeEjecutarseVendedores(Models.SyncConfigDto config)
+        {
+            var ahora = DateTime.Now;
+
+            if (config.ModoVendedores == "MADRUGADA")
+            {
+                // Modo Madrugada: 1 vez al día en la hora configurada (ej: 04:00)
+                if (_ultimoDiaMadrugadaVendedores.HasValue && _ultimoDiaMadrugadaVendedores.Value.Date == ahora.Date)
+                {
+                    return false;
+                }
+                return EsHoraObjetivo(config.HoraMadrugadaVendedores, ahora);
+            }
+            else
+            {
+                // Modo Intervalo periódico dentro de ventana horaria
+                string horaInicio = string.IsNullOrWhiteSpace(config.HoraInicioVendedores) ? config.HoraInicioVentana : config.HoraInicioVendedores;
+                string horaFin = string.IsNullOrWhiteSpace(config.HoraFinVendedores) ? config.HoraFinVentana : config.HoraFinVendedores;
+
+                if (!EstaEnVentanaHoraria(horaInicio, horaFin))
+                {
+                    return false;
+                }
+
+                int intervaloMin = config.IntervaloVendedoresMinutos > 0 ? config.IntervaloVendedoresMinutos : 5;
+                if (_ultimaEjecucionVendedores == null)
+                {
+                    return true;
+                }
+
+                return (ahora - _ultimaEjecucionVendedores.Value).TotalMinutes >= intervaloMin;
             }
         }
 
@@ -248,6 +292,64 @@ namespace IntegradorFlexForce.Services
                     {
                         _logger.LogError("Se agotaron los {Max} reintentos de Módulo Productos tras caída o error de conexión.", maxIntentos);
                         _ultimaEjecucionProductos = DateTime.Now; // Registrar tiempo para evitar bucle infinito inmediato
+                    }
+                }
+                finally
+                {
+                    if (lockTomado) _cycleLock.Release();
+                }
+            }
+        }
+
+        private async Task EjecutarVendedoresConReintentosAsync(Models.SyncConfigDto config, CancellationToken ct)
+        {
+            int maxIntentos = config.HabilitarReintentos ? Math.Max(1, config.ReintentosMaximos) : 1;
+            int esperaSegundos = config.EsperaReintentoSegundos > 0 ? config.EsperaReintentoSegundos : 30;
+
+            for (int intento = 1; intento <= maxIntentos; intento++)
+            {
+                if (ct.IsCancellationRequested) break;
+
+                bool lockTomado = false;
+                try
+                {
+                    if (_syncVendedoresEngine.GetCurrentStatus().IsRunning)
+                    {
+                        _logger.LogInformation("Módulo Vendedores ya se encuentra en ejecución manual o previa. Omitiendo ciclo automático.");
+                        return;
+                    }
+
+                    if (await _cycleLock.WaitAsync(0, ct))
+                    {
+                        lockTomado = true;
+                        _logger.LogInformation("Ejecutando ciclo automático Módulo Vendedores (Intento {Intento}/{Max})...", intento, maxIntentos);
+                        await _syncVendedoresEngine.EjecutarSincronizacionVendedoresAsync("WORKER_SERVICE", ct);
+
+                        _ultimaEjecucionVendedores = DateTime.Now;
+                        if (config.ModoVendedores == "MADRUGADA")
+                        {
+                            _ultimoDiaMadrugadaVendedores = DateTime.Today;
+                        }
+                        return;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Ciclo Vendedores omitido: semáforo de sincronización ocupado por otro módulo.");
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Fallo en ejecución automática de Vendedores (Intento {Intento}/{Max}).", intento, maxIntentos);
+                    if (intento < maxIntentos)
+                    {
+                        _logger.LogInformation("Esperando {Seg}s antes de reintentar Módulo Vendedores...", esperaSegundos);
+                        await Task.Delay(TimeSpan.FromSeconds(esperaSegundos), ct);
+                    }
+                    else
+                    {
+                        _logger.LogError("Se agotaron los {Max} reintentos de Módulo Vendedores tras caída o error de conexión.", maxIntentos);
+                        _ultimaEjecucionVendedores = DateTime.Now;
                     }
                 }
                 finally

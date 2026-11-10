@@ -50,7 +50,7 @@ namespace IntegradorFlexForce.Services
                 await conn.OpenAsync(ct);
 
                 // 1. Actualizar automáticamente los Stored Procedures en BDForceGVD desde los archivos .sql locales
-                var scripts = new[] { "03_SP_Upsert_Cliente_Force.sql", "07_SP_Vincular_Cliente_Ruta.sql", "09_SP_Upsert_Cliente_Credito_Catalogo.sql", "10_SP_Upsert_Producto_Force.sql" };
+                var scripts = new[] { "03_SP_Upsert_Cliente_Force.sql", "07_SP_Vincular_Cliente_Ruta.sql", "09_SP_Upsert_Cliente_Credito_Catalogo.sql", "10_SP_Upsert_Producto_Force.sql", "11_SP_Upsert_Vendedor_Force.sql" };
                 foreach (var fileName in scripts)
                 {
                     string[] possiblePaths = new[]

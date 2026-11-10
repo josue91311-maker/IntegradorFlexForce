@@ -12,11 +12,13 @@ namespace IntegradorFlexForce.Controllers
     {
         private readonly SyncEngine _syncEngine;
         private readonly SyncProductosEngine _syncProductosEngine;
+        private readonly SyncVendedoresEngine _syncVendedoresEngine;
 
-        public SyncApiController(SyncEngine syncEngine, SyncProductosEngine syncProductosEngine)
+        public SyncApiController(SyncEngine syncEngine, SyncProductosEngine syncProductosEngine, SyncVendedoresEngine syncVendedoresEngine)
         {
             _syncEngine = syncEngine;
             _syncProductosEngine = syncProductosEngine;
+            _syncVendedoresEngine = syncVendedoresEngine;
         }
 
         [HttpGet("status")]
@@ -160,6 +162,45 @@ namespace IntegradorFlexForce.Controllers
 
             _ = Task.Run(() => _syncProductosEngine.EjecutarSincronizacionProductosAsync(subModulo.ToUpperInvariant(), "PORTAL_WEB", CancellationToken.None));
             return Accepted(new { message = $"Sincronización de Productos ({subModulo}) iniciada." });
+        }
+
+        // =========================================================================
+        // ENDPOINTS DEL MÓDULO DE VENDEDORES Y EQUIPOS COMERCIALES
+        // =========================================================================
+
+        [HttpGet("vendedores/status")]
+        public IActionResult GetVendedoresStatus()
+        {
+            return Ok(_syncVendedoresEngine.GetCurrentStatus());
+        }
+
+        [HttpGet("vendedores/preview")]
+        public async Task<IActionResult> PreviewCambiosVendedores(CancellationToken ct)
+        {
+            var preview = await _syncVendedoresEngine.AnalizarCambiosPendientesAsync(ct);
+            return Ok(preview);
+        }
+
+        [HttpPost("vendedores/trigger")]
+        public async Task<IActionResult> TriggerVendedores(CancellationToken ct = default)
+        {
+            var current = _syncVendedoresEngine.GetCurrentStatus();
+            if (current.IsRunning)
+            {
+                var swWait = System.Diagnostics.Stopwatch.StartNew();
+                while (_syncVendedoresEngine.GetCurrentStatus().IsRunning && swWait.ElapsedMilliseconds < 15000)
+                {
+                    await Task.Delay(400, ct);
+                }
+
+                if (_syncVendedoresEngine.GetCurrentStatus().IsRunning)
+                {
+                    return Conflict(new { message = "El servicio automático en segundo plano está sincronizando Vendedores. Espere unos segundos a que termine para iniciar el proceso manual." });
+                }
+            }
+
+            _ = Task.Run(() => _syncVendedoresEngine.EjecutarSincronizacionVendedoresAsync("PORTAL_WEB", CancellationToken.None));
+            return Accepted(new { message = "Sincronización del Módulo de Vendedores iniciada." });
         }
     }
 }

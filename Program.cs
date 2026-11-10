@@ -11,6 +11,7 @@ builder.Services.AddControllers();
 // Motor de Sincronización y Servicio de Fondo
 builder.Services.AddSingleton<SyncEngine>();
 builder.Services.AddSingleton<SyncProductosEngine>();
+builder.Services.AddSingleton<SyncVendedoresEngine>();
 builder.Services.AddHostedService<SyncBackgroundWorker>();
 
 // Habilitar CORS si se requiere acceso desde otra IP

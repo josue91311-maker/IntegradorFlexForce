@@ -85,6 +85,14 @@ namespace IntegradorFlexForce.Models
         public string HoraFinProductos { get; set; } = "23:30";
         public string HoraMadrugadaProductos { get; set; } = "03:30";
 
+        // Módulo Vendedores
+        public bool AutoVendedoresActivo { get; set; } = true;
+        public string ModoVendedores { get; set; } = "INTERVALO"; // "INTERVALO" o "MADRUGADA"
+        public int IntervaloVendedoresMinutos { get; set; } = 5;
+        public string HoraInicioVendedores { get; set; } = "05:00";
+        public string HoraFinVendedores { get; set; } = "23:30";
+        public string HoraMadrugadaVendedores { get; set; } = "04:00";
+
         // Políticas de Resiliencia y Reintentos
         public bool HabilitarReintentos { get; set; } = true;
         public int EsperaReintentoSegundos { get; set; } = 30;

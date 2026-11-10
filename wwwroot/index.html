@@ -1766,6 +1766,11 @@
                 <span>Módulo Productos</span>
             </button>
 
+            <button id="navBtnVendedores" class="nav-item" onclick="navegarVista('vendedores')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                <span>Módulo Vendedores</span>
+            </button>
+
             <button id="navBtnConfig" class="nav-item" onclick="navegarVista('config')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 <span>Configuración</span>
@@ -1868,7 +1873,7 @@
                         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
                     </div>
                     <div class="kpi-numbers">
-                        <span class="kpi-val" id="kpiTotalProcesos">8</span>
+                        <span class="kpi-val" id="kpiTotalProcesos">15</span>
                         <span class="kpi-label">Sub-Módulos ETL</span>
                     </div>
                 </div>
@@ -1876,7 +1881,7 @@
                     <svg width="88" height="36" viewBox="0 0 88 36" fill="none">
                         <path d="M2 28C14 26 20 18 32 20C44 22 50 10 62 14C72 17 78 6 86 10" stroke="#1877f2" stroke-width="2.2" stroke-linecap="round"/>
                     </svg>
-                    <span class="kpi-pct blue">2 Módulos</span>
+                    <span class="kpi-pct blue">3 Módulos</span>
                 </div>
             </div>
 
@@ -2138,6 +2143,80 @@
                             Sincronizar Módulo
                         </button>
                         <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); navegarVista('productos')">
+                            Abrir Consola y Detalle →
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TARJETA MÓDULO 3: VENDEDORES, SUPERVISIÓN Y FUERZAS DE VENTA -->
+            <div class="hub-module-card" onclick="navegarVista('vendedores')">
+                <div class="hub-card-top">
+                    <div style="display:flex; align-items:flex-start; gap:16px;">
+                        <div class="hub-module-avatar" style="background:#f3e8ff; color:#7e22ce;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                        </div>
+                        <div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <h3 style="font-size:16px; font-weight:800; color:#0f172a; margin:0;">3. Módulo de Vendedores, Supervisores y Fuerzas de Venta</h3>
+                                <span class="tag-status live">En Vivo</span>
+                            </div>
+                            <div style="font-size:12.5px; color:#64748b; font-weight:500; margin-top:2px;">
+                                Sucursales, Canales, Jefes, Supervisores, Fuerzas, Grupos, Vendedores y Personas
+                            </div>
+                            <div id="hubMod3DetalleDifs" style="font-size:11.5px; color:#7e22ce; font-weight:700; margin-top:4px;">
+                                Listo para consulta y sincronización de equipos
+                            </div>
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase;">Salud Módulo</div>
+                        <div id="hubMod3Health" style="font-size:15px; font-weight:800; color:#10b981; margin-top:2px; display:flex; align-items:center; justify-content:flex-end; gap:5px;">
+                            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981;"></span>
+                            Operativo
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Barra de Progreso y Estadísticas -->
+                <div class="hub-card-metrics">
+                    <div class="hub-metric-pill">
+                        <span class="hub-metric-lbl">Sub-Entidades:</span>
+                        <span class="hub-metric-val">7 Tablas</span>
+                    </div>
+                    <div class="hub-metric-pill">
+                        <span class="hub-metric-lbl">Modo Actual:</span>
+                        <span id="hubMod3ModoPill" class="hub-metric-val green">Manual</span>
+                    </div>
+                    <div class="hub-metric-pill">
+                        <span class="hub-metric-lbl">Último Lote:</span>
+                        <span id="hubMod3LastBatch" class="hub-metric-val">#1</span>
+                    </div>
+                    <div class="hub-metric-pill">
+                        <span class="hub-metric-lbl">Duración:</span>
+                        <span id="hubMod3Duracion" class="hub-metric-val">00:00:05</span>
+                    </div>
+                    <div class="hub-metric-pill" style="margin-left:auto;">
+                        <span class="hub-metric-lbl">Diferencias:</span>
+                        <span id="hubMod3DifsPill" class="hub-metric-val" style="color:#7e22ce; font-weight:800;">0 pendientes</span>
+                    </div>
+                </div>
+
+                <div class="hub-progress-track">
+                    <div id="hubMod3ProgressBar" class="hub-progress-fill" style="width: 100%; background: linear-gradient(90deg, #9333ea, #7e22ce);"></div>
+                </div>
+
+                <div class="hub-card-footer">
+                    <div style="font-size:12px; color:#64748b; font-weight:600; display:flex; align-items:center; gap:6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span id="hubMod3SyncMsg">Base de datos sincronizada: digalimenta41 → BDForceGVD</span>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); ejecutarSincronizacionVendedores()">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                            Sincronizar Módulo
+                        </button>
+                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); navegarVista('vendedores')">
                             Abrir Consola y Detalle →
                         </button>
                     </div>
@@ -2727,6 +2806,239 @@
     </section>
 
     <!-- ==============================================================
+         VISTA: CONSOLA DETALLADA MÓDULO VENDEDORES, SUPERVISORES Y FUERZAS
+         ============================================================== -->
+    <section id="vistaVendedores" class="view-section">
+
+        <!-- CABECERA DEL MÓDULO VENDEDORES (ESTILO FORCE DISTRIBUCIÓN) -->
+        <div class="module-header-bar">
+            <div class="module-brand">
+                <div class="brand-ff-logo" onclick="navegarVista('hub')" title="Volver al Hub Principal">
+                    FF
+                </div>
+                <div class="module-brand-info">
+                    <h1>Force Distribución – Integrador de Datos ERP</h1>
+                    <div class="module-breadcrumb">
+                        <a onclick="navegarVista('hub')">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                            Inicio
+                        </a>
+                        <span class="sep">&gt;</span>
+                        <span>Módulos</span>
+                        <span class="sep">&gt;</span>
+                        <span class="current">Módulo de Vendedores, Supervisores y Fuerzas de Venta</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:12px;">
+                <!-- Reloj en Vivo Hora Perú -->
+                <div class="module-clock-pill">
+                    <span class="online-dot" style="width:8px; height:8px;"></span>
+                    <span class="relojLiveModule">--:--:--</span>
+                    <span style="color:#94a3b8; font-weight:600; font-size:11.5px;">| (Hora Perú - PET)</span>
+                </div>
+
+                <!-- Selector de Módulo -->
+                <div style="position:relative;">
+                    <button class="btn btn-outline" onclick="toggleMenuModulo('dropdownModVendedores')" style="border-radius:999px; padding:7px 16px; font-size:12.5px; font-weight:700; color:#334155; display:flex; align-items:center; gap:6px;">
+                        <span>... Hub de Módulo</span>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div id="dropdownModVendedores" class="module-dropdown-menu">
+                        <a href="javascript:void(0)" onclick="navegarVista('hub'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">🏠 Hub Principal</a>
+                        <a href="javascript:void(0)" onclick="navegarVista('clientes'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">👥 1. Clientes y Rutas</a>
+                        <a href="javascript:void(0)" onclick="navegarVista('productos'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">📦 2. Productos y Precios</a>
+                        <a href="javascript:void(0)" onclick="navegarVista('vendedores'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:700; color:#7e22ce; text-decoration:none; background:#faf5ff;">👔 3. Vendedores y Equipos</a>
+                        <a href="javascript:void(0)" onclick="navegarVista('historial'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">⏱ Historial de Lotes</a>
+                        <a href="javascript:void(0)" onclick="navegarVista('config'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">⚙️ Configuración</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FILA DE BOTONES DE ACCIÓN (PILLS ESTILO REFERENCIA) -->
+        <div class="module-actions-row">
+            <button class="btn-pill-outline" onclick="navegarVista('hub')">
+                ← Volver al Hub
+            </button>
+            <button id="btnValidarVend" class="btn-pill-consultar" style="background:#7e22ce; border-color:#6b21a8;" onclick="validarDiferenciasVendedores()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                1. Consultar Diferencias
+            </button>
+            <button id="btnSyncVend" class="btn-pill-primary" style="background:#6b21a8;" onclick="ejecutarSincronizacionVendedores()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                2. Sincronizar Vendedores y Equipos
+            </button>
+        </div>
+
+        <!-- BANNER DE ESTADO Y PROGRESO -->
+        <div class="status-banner-card">
+            <div class="status-banner-top">
+                <div class="status-banner-left">
+                    <div class="cylinder-icon-box" style="background:linear-gradient(135deg, #f3e8ff, #e9d5ff); border-color:#d8b4fe;">
+                        <svg width="44" height="44" viewBox="0 0 48 48" fill="none">
+                            <ellipse cx="24" cy="11" rx="19" ry="6" fill="#a855f7" stroke="#7e22ce" stroke-width="1.2"/>
+                            <path d="M5 11v9c0 3.31 8.5 6 19 6s19-2.69 19-6v-9" fill="#9333ea" stroke="#7e22ce" stroke-width="1.2"/>
+                            <path d="M5 20v9c0 3.31 8.5 6 19 6s19-2.69 19-6v-9" fill="#7e22ce" stroke="#7e22ce" stroke-width="1.2"/>
+                            <path d="M5 29v9c0 3.31 8.5 6 19 6s19-2.69 19-6v-9" fill="#6b21a8" stroke="#7e22ce" stroke-width="1.2"/>
+                            <ellipse cx="24" cy="10" rx="16" ry="4.5" fill="#d8b4fe" opacity="0.6"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                            <span id="badgeEstadoVend" class="status-pill completed"><span class="dot"></span>EN ESPERA</span>
+                            <span id="lblFaseDetalleVend" style="font-weight:700; color:#0f172a; font-size:14.5px;">Consola de Vendedores, Supervisores, Fuerzas y Grupos</span>
+                        </div>
+                        <div id="lblUltimaEjecucionVend" style="font-size:12px; color:#64748b; font-weight:500; margin-top:4px;">
+                            ⏱ Sin ejecución previa
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
+                            <button id="btnAuditDetalleVend" class="btn-auditoria-lg" style="background:#faf5ff; border-color:#d8b4fe; color:#7e22ce;" onclick="abrirModalAuditoriaUltimaEjecucion('vendedores')">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                Ver Detalles y Errores de Auditoría
+                            </button>
+                            <button class="btn-historial-lg" onclick="navegarVista('historial')">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                Ver Historial de Ejecuciones
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <span id="lblProgresoTextoVend" class="status-pct-bold">0 / 0 (0%)</span>
+                </div>
+            </div>
+
+            <div class="proc-bar-track" style="margin-top:14px; height:12px;">
+                <div id="barraProgresoVend" class="proc-bar-fill" style="width:0%; background:linear-gradient(90deg, #9333ea, #7e22ce);"></div>
+            </div>
+        </div>
+
+        <!-- 1. MATRIZ DE VALIDACIÓN DE VENDEDORES -->
+        <div class="white-card">
+            <div class="card-header-clean">
+                <div class="card-title-row">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7e22ce" stroke-width="2.4"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    <h2>1. Matriz de Validación de Vendedores y Estructura Comercial (ERP Antiguo vs Force)</h2>
+                </div>
+                <span id="lblTiempoAnalisisVend" style="font-size:12.5px; color:var(--text-muted); font-weight:600;">Pendiente de consulta</span>
+            </div>
+            <div class="table-container">
+                <table class="table-matrix">
+                    <thead>
+                        <tr>
+                            <th>Sub-Módulo / Entidad</th>
+                            <th>Tablas Destino en BDForceGVD</th>
+                            <th class="num">ERP Antiguo</th>
+                            <th class="num">Force ERP</th>
+                            <th class="num">Nuevos (INSERT)</th>
+                            <th class="num">Modificados (UPDATE)</th>
+                            <th class="num">Bajas / Quitados</th>
+                            <th class="num">Coletes</th>
+                            <th class="num">Total Diferencias</th>
+                            <th>Diagnóstico</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblResumenTablasVend">
+                        <tr>
+                            <td colspan="10" style="text-align:center; padding:36px 20px; color:#475569; background:#faf5ff;">
+                                <div style="display:inline-flex; flex-direction:column; align-items:center; gap:10px;">
+                                    <div style="width:48px; height:48px; border-radius:50%; background:#f3e8ff; color:#7e22ce; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(126,34,206,0.15);">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                    </div>
+                                    <div style="font-weight:800; font-size:15px; color:#1e293b;">Debe ejecutar el botón «1. Consultar Diferencias»</div>
+                                    <div style="font-size:13px; color:#64748b; max-width:540px;">
+                                        Presione el botón morado superior para escanear en tiempo real Sucursales, Canales, Jefes, Supervisores, Fuerzas, Grupos y Vendedores con lectura limpia (NOLOCK).
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 2. DETALLE DE REGISTROS CON CAMBIOS DETECTADOS -->
+        <div class="white-card">
+            <div class="card-header-clean">
+                <div class="card-title-row">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7e22ce" stroke-width="2.4"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                    <h2>2. Detalle de Registros con Cambio Detectados (Pre-Visualización de Vendedores)</h2>
+                </div>
+
+                <!-- FILTROS DE BÚSQUEDA -->
+                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                    <div style="position:relative; width:260px;">
+                        <input type="text" id="txtFiltroCambiosVend" class="search-input" placeholder="Buscar por código, nombre o doc..." oninput="filtrarCambiosVend()">
+                    </div>
+                    <select id="selFiltroTablaVend" class="select-control" onchange="filtrarCambiosVend()">
+                        <option value="">Todas las entidades</option>
+                        <option value="SUCURSALES">Sucursales</option>
+                        <option value="CANALES">Canales de Venta</option>
+                        <option value="JEFES_VENTA">Jefaturas de Venta</option>
+                        <option value="SUPERVISORES">Supervisores</option>
+                        <option value="FUERZAS_VENTA">Fuerzas de Venta</option>
+                        <option value="GRUPOS_VENTA">Grupos de Venta</option>
+                        <option value="VENDEDORES">Vendedores y Personas</option>
+                    </select>
+                    <select id="selFiltroOpVend" class="select-control" onchange="filtrarCambiosVend()">
+                        <option value="">Todas las operaciones</option>
+                        <option value="INSERT">Nuevos (INSERT)</option>
+                        <option value="UPDATE">Modificados (UPDATE)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="table-changes">
+                    <thead>
+                        <tr>
+                            <th>Sub - Módulo</th>
+                            <th>Operación</th>
+                            <th>ID Origen</th>
+                            <th>Código</th>
+                            <th>Nombre / Descripción</th>
+                            <th>Campo Detectado</th>
+                            <th>Valor Actual en Force</th>
+                            <th>Valor Nuevo en ERP Antiguo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblCambiosVend">
+                        <tr>
+                            <td colspan="8" style="text-align:center; color:var(--text-muted); padding:36px 20px; background:#faf5ff;">
+                                <div style="display:inline-flex; flex-direction:column; align-items:center; gap:8px;">
+                                    <div style="font-weight:700; font-size:14px; color:#334155;">No hay cambios pendientes cargados</div>
+                                    <div style="font-size:12.5px; color:#64748b;">Presione «1. Consultar Diferencias» para pre-visualizar las modificaciones antes de sincronizar.</div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PAGINACIÓN DETALLE -->
+            <div class="pagination-bar">
+                <div>
+                    <span id="lblPaginacionCambiosVend">Mostrando 0 de 0 registros</span>
+                    <label style="margin-left:12px;">
+                        Por página:
+                        <select id="selPageSizeCambiosVend" class="select-control" style="padding:3px 8px; font-size:12px;" onchange="irPaginaCambiosVend(1)">
+                            <option value="15">15</option>
+                            <option value="30">30</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </label>
+                </div>
+                <div id="pagControlsCambiosVend" class="pagination-controls"></div>
+            </div>
+        </div>
+
+    </section>
+
+    <!-- ==============================================================
          VISTA 4: HISTORIAL DE LOTES EJECUTADOS
          ============================================================== -->
     <section id="vistaHistorial" class="view-section">
@@ -3036,6 +3348,81 @@
                             </div>
                             <div style="font-size:12px; color:#5b21b6; line-height:1.4; flex:2;">
                                 🌙 <strong>Cero Impacto Diurno:</strong> Se procesará 1 sola vez cada día en la madrugada (ideal para grandes catálogos y listas de precios masivas).
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="border-top:1px solid #f1f5f9; padding-top:10px; font-size:11.5px; color:#64748b; display:flex; align-items:center; gap:6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Aplica salto inteligente instantáneo si no detecta diferencias.
+                </div>
+            </div>
+
+            <!-- TARJETA MÓDULO 3: VENDEDORES, SUPERVISIÓN Y FUERZAS -->
+            <div style="background:#ffffff; border-radius:16px; padding:22px 24px; box-shadow:var(--shadow-card); border:1px solid #e2e8f0; display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <!-- Encabezado Módulo Vendedores -->
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid #f1f5f9;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="width:40px; height:40px; border-radius:12px; background:#f3e8ff; color:#7e22ce; display:flex; align-items:center; justify-content:center;">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                            </div>
+                            <div>
+                                <h3 style="font-size:15px; font-weight:800; color:#0f172a; margin:0;">Módulo 3: Vendedores y Equipos Comerciales</h3>
+                                <div style="font-size:12px; color:#64748b;">Sucursales, Canales, Jefes, Supervisores, Fuerzas, Grupos y Vendedores</div>
+                            </div>
+                        </div>
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; background:#f8fafc; padding:5px 12px; border-radius:20px; border:1px solid #e2e8f0;">
+                            <input type="checkbox" id="chkAutoVendedores" style="width:16px; height:16px; cursor:pointer;" checked>
+                            <span style="font-size:12.5px; font-weight:700; color:#334155;">Automático</span>
+                        </label>
+                    </div>
+
+                    <!-- Selector de Modo de Ejecución para Vendedores -->
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block; font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px;">Modo de Ejecución Automática:</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <button type="button" id="btnModoVendInt" class="btn-modo-pill active" onclick="cambiarModoVendedores('INTERVALO')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
+                                <div style="font-weight:700; font-size:13px; color:#0f172a;">⏱ Intervalo Periódico</div>
+                                <div style="font-size:11px; color:#64748b;">Dentro de una ventana horaria</div>
+                            </button>
+                            <button type="button" id="btnModoVendMad" class="btn-modo-pill" onclick="cambiarModoVendedores('MADRUGADA')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
+                                <div style="font-weight:700; font-size:13px; color:#0f172a;">🌙 1 Vez en la Madrugada</div>
+                                <div style="font-size:11px; color:#64748b;">Ejecución nocturna desatendida</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Configuración: MODO INTERVALO -->
+                    <div id="panelVendedoresIntervalo" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:14px;">
+                        <div style="font-size:12px; font-weight:700; color:#334155; margin-bottom:12px;">Parámetros del Intervalo Periódico:</div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                            <div class="field-group" style="padding:0;">
+                                <label style="font-size:11.5px; font-weight:700; color:#64748b; margin-bottom:4px; display:block;">Hora Inicio</label>
+                                <input type="text" id="txtHoraInicioVendedores" value="05:00" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-family:monospace; font-size:13px; font-weight:700;">
+                            </div>
+                            <div class="field-group" style="padding:0;">
+                                <label style="font-size:11.5px; font-weight:700; color:#64748b; margin-bottom:4px; display:block;">Hora Fin</label>
+                                <input type="text" id="txtHoraFinVendedores" value="23:30" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-family:monospace; font-size:13px; font-weight:700;">
+                            </div>
+                            <div class="field-group" style="padding:0;">
+                                <label style="font-size:11.5px; font-weight:700; color:#64748b; margin-bottom:4px; display:block;">Cada (Minutos)</label>
+                                <input type="number" id="txtIntervaloVendedores" min="1" max="720" value="5" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-family:monospace; font-size:13px; font-weight:700;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Configuración: MODO MADRUGADA -->
+                    <div id="panelVendedoresMadrugada" style="display:none; background:#faf5ff; border:1px solid #d8b4fe; border-radius:12px; padding:16px; margin-bottom:14px;">
+                        <div style="font-size:12px; font-weight:700; color:#7e22ce; margin-bottom:12px;">Parámetros de Ejecución Nocturna:</div>
+                        <div style="display:flex; align-items:center; gap:16px;">
+                            <div style="flex:1;">
+                                <label style="font-size:11.5px; font-weight:700; color:#6b21a8; margin-bottom:4px; display:block;">Hora Madrugada (Hora Perú · 24h)</label>
+                                <input type="text" id="txtHoraMadrugadaVendedores" value="04:00" style="width:160px; padding:8px 12px; border-radius:8px; border:1px solid #c4b5fd; font-family:monospace; font-size:14px; font-weight:700; color:#5b21b6; background:#ffffff;">
+                            </div>
+                            <div style="font-size:12px; color:#5b21b6; line-height:1.4; flex:2;">
+                                🌙 <strong>Cero Impacto Diurno:</strong> Se procesará 1 sola vez cada día en la madrugada para actualizar equipos y vendedores.
                             </div>
                         </div>
                     </div>
@@ -3432,6 +3819,7 @@
             'hub': 'vistaHub',
             'clientes': 'vistaClientes',
             'productos': 'vistaProductos',
+            'vendedores': 'vistaVendedores',
             'historial': 'vistaHistorial',
             'logs': 'vistaLogs',
             'config': 'vistaConfig'
@@ -3440,6 +3828,7 @@
             'hub': 'navBtnHub',
             'clientes': 'navBtnClientes',
             'productos': 'navBtnProductos',
+            'vendedores': 'navBtnVendedores',
             'historial': 'navBtnHistorial',
             'logs': 'navBtnReportes',
             'config': 'navBtnConfig'
@@ -5425,7 +5814,245 @@
     // NOTA: validarDiferencias() y validarDiferenciasProductos() NO se ejecutan al inicio,
     // sino bajo demanda al abrir cada módulo correspondiente.
 
-    setInterval(() => { cargarEstado(); cargarEstadoProductos(); }, 2000);
+
+    // ==============================================================
+    // MÓDULO DE VENDEDORES, SUPERVISIÓN Y FUERZAS DE VENTA
+    // ==============================================================
+    let resumenVendedoresCache = [];
+    let cambiosVendedoresCache = [];
+    let cambiosVendedoresFiltrados = [];
+    let pagActualCambiosVend = 1;
+    let pageSizeCambiosVend = 15;
+    let modoVendedoresActivo = 'INTERVALO';
+
+    function cambiarModoVendedores(modo) {
+        modoVendedoresActivo = modo;
+        const btnInt = document.getElementById('btnModoVendInt');
+        const btnMad = document.getElementById('btnModoVendMad');
+        const panelInt = document.getElementById('panelVendedoresIntervalo');
+        const panelMad = document.getElementById('panelVendedoresMadrugada');
+        if (modo === 'INTERVALO') {
+            if (btnInt) btnInt.classList.add('active');
+            if (btnMad) btnMad.classList.remove('active');
+            if (panelInt) panelInt.style.display = 'block';
+            if (panelMad) panelMad.style.display = 'none';
+        } else {
+            if (btnInt) btnInt.classList.remove('active');
+            if (btnMad) btnMad.classList.add('active');
+            if (panelInt) panelInt.style.display = 'none';
+            if (panelMad) panelMad.style.display = 'block';
+        }
+    }
+
+    async function validarDiferenciasVendedores() {
+        const btn = document.getElementById('btnValidarVend');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Analizando Vendedores...';
+        }
+        const lblTiempo = document.getElementById('lblTiempoAnalisisVend');
+        if (lblTiempo) lblTiempo.textContent = 'Comparando Sucursales, Canales, Jefes, Supervisores, Fuerzas y Vendedores...';
+        mostrarLoading('Analizando Módulo Vendedores...', 'Comparando tablas maestras comerciales con ERP Antiguo (NOLOCK)...');
+
+        try {
+            const res = await fetch('/api/sync/vendedores/preview');
+            const data = await res.json();
+
+            const horaAuditPeru = formatearSoloHoraPeru(data.fechaAnalisis);
+            const tiempoHms = segundosAHms(data.tiempoEscaneoSegundos);
+
+            if (lblTiempo) {
+                lblTiempo.textContent = `Última consulta: ${horaAuditPeru} (Escaneo en ${data.tiempoEscaneoSegundos} s / ${tiempoHms})`;
+            }
+
+            const resumen = data.resumenPorTabla || [];
+            resumenVendedoresCache = resumen;
+
+            const totalDiffVend = resumen.reduce((acc, r) => acc + (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0), 0);
+            
+            // Actualizar Hub Card 3
+            const elDifsPill = document.getElementById('hubMod3DifsPill');
+            if (elDifsPill) elDifsPill.textContent = `${totalDiffVend} pendientes`;
+            const elDetalleDifs = document.getElementById('hubMod3DetalleDifs');
+            if (elDetalleDifs) elDetalleDifs.textContent = totalDiffVend === 0 ? '✓ Estructura comercial 100% al día' : `⚠️ ${totalDiffVend} diferencias detectadas en equipos/vendedores`;
+
+            // Renderizar Matriz y Detalle
+            renderMatrizVendedores(resumen);
+            cambiosVendedoresCache = data.detalleCambios || [];
+            filtrarCambiosVend();
+
+            mostrarNotificacion(`Escaneo finalizado en ${data.tiempoEscaneoSegundos}s. ${totalDiffVend} diferencias encontradas en Vendedores.`, totalDiffVend > 0 ? 'warning' : 'success');
+        } catch (e) {
+            console.error(e);
+            mostrarNotificacion('Error al consultar diferencias de vendedores: ' + e.message, 'error');
+        } finally {
+            ocultarLoading();
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 1. Consultar Diferencias`;
+            }
+        }
+    }
+
+    function renderMatrizVendedores(resumen) {
+        const tbody = document.getElementById('tblResumenTablasVend');
+        if (!tbody) return;
+        if (!resumen || resumen.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:24px;">No se obtuvieron datos de la matriz.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = resumen.map((r, i) => {
+            const totalDif = (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0);
+            const diagClass = totalDif === 0 ? 'text-green' : 'text-orange';
+            const diagText = totalDif === 0 ? '✓ Al día' : `⚠️ ${r.observacion || 'Cambios pendientes'}`;
+
+            return `<tr>
+                <td style="font-weight:700; color:#0f172a;">${r.nombreTabla}</td>
+                <td style="font-size:12px; font-family:monospace; color:#475569;">${r.tablasForce}</td>
+                <td class="num font-bold">${formatearNumero(r.totalOrigen)}</td>
+                <td class="num font-bold">${formatearNumero(r.totalDestino)}</td>
+                <td class="num ${r.insertsDetectados > 0 ? 'badge-new' : ''}">${formatearNumero(r.insertsDetectados)}</td>
+                <td class="num ${r.updatesDetectados > 0 ? 'badge-mod' : ''}">${formatearNumero(r.updatesDetectados)}</td>
+                <td class="num">${formatearNumero(r.deletesBajasDetectados)}</td>
+                <td class="num">-</td>
+                <td class="num font-bold ${totalDif > 0 ? 'text-orange' : 'text-green'}">${totalDif > 0 ? formatearNumero(totalDif) : '-'}</td>
+                <td class="${diagClass}" style="font-weight:700;">${diagText}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function filtrarCambiosVend() {
+        const txt = (document.getElementById('txtFiltroCambiosVend')?.value || '').toLowerCase().trim();
+        const tabla = document.getElementById('selFiltroTablaVend')?.value || '';
+        const op = document.getElementById('selFiltroOpVend')?.value || '';
+
+        cambiosVendedoresFiltrados = cambiosVendedoresCache.filter(item => {
+            if (tabla && item.tabla !== tabla) return false;
+            if (op && item.tipoOperacion !== op) return false;
+            if (txt) {
+                const matchCod = (item.codigoCliente || '').toLowerCase().includes(txt);
+                const matchNom = (item.nombreCliente || '').toLowerCase().includes(txt);
+                const matchCampo = (item.campoModificado || '').toLowerCase().includes(txt);
+                const matchId = String(item.idOrigen || '').includes(txt);
+                if (!matchCod && !matchNom && !matchCampo && !matchId) return false;
+            }
+            return true;
+        });
+
+        irPaginaCambiosVend(1);
+    }
+
+    function irPaginaCambiosVend(pag) {
+        pageSizeCambiosVend = parseInt(document.getElementById('selPageSizeCambiosVend')?.value || '15');
+        pagActualCambiosVend = pag;
+        const total = cambiosVendedoresFiltrados.length;
+        const totalPags = Math.ceil(total / pageSizeCambiosVend) || 1;
+        if (pagActualCambiosVend > totalPags) pagActualCambiosVend = totalPags;
+        if (pagActualCambiosVend < 1) pagActualCambiosVend = 1;
+
+        const start = (pagActualCambiosVend - 1) * pageSizeCambiosVend;
+        const end = Math.min(start + pageSizeCambiosVend, total);
+        const items = cambiosVendedoresFiltrados.slice(start, end);
+
+        const tbody = document.getElementById('tblCambiosVend');
+        if (tbody) {
+            if (items.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:24px; color:var(--text-muted);">
+                    ${cambiosVendedoresCache.length === 0 ? 'No hay cambios pendientes cargados. Presione «1. Consultar Diferencias».' : 'No se encontraron registros con los filtros seleccionados.'}
+                </td></tr>`;
+            } else {
+                tbody.innerHTML = items.map(c => `<tr>
+                    <td style="font-weight:700; color:#475569;">${c.tabla}</td>
+                    <td><span class="badge ${c.tipoOperacion === 'INSERT' ? 'badge-insert' : 'badge-update'}">${c.tipoOperacion}</span></td>
+                    <td class="mono">${c.idOrigen}</td>
+                    <td class="mono font-bold">${c.codigoCliente || '-'}</td>
+                    <td style="font-weight:600; color:#0f172a;">${c.nombreCliente || '-'}</td>
+                    <td style="color:#64748b;">${c.campoModificado || '-'}</td>
+                    <td style="color:#dc2626; font-size:12px;">${c.valorActualForce || '-'}</td>
+                    <td style="color:#16a34a; font-size:12px; font-weight:600;">${c.valorNuevoERP || '-'}</td>
+                </tr>`).join('');
+            }
+        }
+
+        const lblPaginacion = document.getElementById('lblPaginacionCambiosVend');
+        if (lblPaginacion) {
+            lblPaginacion.textContent = total > 0 
+                ? `Mostrando ${start + 1} a ${end} de ${total} registros`
+                : 'Mostrando 0 de 0 registros';
+        }
+
+        const pagControls = document.getElementById('pagControlsCambiosVend');
+        if (pagControls) {
+            pagControls.innerHTML = `
+                <button class="btn btn-outline btn-sm" onclick="irPaginaCambiosVend(${pagActualCambiosVend - 1})" ${pagActualCambiosVend <= 1 ? 'disabled' : ''}>Anterior</button>
+                <span style="font-size:12.5px; font-weight:700; padding:0 8px;">Pág. ${pagActualCambiosVend} de ${totalPags}</span>
+                <button class="btn btn-outline btn-sm" onclick="irPaginaCambiosVend(${pagActualCambiosVend + 1})" ${pagActualCambiosVend >= totalPags ? 'disabled' : ''}>Siguiente</button>
+            `;
+        }
+    }
+
+    async function ejecutarSincronizacionVendedores() {
+        if (!confirm("¿Desea iniciar la sincronización de Vendedores, Supervisores, Fuerzas y Grupos hacia Force ERP?")) {
+            return;
+        }
+
+        mostrarLoading('Iniciando Sincronización de Vendedores...', 'Procesando inserciones y actualizaciones en BDForceGVD...');
+        try {
+            const res = await fetch('/api/sync/vendedores/trigger', { method: 'POST' });
+            if (res.status === 409) {
+                const dataErr = await res.json();
+                mostrarNotificacion(dataErr.message || 'El servicio automático está ejecutándose. Espere unos segundos.', 'warning');
+                return;
+            }
+            const data = await res.json();
+            mostrarNotificacion(data.message || 'Sincronización de Vendedores iniciada.', 'success');
+            cargarEstadoVendedores();
+        } catch (e) {
+            console.error(e);
+            mostrarNotificacion('Error al iniciar sincronización de Vendedores: ' + e.message, 'error');
+        } finally {
+            ocultarLoading();
+        }
+    }
+
+    async function cargarEstadoVendedores() {
+        try {
+            const res = await fetch('/api/sync/vendedores/status');
+            const s = await res.json();
+
+            const badge = document.getElementById('badgeEstadoVend');
+            const lblFase = document.getElementById('lblFaseDetalleVend');
+            const barra = document.getElementById('barraProgresoVend');
+            const lblProg = document.getElementById('lblProgresoTextoVend');
+            const lblUlt = document.getElementById('lblUltimaEjecucionVend');
+
+            if (badge) {
+                badge.className = `status-pill ${s.isRunning ? 'running' : 'completed'}`;
+                badge.innerHTML = `<span class="dot"></span>${s.estadoActual || 'EN ESPERA'}`;
+            }
+            if (lblFase) lblFase.textContent = s.faseDetalle || 'En espera';
+            if (barra) barra.style.width = `${s.porcentaje || 0}%`;
+            if (lblProg) lblProg.textContent = `${s.progresoActual || 0} / ${s.progresoTotal || 0} (${s.porcentaje || 0}%)`;
+
+            if (lblUlt && s.ultimaEjecucion) {
+                const horaP = formatearSoloHoraPeru(s.ultimaEjecucion);
+                lblUlt.textContent = `⏱ Última sincronización: ${horaP} | Duración: ${segundosAHms(s.ultimaDuracionSegundos)}`;
+            }
+
+            // Actualizar Hub Card 3
+            const hubBatch = document.getElementById('hubMod3LastBatch');
+            if (hubBatch && s.ultimoLoteProcesados > 0) hubBatch.textContent = `${s.ultimoLoteProcesados} reg`;
+            const hubDur = document.getElementById('hubMod3Duracion');
+            if (hubDur && s.ultimaDuracionSegundos > 0) hubDur.textContent = segundosAHms(s.ultimaDuracionSegundos);
+            const hubProgress = document.getElementById('hubMod3ProgressBar');
+            if (hubProgress && s.isRunning) hubProgress.style.width = `${s.porcentaje || 0}%`;
+        } catch (e) {
+            // Silenciar errores de sondeo rápido
+        }
+    }
+
+    setInterval(() => { cargarEstado(); cargarEstadoProductos(); cargarEstadoVendedores(); }, 2000);
     setInterval(() => { cargarLotes(); cargarLogs(); }, 6000);
 </script>
 </body>
