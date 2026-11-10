@@ -611,10 +611,12 @@ namespace IntegradorFlexForce.Services
                             CAST(ISNULL(pp.Activo, 1) AS bit) AS PortafolioActivo,
                             ip.IDProducto,
                             LTRIM(RTRIM(ISNULL(ps.Codigo, ISNULL(ip.Codigo, '')))) AS CodigoProducto,
-                            LTRIM(RTRIM(ISNULL(ps.Descripcion, ISNULL(ip.Descripcion, '')))) AS NombreProducto
+                            LTRIM(RTRIM(ISNULL(ps.Descripcion, ISNULL(ip.Descripcion, '')))) AS NombreProducto,
+                            CAST(ISNULL(ps.Activo, 0) AS bit) AS ProductoActivo
                         FROM dbo.ItemPortafolioProductoProducto ip WITH (NOLOCK)
                         INNER JOIN dbo.PortafolioProducto pp WITH (NOLOCK) ON pp.PKID = ip.IDPortafolioProducto
-                        LEFT JOIN dbo.ProductoServicio ps WITH (NOLOCK) ON ps.PKID = ip.IDProducto;";
+                        INNER JOIN dbo.ProductoServicio ps WITH (NOLOCK) ON ps.PKID = ip.IDProducto
+                        WHERE pp.Activo = 1 AND ps.Activo = 1;";
 
                     using var cmd = new SqlCommand(sqlCatAntiguo, connAntiguo) { CommandTimeout = 120 };
                     using var r = await cmd.ExecuteReaderAsync(ct);
@@ -628,8 +630,9 @@ namespace IntegradorFlexForce.Services
                         int idProd = r.GetInt32(5);
                         string codProd = r.GetString(6);
                         string nomProd = r.GetString(7);
+                        bool prodActivo = r.GetBoolean(8);
 
-                        if (!portActivo) continue; // Solo portafolios activos
+                        if (!portActivo || !prodActivo) continue; // Solo portafolios y productos activos
 
                         totalCatOrigen++;
                         string key = $"{idPort}_{idProd}";
@@ -1343,8 +1346,9 @@ namespace IntegradorFlexForce.Services
                     LTRIM(RTRIM(ISNULL(ps.Codigo, ISNULL(ip.Codigo, '')))) AS CodigoProducto
                 FROM dbo.ItemPortafolioProductoProducto ip WITH (NOLOCK)
                 INNER JOIN dbo.PortafolioProducto pp WITH (NOLOCK) ON pp.PKID = ip.IDPortafolioProducto
-                LEFT JOIN dbo.ProductoServicio ps WITH (NOLOCK) ON ps.PKID = ip.IDProducto
-                WHERE ip.PKID IN ({inClause});";
+                INNER JOIN dbo.ProductoServicio ps WITH (NOLOCK) ON ps.PKID = ip.IDProducto
+                WHERE pp.Activo = 1 AND ps.Activo = 1
+                  AND ip.PKID IN ({inClause});";
 
             using var cmdRead = new SqlCommand(sql, connAntiguo) { CommandTimeout = 120 };
             using var r = await cmdRead.ExecuteReaderAsync(ct);
