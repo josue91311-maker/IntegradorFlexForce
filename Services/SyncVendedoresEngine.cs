@@ -741,7 +741,7 @@ namespace IntegradorFlexForce.Services
         // =========================================================================
         // 2. APLICAR CAMBIOS EN VENDEDORES EN BDForceGVD
         // =========================================================================
-        public async Task<SyncTransaccionDto> EjecutarSincronizacionVendedoresAsync(string usuario = "PORTAL_WEB", CancellationToken ct = default)
+        public async Task<SyncTransaccionDto> EjecutarSincronizacionVendedoresAsync(string tipoEjecucion = "MANUAL", string usuario = "PORTAL_WEB", CancellationToken ct = default)
         {
             if (!await _syncLock.WaitAsync(0, ct))
             {
@@ -760,13 +760,16 @@ namespace IntegradorFlexForce.Services
             {
                 LoteId = loteId,
                 Entidad = "MODULO_VENDEDORES",
-                TipoEjecucion = "MANUAL",
+                TipoEjecucion = tipoEjecucion,
                 FechaInicio = DateTime.Now,
                 Estado = "EN_PROCESO",
                 Usuario = usuario
             };
 
             await RegistrarInicioLoteAsync(transaccion, ct);
+
+            int procesados = 0;
+            int erroresCount = 0;
 
             try
             {
@@ -778,9 +781,6 @@ namespace IntegradorFlexForce.Services
                 int totalDifs = transaccion.TotalNuevos + transaccion.TotalModificados;
                 _currentStatus.ProgresoTotal = totalDifs > 0 ? totalDifs : 1;
                 _currentStatus.ProgresoActual = 0;
-
-                int procesados = 0;
-                int erroresCount = 0;
 
                 using var connAntiguo = new SqlConnection(_connectionStringAntiguo);
                 using var connForce = new SqlConnection(_connectionStringForce);

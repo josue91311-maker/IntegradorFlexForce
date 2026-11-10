@@ -323,7 +323,7 @@ namespace IntegradorFlexForce.Services
                     {
                         lockTomado = true;
                         _logger.LogInformation("Ejecutando ciclo automático Módulo Vendedores (Intento {Intento}/{Max})...", intento, maxIntentos);
-                        await _syncVendedoresEngine.EjecutarSincronizacionVendedoresAsync("WORKER_SERVICE", ct);
+                        await _syncVendedoresEngine.EjecutarSincronizacionVendedoresAsync("AUTOMATICO", "WORKER_SERVICE", ct);
 
                         _ultimaEjecucionVendedores = DateTime.Now;
                         if (config.ModoVendedores == "MADRUGADA")

@@ -199,7 +199,7 @@ namespace IntegradorFlexForce.Controllers
                 }
             }
 
-            _ = Task.Run(() => _syncVendedoresEngine.EjecutarSincronizacionVendedoresAsync("PORTAL_WEB", CancellationToken.None));
+            _ = Task.Run(() => _syncVendedoresEngine.EjecutarSincronizacionVendedoresAsync("MANUAL", "PORTAL_WEB", CancellationToken.None));
             return Accepted(new { message = "Sincronización del Módulo de Vendedores iniciada." });
         }
     }
