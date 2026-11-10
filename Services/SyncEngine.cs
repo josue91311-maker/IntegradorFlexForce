@@ -282,19 +282,23 @@ namespace IntegradorFlexForce.Services
             var detalles = new List<CambioDetectadoItemDto>();
             var nuevosIdsClientes = new HashSet<int>();
 
-            var clientesForcePorIdExtra = new Dictionary<int, (int IDForce, string Codigo, string Nombre, bool Estado)>(380000);
-            var clientesForcePorCodigo  = new Dictionary<string, (int IDForce, int? IDExtra, string Nombre, bool Estado)>(380000, StringComparer.OrdinalIgnoreCase);
+            var clientesForcePorIdExtra = new Dictionary<int, (int IDForce, string Codigo, string Nombre, bool Estado, int? IDCategoria, int? IDTipoCliente, int? IDTipoNegocio, string? Campo1, string? Campo2, string? Campo3, string? Campo4)>(380000);
+            var clientesForcePorCodigo  = new Dictionary<string, (int IDForce, int? IDExtra, string Nombre, bool Estado, int? IDCategoria, int? IDTipoCliente, int? IDTipoNegocio, string? Campo1, string? Campo2, string? Campo3, string? Campo4)>(380000, StringComparer.OrdinalIgnoreCase);
             var direccionesForcePorIdExtra = new Dictionary<int, (int IDForce, string Direccion, bool Estado)>(380000);
 
-            // Cargar cli_Cliente y dir_Direccion concurrentemente desde Force
+            // Cargar cli_Cliente, cli_CamposCliente y dir_Direccion concurrentemente desde Force
             var taskCliForce = Task.Run(async () =>
             {
                 using var conn = CrearConexionForce();
                 await conn.OpenAsync(ct);
                 const string sql = @"
-                    SELECT ID, IDExtra, LTRIM(RTRIM(ISNULL(Codigo, ''))), LTRIM(RTRIM(ISNULL(NombreCompleto, ''))), CAST(ISNULL(Estado, 0) AS bit)
-                    FROM dbo.cli_Cliente WITH (NOLOCK)
-                    WHERE Eliminado = 0;";
+                    SELECT c.ID, c.IDExtra, LTRIM(RTRIM(ISNULL(c.Codigo, ''))), LTRIM(RTRIM(ISNULL(c.NombreCompleto, ''))), CAST(ISNULL(c.Estado, 0) AS bit),
+                           c.IDCategoriaCliente, c.IDTipoCliente, c.IDTipoNegocio,
+                           LTRIM(RTRIM(ISNULL(cc.Campo1, ''))), LTRIM(RTRIM(ISNULL(cc.Campo2, ''))),
+                           LTRIM(RTRIM(ISNULL(cc.Campo3, ''))), LTRIM(RTRIM(ISNULL(cc.Campo4, '')))
+                    FROM dbo.cli_Cliente c WITH (NOLOCK)
+                    LEFT JOIN dbo.cli_CamposCliente cc WITH (NOLOCK) ON cc.IDCliente = c.ID
+                    WHERE c.Eliminado = 0;";
                 using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 };
                 using var r = await cmd.ExecuteReaderAsync(ct);
                 while (await r.ReadAsync(ct))
@@ -304,11 +308,19 @@ namespace IntegradorFlexForce.Services
                     string codigo = r.GetString(2);
                     string nombre = r.GetString(3);
                     bool estado = r.GetBoolean(4);
+                    int? idCat = r.IsDBNull(5) ? null : r.GetInt32(5);
+                    int? idTipoCli = r.IsDBNull(6) ? null : r.GetInt32(6);
+                    int? idTipoNeg = r.IsDBNull(7) ? null : r.GetInt32(7);
+                    string c1 = r.GetString(8);
+                    string c2 = r.GetString(9);
+                    string c3 = r.GetString(10);
+                    string c4 = r.GetString(11);
 
+                    var val = (idForce, codigo, nombre, estado, idCat, idTipoCli, idTipoNeg, c1, c2, c3, c4);
                     if (idExtra.HasValue)
-                        clientesForcePorIdExtra[idExtra.Value] = (idForce, codigo, nombre, estado);
+                        clientesForcePorIdExtra[idExtra.Value] = val;
                     if (!string.IsNullOrEmpty(codigo))
-                        clientesForcePorCodigo[codigo] = (idForce, idExtra, nombre, estado);
+                        clientesForcePorCodigo[codigo] = (idForce, idExtra, nombre, estado, idCat, idTipoCli, idTipoNeg, c1, c2, c3, c4);
                 }
             }, ct);
 
@@ -339,9 +351,23 @@ namespace IntegradorFlexForce.Services
             {
                 await connAntiguo.OpenAsync(ct);
                 const string sqlAntiguo = @"
-                    SELECT ID_Cliente, CodigoCliente, NombreCompleto, EstadoCliente,
-                           ID_Direccion, Direccion, EstadoDireccion
-                    FROM dbo.v_Extraccion_Clientes_Force WITH (NOLOCK);";
+                    SELECT c.PKID AS ID_Cliente,
+                           LTRIM(RTRIM(pp.Codigo)) AS CodigoCliente,
+                           LTRIM(RTRIM(ISNULL(pp.Nombre, ''))) AS NombreCompleto,
+                           CAST(ISNULL(pp.Activo, 0) AS bit) AS EstadoCliente,
+                           ISNULL(d.PKID, c.PKID) AS ID_Direccion,
+                           LTRIM(RTRIM(ISNULL(d.Descripcion, 'SIN DIRECCION'))) AS Direccion,
+                           CAST(ISNULL(d.Activo, 1) AS bit) AS EstadoDireccion,
+                           ISNULL(c.IDCategoriaCliente, 0) AS IDCategoriaCliente,
+                           ISNULL(c.IDTipoCliente, 0) AS IDTipoCliente,
+                           ISNULL(c.IDCaracteristica1, 0) AS IDTipoNegocio,
+                           LTRIM(RTRIM(ISNULL(c.Campo1, ''))) AS Campo1,
+                           LTRIM(RTRIM(ISNULL(c.Campo2, ''))) AS Campo2,
+                           LTRIM(RTRIM(ISNULL(c.Campo3, ''))) AS Campo3,
+                           LTRIM(RTRIM(ISNULL(c.Campo4, ''))) AS Campo4
+                    FROM dbo.Cliente c WITH (NOLOCK)
+                    INNER JOIN dbo.Persona pp WITH (NOLOCK) ON pp.PKID = c.PKID
+                    LEFT JOIN dbo.Direccion d WITH (NOLOCK) ON d.PKID = c.PKID AND ISNULL(d.DireccionPrincipal, 1) = 1;";
                 using var cmd = new SqlCommand(sqlAntiguo, connAntiguo) { CommandTimeout = 180 };
                 using var r = await cmd.ExecuteReaderAsync(ct);
 
@@ -357,6 +383,14 @@ namespace IntegradorFlexForce.Services
                     string direccion = r.GetString(5);
                     bool activoDir = r.GetBoolean(6);
 
+                    int idCatCli = r.GetInt32(7);
+                    int idTipoCli = r.GetInt32(8);
+                    int idTipoNeg = r.GetInt32(9);
+                    string campo1 = r.GetString(10);
+                    string campo2 = r.GetString(11);
+                    string campo3 = r.GetString(12);
+                    string campo4 = r.GetString(13);
+
                     if (!string.Equals(direccion, "SIN DIRECCION", StringComparison.OrdinalIgnoreCase))
                         totalDirOrigen++;
 
@@ -364,7 +398,7 @@ namespace IntegradorFlexForce.Services
                     if (!existeCli && clientesForcePorCodigo.TryGetValue(codigo, out var cliPorCod))
                     {
                         existeCli = true;
-                        cliForce = (cliPorCod.IDForce, codigo, cliPorCod.Nombre, cliPorCod.Estado);
+                        cliForce = (cliPorCod.IDForce, codigo, cliPorCod.Nombre, cliPorCod.Estado, cliPorCod.IDCategoria, cliPorCod.IDTipoCliente, cliPorCod.IDTipoNegocio, cliPorCod.Campo1, cliPorCod.Campo2, cliPorCod.Campo3, cliPorCod.Campo4);
                     }
 
                     if (!existeCli)
@@ -429,23 +463,63 @@ namespace IntegradorFlexForce.Services
                                 });
                             }
                         }
-                        else if (activoCli && !NormalizarTexto(cliForce.Nombre).Equals(NormalizarTexto(nombre), StringComparison.OrdinalIgnoreCase))
+                        else if (activoCli)
                         {
-                            cliUpdates++;
-                            nuevosIdsClientes.Add(idCliente);
-                            if (detalles.Count < 2500)
+                            var diffsCli = new List<string>();
+                            string valForceCli = "", valErpCli = "";
+
+                            if (!NormalizarTexto(cliForce.Nombre).Equals(NormalizarTexto(nombre), StringComparison.OrdinalIgnoreCase))
                             {
-                                detalles.Add(new CambioDetectadoItemDto
+                                diffsCli.Add("Razón Social / Nombre");
+                                valForceCli = cliForce.Nombre;
+                                valErpCli = nombre;
+                            }
+                            if (idCatCli > 0 && cliForce.IDCategoria.HasValue && cliForce.IDCategoria.Value != idCatCli)
+                            {
+                                diffsCli.Add("Categoría");
+                                valForceCli = $"Cat: {cliForce.IDCategoria}";
+                                valErpCli = $"Cat: {idCatCli}";
+                            }
+                            if (idTipoNeg > 0 && cliForce.IDTipoNegocio.HasValue && cliForce.IDTipoNegocio.Value != idTipoNeg)
+                            {
+                                diffsCli.Add("Tipo Negocio / Giro");
+                                valForceCli = $"Giro: {cliForce.IDTipoNegocio}";
+                                valErpCli = $"Giro: {idTipoNeg}";
+                            }
+                            if (idTipoCli > 0 && cliForce.IDTipoCliente.HasValue && cliForce.IDTipoCliente.Value != idTipoCli)
+                            {
+                                diffsCli.Add("Tipo Cliente");
+                                valForceCli = $"TipoCli: {cliForce.IDTipoCliente}";
+                                valErpCli = $"TipoCli: {idTipoCli}";
+                            }
+                            if (!string.Equals(cliForce.Campo1, campo1, StringComparison.OrdinalIgnoreCase) ||
+                                !string.Equals(cliForce.Campo2, campo2, StringComparison.OrdinalIgnoreCase) ||
+                                !string.Equals(cliForce.Campo3, campo3, StringComparison.OrdinalIgnoreCase) ||
+                                !string.Equals(cliForce.Campo4, campo4, StringComparison.OrdinalIgnoreCase))
+                            {
+                                diffsCli.Add("Campos Libres / Características");
+                                valForceCli = $"Campos: [{cliForce.Campo1}|{cliForce.Campo2}]";
+                                valErpCli = $"Campos: [{campo1}|{campo2}]";
+                            }
+
+                            if (diffsCli.Count > 0)
+                            {
+                                cliUpdates++;
+                                nuevosIdsClientes.Add(idCliente);
+                                if (detalles.Count < 2500)
                                 {
-                                    Tabla = "CLIENTES",
-                                    TipoOperacion = "UPDATE",
-                                    IDOrigen = idCliente,
-                                    CodigoCliente = codigo,
-                                    NombreCliente = nombre,
-                                    CampoModificado = "Razón Social / Nombre",
-                                    ValorActualForce = cliForce.Nombre,
-                                    ValorNuevoERP = nombre
-                                });
+                                    detalles.Add(new CambioDetectadoItemDto
+                                    {
+                                        Tabla = "CLIENTES",
+                                        TipoOperacion = "UPDATE",
+                                        IDOrigen = idCliente,
+                                        CodigoCliente = codigo,
+                                        NombreCliente = nombre,
+                                        CampoModificado = string.Join(", ", diffsCli),
+                                        ValorActualForce = valForceCli,
+                                        ValorNuevoERP = valErpCli
+                                    });
+                                }
                             }
                         }
                     }
@@ -525,8 +599,8 @@ namespace IntegradorFlexForce.Services
             var resCli = new TablaComparacionResumenDto
             {
                 CodigoTabla = "CLIENTES",
-                NombreTabla = "1. Clientes y Personas",
-                TablasForce = "dbo.cli_Cliente, dbo.per_Persona",
+                NombreTabla = "1. Clientes, Clasificaciones y Características",
+                TablasForce = "dbo.cli_Cliente, dbo.cli_CamposCliente, dbo.per_Persona",
                 TotalOrigen = totalCliOrigen,
                 TotalDestino = clientesForcePorIdExtra.Count,
                 InsertsDetectados = cliInserts,
@@ -1577,7 +1651,35 @@ namespace IntegradorFlexForce.Services
             await conn.OpenAsync(ct);
 
             var inClause = string.Join(",", ids);
-            var sql = $"SELECT * FROM dbo.v_Extraccion_Clientes_Force WITH (NOLOCK) WHERE ID_Cliente IN ({inClause});";
+            var sql = $@"
+                SELECT v.*,
+                       LTRIM(RTRIM(ISNULL(cl.Campo1, ''))) AS Campo1,
+                       LTRIM(RTRIM(ISNULL(cl.Campo2, ''))) AS Campo2,
+                       LTRIM(RTRIM(ISNULL(cl.Campo3, ''))) AS Campo3,
+                       LTRIM(RTRIM(ISNULL(cl.Campo4, ''))) AS Campo4,
+                       ISNULL(cl.IDCaracteristica1, 0) AS C1, ISNULL(cl.IDCaracteristica2, 0) AS C2,
+                       ISNULL(cl.IDCaracteristica3, 0) AS C3, ISNULL(cl.IDCaracteristica4, 0) AS C4,
+                       ISNULL(cl.IDCaracteristica5, 0) AS C5, ISNULL(cl.IDCaracteristica6, 0) AS C6,
+                       ISNULL(cl.IDCaracteristica7, 0) AS C7, ISNULL(cl.IDCaracteristica8, 0) AS C8,
+                       ISNULL(cl.IDCaracteristica9, 0) AS C9, ISNULL(cl.IDCaracteristica10, 0) AS C10,
+                       ISNULL(cl.IDCaracteristica11, 0) AS C11, ISNULL(cl.IDCaracteristica12, 0) AS C12,
+                       ISNULL(cl.IDCaracteristica13, 0) AS C13, ISNULL(cl.IDCaracteristica14, 0) AS C14,
+                       ISNULL(cl.IDCaracteristica15, 0) AS C15, ISNULL(cl.IDCaracteristica16, 0) AS C16,
+                       ISNULL(cl.IDCaracteristica17, 0) AS C17, ISNULL(cl.IDCaracteristica18, 0) AS C18,
+                       ISNULL(cl.IDCaracteristica19, 0) AS C19, ISNULL(cl.IDCaracteristica20, 0) AS C20,
+                       ISNULL(cl.IDCaracteristica21, 0) AS C21, ISNULL(cl.IDCaracteristica22, 0) AS C22,
+                       ISNULL(cl.IDCaracteristica23, 0) AS C23, ISNULL(cl.IDCaracteristica24, 0) AS C24,
+                       ISNULL(cl.IDCaracteristica25, 0) AS C25, ISNULL(cl.IDCaracteristica26, 0) AS C26,
+                       ISNULL(cl.IDCaracteristica27, 0) AS C27, ISNULL(cl.IDCaracteristica28, 0) AS C28,
+                       ISNULL(cl.IDCaracteristica29, 0) AS C29, ISNULL(cl.IDCaracteristica30, 0) AS C30,
+                       ISNULL(cl.IDCaracteristica31, 0) AS C31, ISNULL(cl.IDCaracteristica32, 0) AS C32,
+                       ISNULL(cl.IDCaracteristica33, 0) AS C33, ISNULL(cl.IDCaracteristica34, 0) AS C34,
+                       ISNULL(cl.IDCaracteristica35, 0) AS C35, ISNULL(cl.IDCaracteristica36, 0) AS C36,
+                       ISNULL(cl.IDCaracteristica37, 0) AS C37, ISNULL(cl.IDCaracteristica38, 0) AS C38,
+                       ISNULL(cl.IDCaracteristica39, 0) AS C39, ISNULL(cl.IDCaracteristica40, 0) AS C40
+                FROM dbo.v_Extraccion_Clientes_Force v WITH (NOLOCK)
+                LEFT JOIN dbo.Cliente cl WITH (NOLOCK) ON cl.PKID = v.ID_Cliente
+                WHERE v.ID_Cliente IN ({inClause});";
 
             using var cmd = new SqlCommand(sql, conn);
             cmd.CommandTimeout = 120;
@@ -1585,6 +1687,17 @@ namespace IntegradorFlexForce.Services
 
             while (await reader.ReadAsync(ct))
             {
+                var caractDict = new Dictionary<string, int>();
+                for (int i = 1; i <= 40; i++)
+                {
+                    int idCaract = reader.GetInt32(reader.GetOrdinal($"C{i}"));
+                    if (idCaract > 0)
+                    {
+                        caractDict[$"caracteristica_{i}"] = idCaract;
+                    }
+                }
+                string? caractJson = caractDict.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(caractDict) : null;
+
                 lista.Add(new ClienteExtraccionDto
                 {
                     ID_Cliente = reader.GetInt32(reader.GetOrdinal("ID_Cliente")),
@@ -1621,6 +1734,12 @@ namespace IntegradorFlexForce.Services
                     Latitud = reader.GetDecimal(reader.GetOrdinal("Latitud")),
                     Longitud = reader.GetDecimal(reader.GetOrdinal("Longitud")),
                     EstadoDireccion = reader.GetBoolean(reader.GetOrdinal("EstadoDireccion")),
+
+                    Campo1 = reader.GetString(reader.GetOrdinal("Campo1")),
+                    Campo2 = reader.GetString(reader.GetOrdinal("Campo2")),
+                    Campo3 = reader.GetString(reader.GetOrdinal("Campo3")),
+                    Campo4 = reader.GetString(reader.GetOrdinal("Campo4")),
+                    CaracteristicasJson = caractJson
                 });
             }
             return lista;
@@ -1751,6 +1870,13 @@ namespace IntegradorFlexForce.Services
             cmd.Parameters.AddWithValue("@Latitud", c.Latitud);
             cmd.Parameters.AddWithValue("@Longitud", c.Longitud);
             cmd.Parameters.AddWithValue("@EstadoDireccion", c.EstadoDireccion);
+
+            cmd.Parameters.AddWithValue("@Campo1", (object?)c.Campo1 ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Campo2", (object?)c.Campo2 ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Campo3", (object?)c.Campo3 ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Campo4", (object?)c.Campo4 ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Campo5", DBNull.Value);
+            cmd.Parameters.AddWithValue("@CaracteristicasJson", (object?)c.CaracteristicasJson ?? DBNull.Value);
 
             var paramOut = new SqlParameter("@IDClienteGenerado", SqlDbType.Int)
             {

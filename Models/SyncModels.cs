@@ -164,6 +164,12 @@ namespace IntegradorFlexForce.Models
         public decimal Latitud { get; set; }
         public decimal Longitud { get; set; }
         public bool EstadoDireccion { get; set; }
+
+        public string? Campo1 { get; set; }
+        public string? Campo2 { get; set; }
+        public string? Campo3 { get; set; }
+        public string? Campo4 { get; set; }
+        public string? CaracteristicasJson { get; set; }
     }
 
     public class CarteraRutaExtraccionDto

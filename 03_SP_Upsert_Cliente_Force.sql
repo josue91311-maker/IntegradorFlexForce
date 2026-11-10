@@ -48,6 +48,14 @@ CREATE OR ALTER PROCEDURE dbo.usp_Sync_UpsertCliente
     @Longitud                   decimal(11,8) = 0,
     @EstadoDireccion            bit           = 1,
     
+    -- Parámetros de Campos Libres y Características (cli_CamposCliente)
+    @Campo1                     nvarchar(255) = NULL,
+    @Campo2                     nvarchar(255) = NULL,
+    @Campo3                     nvarchar(255) = NULL,
+    @Campo4                     nvarchar(255) = NULL,
+    @Campo5                     nvarchar(255) = NULL,
+    @CaracteristicasJson        nvarchar(max) = NULL,
+    
     -- Parámetro de salida
     @IDClienteGenerado          int OUTPUT
 AS
@@ -254,6 +262,51 @@ BEGIN
                 'CLIENTE', @IDCliente, @NombreCompleto, @NombreComercial,
                 @DocIdentidad, @IDTipoDocIdentidad, NULLIF(@Telefono, ''), @Email,
                 LEFT(ISNULL(@Observacion, ''), 500), @EstadoCliente, GETDATE(), GETDATE(), 0
+            );
+        END
+
+        -- -------------------------------------------------------------
+        -- PASO 2.2: CAMPOS ADICIONALES Y CARACTERÍSTICAS (cli_CamposCliente)
+        -- -------------------------------------------------------------
+        IF OBJECT_ID('dbo.cli_CamposCliente', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.cli_CamposCliente (
+                ID int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                IDCliente int NOT NULL UNIQUE CONSTRAINT FK_CamposCliente_Cliente REFERENCES dbo.cli_Cliente(ID) ON DELETE CASCADE,
+                Campo1 nvarchar(255) NULL,
+                Campo2 nvarchar(255) NULL,
+                Campo3 nvarchar(255) NULL,
+                Campo4 nvarchar(255) NULL,
+                Campo5 nvarchar(255) NULL,
+                Caracteristicas nvarchar(max) NULL,
+                CamposAdicionales nvarchar(max) NULL,
+                FechaCreacion datetime2(7) DEFAULT GETDATE(),
+                FechaModificacion datetime2(7) DEFAULT GETDATE()
+            );
+        END
+
+        IF EXISTS (SELECT 1 FROM dbo.cli_CamposCliente WHERE IDCliente = @IDCliente)
+        BEGIN
+            UPDATE dbo.cli_CamposCliente
+            SET 
+                Campo1 = ISNULL(@Campo1, Campo1),
+                Campo2 = ISNULL(@Campo2, Campo2),
+                Campo3 = ISNULL(@Campo3, Campo3),
+                Campo4 = ISNULL(@Campo4, Campo4),
+                Campo5 = ISNULL(@Campo5, Campo5),
+                Caracteristicas = CASE WHEN @CaracteristicasJson IS NOT NULL AND @CaracteristicasJson <> '' 
+                                      THEN @CaracteristicasJson 
+                                      ELSE Caracteristicas END,
+                FechaModificacion = GETDATE()
+            WHERE IDCliente = @IDCliente;
+        END
+        ELSE IF (@Campo1 IS NOT NULL OR @Campo2 IS NOT NULL OR @Campo3 IS NOT NULL OR @Campo4 IS NOT NULL OR (@CaracteristicasJson IS NOT NULL AND @CaracteristicasJson <> ''))
+        BEGIN
+            INSERT INTO dbo.cli_CamposCliente (
+                IDCliente, Campo1, Campo2, Campo3, Campo4, Campo5, Caracteristicas, FechaCreacion, FechaModificacion
+            )
+            VALUES (
+                @IDCliente, @Campo1, @Campo2, @Campo3, @Campo4, @Campo5, @CaracteristicasJson, GETDATE(), GETDATE()
             );
         END
 

@@ -40,6 +40,8 @@ CREATE OR ALTER PROCEDURE dbo.usp_Sync_UpsertProductoMaestro
     -- SubProveedor (Caracteristica)
     @ID_SubProveedor_Origen     int = 0,
     @NombreSubProveedor         nvarchar(200) = '',
+    -- Impuesto (Producto.EsInafecto -> ImpuestoProducto)
+    @EsInafecto                 bit = 0,
     -- Salida
     @IDProductoGenerado         int OUTPUT
 AS
@@ -326,6 +328,32 @@ BEGIN
         END
 
         SET @IDProductoGenerado = @IDProducto;
+
+        -- -------------------------------------------------------------
+        -- G. SINCRONIZAR IMPUESTO DE PRODUCTO (dbo.ImpuestoProducto)
+        -- -------------------------------------------------------------
+        DECLARE @PorcentajeImpuesto decimal(18,2) = CASE WHEN @EsInafecto = 1 THEN 0.00 ELSE 18.00 END;
+        DECLARE @Inafecto bit = ISNULL(@EsInafecto, 0);
+
+        IF EXISTS (SELECT 1 FROM dbo.ImpuestoProducto WHERE IDProducto = @IDProducto AND IDImpuesto = 1)
+        BEGIN
+            UPDATE dbo.ImpuestoProducto
+            SET PorcentajeImpuesto    = @PorcentajeImpuesto,
+                Inafecto              = @Inafecto,
+                Exonerado             = 0,
+                ImpuestoAfectaAlCosto = 0
+            WHERE IDProducto = @IDProducto AND IDImpuesto = 1
+              AND (PorcentajeImpuesto <> @PorcentajeImpuesto OR Inafecto <> @Inafecto);
+        END
+        ELSE
+        BEGIN
+            INSERT INTO dbo.ImpuestoProducto (
+                IDProducto, IDImpuesto, PorcentajeImpuesto, Inafecto, Exonerado, ImpuestoAfectaAlCosto
+            )
+            VALUES (
+                @IDProducto, 1, @PorcentajeImpuesto, @Inafecto, 0, 0
+            );
+        END
 
         COMMIT TRANSACTION;
     END TRY
