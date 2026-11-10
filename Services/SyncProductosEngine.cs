@@ -960,6 +960,10 @@ namespace IntegradorFlexForce.Services
             {
                 var preview = await AnalizarCambiosPendientesAsync(ct);
 
+                transaccion.TotalEscaneados = preview.ResumenPorTabla.Sum(x => x.TotalOrigen);
+                transaccion.TotalNuevos = preview.ResumenPorTabla.Sum(x => x.InsertsDetectados);
+                await ActualizarProgresoLoteAsync(transaccion, 0, 0, ct);
+
                 bool syncProd = subModulo == "TODOS" || subModulo == "PRODUCTOS";
                 bool syncUnid = subModulo == "TODOS" || subModulo == "UNIDADES_FACTORES";
                 bool syncCat  = subModulo == "TODOS" || subModulo == "CATALOGOS_PORTAFOLIO";
@@ -988,6 +992,9 @@ namespace IntegradorFlexForce.Services
                         errores += e;
                         _currentStatus.ProgresoActual = Math.Min(_currentStatus.ProgresoTotal, _currentStatus.ProgresoActual + lote.Count);
                     }
+                    await RegistrarLogAsync(loteId, "PRODUCTOS", "INFO", null, null,
+                        $"Etapa 1 (Productos Maestros): {_idsProductosConCambios.Count:N0} analizados, {procesados:N0} procesados acumulados.", null, ct);
+                    await ActualizarProgresoLoteAsync(transaccion, procesados, errores, ct);
                 }
 
                 // 2. PRESENTACIONES Y FACTORES
@@ -1004,6 +1011,9 @@ namespace IntegradorFlexForce.Services
                         errores += e;
                         _currentStatus.ProgresoActual = Math.Min(_currentStatus.ProgresoTotal, _currentStatus.ProgresoActual + lote.Count);
                     }
+                    await RegistrarLogAsync(loteId, "PRODUCTOS", "INFO", null, null,
+                        $"Etapa 2 (Presentaciones y Factores): {_idsUnidadesConCambios.Count:N0} analizados, {procesados:N0} procesados acumulados.", null, ct);
+                    await ActualizarProgresoLoteAsync(transaccion, procesados, errores, ct);
                 }
 
                 // 3. CATÁLOGOS Y PORTAFOLIOS
@@ -1039,6 +1049,9 @@ namespace IntegradorFlexForce.Services
                             _currentStatus.ProgresoActual = Math.Min(_currentStatus.ProgresoTotal, _currentStatus.ProgresoActual + lote.Count);
                         }
                     }
+                    await RegistrarLogAsync(loteId, "PRODUCTOS", "INFO", null, null,
+                        $"Etapa 3 (Catálogos y Portafolios): procesados acumulados: {procesados:N0}.", null, ct);
+                    await ActualizarProgresoLoteAsync(transaccion, procesados, errores, ct);
                 }
 
                 // 4. LISTAS DE PRECIOS Y ESCALAS
@@ -1074,6 +1087,9 @@ namespace IntegradorFlexForce.Services
                             _currentStatus.ProgresoActual = Math.Min(_currentStatus.ProgresoTotal, _currentStatus.ProgresoActual + lote.Count);
                         }
                     }
+                    await RegistrarLogAsync(loteId, "PRODUCTOS", "INFO", null, null,
+                        $"Etapa 4 (Precios y Escalas): procesados acumulados: {procesados:N0}.", null, ct);
+                    await ActualizarProgresoLoteAsync(transaccion, procesados, errores, ct);
                 }
 
                 swTotal.Stop();
@@ -1494,6 +1510,35 @@ namespace IntegradorFlexForce.Services
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "No se pudo registrar inicio de lote en sync_TransaccionLote para productos.");
+            }
+        }
+
+        private async Task ActualizarProgresoLoteAsync(SyncTransaccionDto t, int procesados, int errores, CancellationToken ct)
+        {
+            try
+            {
+                using var conn = new SqlConnection(_connectionStringForce);
+                await conn.OpenAsync(ct);
+
+                const string sql = @"
+                    UPDATE dbo.sync_TransaccionLote
+                    SET TotalEscaneados = @TotalEscaneados,
+                        TotalNuevos = @TotalNuevos,
+                        TotalModificados = @TotalModificados,
+                        TotalErrores = @TotalErrores
+                    WHERE LoteId = @LoteId;";
+
+                using var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@LoteId", t.LoteId);
+                cmd.Parameters.AddWithValue("@TotalEscaneados", t.TotalEscaneados);
+                cmd.Parameters.AddWithValue("@TotalNuevos", t.TotalNuevos);
+                cmd.Parameters.AddWithValue("@TotalModificados", procesados);
+                cmd.Parameters.AddWithValue("@TotalErrores", errores);
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo actualizar progreso en sync_TransaccionLote.");
             }
         }
 

@@ -3282,6 +3282,14 @@
 
             if (loteInicial) {
                 await seleccionarBatchModal(loteInicial.id);
+                // Si el lote sigue en proceso, auto-refrescar cada 3 segundos hasta finalizar
+                if (loteInicial.estado === 'EN_PROCESO') {
+                    setTimeout(() => {
+                        if (document.getElementById('modalAuditoriaEjecucion')?.style.display === 'flex') {
+                            recargarAuditoriaModal();
+                        }
+                    }, 3000);
+                }
             } else {
                 // Estado limpio cuando el módulo seleccionado aún no tiene ejecuciones
                 batchSeleccionadoModal = null;
@@ -3381,12 +3389,16 @@
             const horaFecha = b.fechaInicio ? formatearHoraPeru(b.fechaInicio) : '--/--/---- --:--';
             const durHms = segundosAHms(b.duracionSegundos);
 
-            const esExito = (b.estado === 'EXITOSO' || b.totalErrores === 0);
-            const estadoBadge = esExito 
-                ? '<span class="status-pill completed" style="font-size:11px;"><span class="dot"></span>Éxito / Al Día</span>'
-                : (b.estado === 'FALLIDO' 
-                    ? '<span class="status-pill error" style="font-size:11px;"><span class="dot"></span>FALLIDO</span>'
-                    : '<span class="status-pill error" style="font-size:11px;"><span class="dot"></span>Con Errores</span>');
+            const esEnProceso = (b.estado === 'EN_PROCESO');
+            const esExito = (b.estado === 'EXITOSO');
+            const esFallido = (b.estado === 'FALLIDO');
+            const estadoBadge = esEnProceso
+                ? '<span class="status-pill running" style="font-size:11px;"><span class="dot"></span>En Proceso...</span>'
+                : (esExito 
+                    ? '<span class="status-pill completed" style="font-size:11px;"><span class="dot"></span>Éxito / Al Día</span>'
+                    : (esFallido 
+                        ? '<span class="status-pill error" style="font-size:11px;"><span class="dot"></span>FALLIDO</span>'
+                        : '<span class="status-pill error" style="font-size:11px;"><span class="dot"></span>Con Errores</span>'));
 
             const totalRegs = (b.totalNuevos || 0) + (b.totalModificados || 0);
             const regsHtml = `<span style="font-weight:700; color:#0f172a;">${totalRegs.toLocaleString()}</span> <span style="font-size:11px; color:#64748b;">(<strong style="color:#16a34a;">+${b.totalNuevos || 0}</strong> / <strong style="color:#2563eb;">~${b.totalModificados || 0}</strong>)</span>`;
@@ -3488,21 +3500,29 @@
 
         const fechaIni = batch.fechaInicio ? formatearHoraPeru(batch.fechaInicio) : 'N/A';
         const durHms = segundosAHms(batch.duracionSegundos);
-        const esExito = (batch.estado === 'EXITOSO' || batch.totalErrores === 0);
+        const esEnProceso = (batch.estado === 'EN_PROCESO');
+        const esExito = (batch.estado === 'EXITOSO');
+        const esFallido = (batch.estado === 'FALLIDO');
         const esAuto = (batch.tipoEjecucion || '').toUpperCase().includes('AUTO');
 
         // Cabecera superior
-        document.getElementById('auditModalBadgeEstado').textContent = esExito ? 'EXITOSO / AL DÍA' : 'CON ERRORES';
-        document.getElementById('auditModalBadgeEstado').className = 'status-pill ' + (esExito ? 'completed' : 'error');
-        document.getElementById('auditModalSubtitulo').textContent = 
-            `Lote seleccionado #${batch.id} | Tipo: ${batch.tipoEjecucion || 'MANUAL'} | Fecha: ${fechaIni} | Duración: ${durHms} | Usuario: ${batch.usuario || 'SISTEMA'}`;
+        document.getElementById('auditModalBadgeEstado').textContent = esEnProceso 
+            ? 'EN PROCESO...' 
+            : (esExito ? 'EXITOSO / AL DÍA' : (esFallido ? 'FALLIDO' : 'CON ERRORES'));
+        document.getElementById('auditModalBadgeEstado').className = 'status-pill ' + (esEnProceso ? 'running' : (esExito ? 'completed' : 'error'));
+        document.getElementById('auditModalSubtitulo').textContent = esEnProceso
+            ? `Lote seleccionado #${batch.id} [EN EJECUCIÓN] | Iniciado a las ${fechaIni} | Duración: ${durHms} | Procesando en segundo plano en BDForceGVD...`
+            : `Lote seleccionado #${batch.id} | Tipo: ${batch.tipoEjecucion || 'MANUAL'} | Fecha: ${fechaIni} | Duración: ${durHms} | Usuario: ${batch.usuario || 'SISTEMA'}`;
 
         // Cabecera de la sección detalle
         document.getElementById('auditDetalleLoteTitulo').textContent = `Detalle de Ejecución: Lote #${batch.id}`;
-        document.getElementById('auditDetalleLoteBadge').textContent = esExito ? 'ÉXITO / AL DÍA' : (batch.estado === 'FALLIDO' ? 'FALLIDO' : 'CON ERRORES');
-        document.getElementById('auditDetalleLoteBadge').className = 'status-pill ' + (esExito ? 'completed' : 'error');
-        document.getElementById('auditDetalleLoteInfo').textContent = 
-            `Ejecutado el ${fechaIni} · Duración total: ${durHms} · Módulo: ${batch.entidad || 'CLIENTES'}`;
+        document.getElementById('auditDetalleLoteBadge').textContent = esEnProceso
+            ? '⚡ EJECUTANDO EN SEGUNDO PLANO'
+            : (esExito ? 'ÉXITO / AL DÍA' : (esFallido ? 'FALLIDO' : 'CON ERRORES'));
+        document.getElementById('auditDetalleLoteBadge').className = 'status-pill ' + (esEnProceso ? 'running' : (esExito ? 'completed' : 'error'));
+        document.getElementById('auditDetalleLoteInfo').textContent = esEnProceso
+            ? `Ejecutando desde ${fechaIni} · Sincronizando cambios en BDForceGVD...`
+            : `Ejecutado el ${fechaIni} · Duración total: ${durHms} · Módulo: ${batch.entidad || 'CLIENTES'}`;
 
         const tipoBadgeContainer = document.getElementById('auditDetalleLoteTipoBadge');
         if (tipoBadgeContainer) {
