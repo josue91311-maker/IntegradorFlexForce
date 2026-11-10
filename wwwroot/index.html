@@ -1236,6 +1236,85 @@
             font-size: 13px;
         }
 
+        /* Switch Slider */
+        .switch-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background-color: #cbd5e1;
+            border-radius: 34px;
+            transition: 0.25s ease;
+        }
+        .switch-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            border-radius: 50%;
+            transition: 0.25s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        input:checked + .switch-slider {
+            background-color: #10b981;
+        }
+        input:checked + .switch-slider:before {
+            transform: translateX(24px);
+        }
+
+        /* Modo Pills */
+        .btn-modo-pill {
+            transition: all 0.2s ease;
+        }
+        .btn-modo-pill.active {
+            background: #eff6ff !important;
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+        }
+        .btn-modo-pill.active div:first-child {
+            color: #1d4ed8 !important;
+        }
+
+        /* Keyframes */
+        @keyframes spinClockwise { 100% { transform: rotate(360deg); } }
+        @keyframes spinCounterClockwise { 100% { transform: rotate(-360deg); } }
+        @keyframes indeterminateProgress { 0% { left: -45%; width: 45%; } 50% { width: 60%; } 100% { left: 100%; width: 45%; } }
+        @keyframes pulseDotLive { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: 0.6; } }
+        @keyframes moveGradientBar { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+
+        /* Toast Container */
+        #toastContainer {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 100000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast-msg {
+            pointer-events: auto;
+            background: #0f172a;
+            color: #ffffff;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideInToast 0.3s ease;
+            max-width: 420px;
+        }
+        .toast-msg.success { background: #065f46; border-left: 4px solid #34d399; }
+        .toast-msg.info { background: #1e3a8a; border-left: 4px solid #60a5fa; }
+        .toast-msg.error { background: #7f1d1d; border-left: 4px solid #f87171; }
+        @keyframes slideInToast { from { transform: translateX(50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
         /* ==============================================================
            ESTILOS CONSOLA DE MÓDULOS (REFERENCIA: FORCE DISTRIBUCIÓN)
            ============================================================== */
@@ -2627,61 +2706,324 @@
     </section>
 
     <!-- ==============================================================
-         VISTA 6: CONFIGURACIÓN DEL INTEGRADOR Y AUTOMATIZACIÓN
+         VISTA 6: CONFIGURACIÓN MODULAR DEL INTEGRADOR Y AUTOMATIZACIÓN
          ============================================================== -->
     <section id="vistaConfig" class="view-section">
-        <div class="white-card">
-            <div class="card-header-clean">
+        <!-- CABECERA DE CONFIGURACIÓN -->
+        <div style="background:#ffffff; border-radius:18px; padding:22px 28px; box-shadow:var(--shadow-card); margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; border:1px solid #e2e8f0;">
+            <div>
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+                    <div style="width:36px; height:36px; border-radius:10px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </div>
+                    <h2 style="font-size:20px; font-weight:800; color:#0f172a; margin:0;">Centro de Configuración y Automatización Profesional</h2>
+                </div>
+                <div style="font-size:13px; color:var(--text-muted);">
+                    Configuración independiente por módulo (Clientes vs Productos), modos de ejecución (rango horario o madrugada) y políticas de reintento ante caídas.
+                </div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-outline btn-sm" onclick="navegarVista('hub')" style="display:flex; align-items:center; gap:6px;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg> Volver a Inicio
+                </button>
+                <button class="btn btn-primary" onclick="guardarConfiguracion()" style="display:flex; align-items:center; gap:8px; box-shadow:0 6px 16px rgba(24,119,242,0.3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Parámetros
+                </button>
+            </div>
+        </div>
+
+        <!-- 1. MASTER BANNER: SERVICIO GENERAL EN SEGUNDO PLANO -->
+        <div style="background:#ffffff; border-radius:16px; padding:20px 24px; box-shadow:var(--shadow-card); margin-bottom:20px; border:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+            <div style="display:flex; align-items:center; gap:16px;">
+                <label class="switch-toggle" style="position:relative; display:inline-block; width:52px; height:28px;">
+                    <input type="checkbox" id="chkActiva" onchange="actualizarLabelMasterSwitch(this.checked)" style="opacity:0; width:0; height:0;">
+                    <span class="switch-slider"></span>
+                </label>
                 <div>
-                    <h2>Automatización Profesional y Parámetros del Integrador</h2>
-                    <div style="font-size:12.5px; color:var(--text-muted);">Control de sincronización en segundo plano, concurrencia aislada y ventana horaria (Hora Perú)</div>
-                </div>
-                <button class="btn btn-outline btn-sm" onclick="navegarVista('hub')">← Volver a Inicio</button>
-            </div>
-
-            <!-- TARJETA INFORMATIVA DE CONTROL DE CONCURRENCIA PROFESIONAL -->
-            <div style="margin: 18px 24px 0; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 14px 18px; display: flex; align-items: flex-start; gap: 12px;">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-                <div style="font-size: 13px; color: #1e3a8a; line-height: 1.5;">
-                    <strong>Motor de Automatización Aislado (Cero Cruces):</strong> El servicio de fondo ejecuta los módulos (Clientes y Productos) de forma secuencial y ordenada mediante semáforos atómicos (<code>SemaphoreSlim</code>). Nunca se cruzan ni se bloquean entre sí. Además, aplica <strong>salto inteligente</strong>: si un sub-módulo tiene 0 diferencias, pasa de inmediato al siguiente sin consumir tiempo ni recursos.
-                </div>
-            </div>
-
-            <div class="form-grid">
-                <div class="field-group">
-                    <label>Sincronizador Automático General</label>
-                    <div style="display:flex; align-items:center; gap:10px; padding:8px 0;">
-                        <input type="checkbox" id="chkActiva" style="width:20px; height:20px; cursor:pointer;">
-                        <span style="font-weight:700; color:var(--text-dark);">Activar servicio en segundo plano</span>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-weight:800; font-size:15px; color:#0f172a;">Sincronizador Automático Global en Segundo Plano</span>
+                        <span id="lblEstadoMasterSwitch" style="font-size:11.5px; font-weight:800; padding:3px 10px; border-radius:999px; background:#fef3c7; color:#b45309; text-transform:uppercase;">MODO MANUAL</span>
+                    </div>
+                    <div style="font-size:12.5px; color:#64748b; margin-top:3px;">
+                        Si está desactivado, todo el sistema opera exclusivamente en Modo Manual. Si está activo, ejecutará los módulos según sus horarios configurados abajo.
                     </div>
                 </div>
-                <div class="field-group">
-                    <label>Intervalo de Escaneo (Minutos)</label>
-                    <input type="number" id="txtIntervalo" min="1" max="1440" value="3">
-                </div>
-                <div class="field-group">
-                    <label>Hora Inicio Ventana (Hora Perú · 24h)</label>
-                    <input type="text" id="txtHoraInicio" value="05:00">
-                </div>
-                <div class="field-group">
-                    <label>Hora Fin Ventana (Hora Perú · 24h)</label>
-                    <input type="text" id="txtHoraFin" value="23:30">
-                </div>
-                <div class="field-group">
-                    <label>Tamaño de Lote SQL (Registros por Bloque)</label>
-                    <input type="number" id="txtTamanoLote" min="100" max="5000" step="100" value="500">
-                </div>
+            </div>
+            <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:8px 14px; font-size:12px; color:#1e40af; display:flex; align-items:center; gap:8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                <span>Aislamiento <code>SemaphoreSlim</code>: Cero cruces ni bloqueos entre módulos.</span>
+            </div>
+        </div>
+
+        <!-- 2. GRID MODULAR: CLIENTES VS PRODUCTOS -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(460px, 1fr)); gap:20px; margin-bottom:20px;">
+            
+            <!-- TARJETA MÓDULO 1: CLIENTES, RUTAS Y CRÉDITOS -->
+            <div style="background:#ffffff; border-radius:16px; padding:22px 24px; box-shadow:var(--shadow-card); border:1px solid #e2e8f0; display:flex; flex-direction:column; justify-content:space-between;">
                 <div>
-                    <button class="btn btn-primary" style="width:100%; justify-content:center; gap:8px;" onclick="guardarConfiguracion()">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                        Guardar Parámetros de Automatización
-                    </button>
+                    <!-- Encabezado Módulo Clientes -->
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid #f1f5f9;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="width:40px; height:40px; border-radius:12px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center;">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            </div>
+                            <div>
+                                <h3 style="font-size:15px; font-weight:800; color:#0f172a; margin:0;">Módulo 1: Clientes, Rutas y Créditos</h3>
+                                <div style="font-size:12px; color:#64748b;">Clientes, Direcciones, Zonas/Rutas y Modalidades de Crédito</div>
+                            </div>
+                        </div>
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; background:#f8fafc; padding:5px 12px; border-radius:20px; border:1px solid #e2e8f0;">
+                            <input type="checkbox" id="chkAutoClientes" style="width:16px; height:16px; cursor:pointer;" checked>
+                            <span style="font-size:12.5px; font-weight:700; color:#334155;">Automático</span>
+                        </label>
+                    </div>
+
+                    <!-- Selector de Modo de Ejecución para Clientes -->
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block; font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px;">Modo de Ejecución Automática:</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <button type="button" id="btnModoCliInt" class="btn-modo-pill active" onclick="cambiarModoClientes('INTERVALO')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
+                                <div style="font-weight:700; font-size:13px; color:#0f172a;">⏱ Intervalo Periódico</div>
+                                <div style="font-size:11px; color:#64748b;">Dentro de una ventana horaria</div>
+                            </button>
+                            <button type="button" id="btnModoCliMad" class="btn-modo-pill" onclick="cambiarModoClientes('MADRUGADA')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
+                                <div style="font-weight:700; font-size:13px; color:#0f172a;">🌙 1 Vez en la Madrugada</div>
+                                <div style="font-size:11px; color:#64748b;">Ejecución nocturna desatendida</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Configuración: MODO INTERVALO -->
+                    <div id="panelClientesIntervalo" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:14px;">
+                        <div style="font-size:12px; font-weight:700; color:#334155; margin-bottom:12px;">Parámetros del Intervalo Periódico:</div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                            <div class="field-group" style="padding:0;">
+                                <label style="font-size:11.5px; font-weight:700; color:#64748b; margin-bottom:4px; display:block;">Hora Inicio</label>
+                                <input type="text" id="txtHoraInicioClientes" value="05:00" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-family:monospace; font-size:13px; font-weight:700;">
+                            </div>
+                            <div class="field-group" style="padding:0;">
+                                <label style="font-size:11.5px; font-weight:700; color:#64748b; margin-bottom:4px; display:block;">Hora Fin</label>
+                                <input type="text" id="txtHoraFinClientes" value="23:30" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-family:monospace; font-size:13px; font-weight:700;">
+                            </div>
+                            <div class="field-group" style="padding:0;">
+                                <label style="font-size:11.5px; font-weight:700; color:#64748b; margin-bottom:4px; display:block;">Cada (Minutos)</label>
+                                <input type="number" id="txtIntervaloClientes" min="1" max="720" value="3" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-family:monospace; font-size:13px; font-weight:700;">
+                            </div>
+                        </div>
+                        <div style="font-size:11.5px; color:#64748b; margin-top:8px;">
+                            💡 Se ejecutará automáticamente cada intervalo configurado únicamente entre la hora de inicio y fin.
+                        </div>
+                    </div>
+
+                    <!-- Panel de Configuración: MODO MADRUGADA -->
+                    <div id="panelClientesMadrugada" style="display:none; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:12px; padding:16px; margin-bottom:14px;">
+                        <div style="font-size:12px; font-weight:700; color:#5b21b6; margin-bottom:12px;">Parámetros de Ejecución Nocturna:</div>
+                        <div style="display:flex; align-items:center; gap:16px;">
+                            <div style="flex:1;">
+                                <label style="font-size:11.5px; font-weight:700; color:#6b21a8; margin-bottom:4px; display:block;">Hora Madrugada (Hora Perú · 24h)</label>
+                                <input type="text" id="txtHoraMadrugadaClientes" value="02:00" style="width:160px; padding:8px 12px; border-radius:8px; border:1px solid #c4b5fd; font-family:monospace; font-size:14px; font-weight:700; color:#5b21b6; background:#ffffff;">
+                            </div>
+                            <div style="font-size:12px; color:#5b21b6; line-height:1.4; flex:2;">
+                                🌙 <strong>Cero Impacto Diurno:</strong> Se procesará 1 sola vez cada día en la hora señalada, dejando el ERP 100% libre en horas de oficina.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="border-top:1px solid #f1f5f9; padding-top:10px; font-size:11.5px; color:#64748b; display:flex; align-items:center; gap:6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Aplica salto inteligente instantáneo si no detecta diferencias.
                 </div>
             </div>
+
+            <!-- TARJETA MÓDULO 2: PRODUCTOS, PRECIOS Y CATÁLOGOS -->
+            <div style="background:#ffffff; border-radius:16px; padding:22px 24px; box-shadow:var(--shadow-card); border:1px solid #e2e8f0; display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <!-- Encabezado Módulo Productos -->
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid #f1f5f9;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="width:40px; height:40px; border-radius:12px; background:#fff7ed; color:#ea580c; display:flex; align-items:center; justify-content:center;">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                            </div>
+                            <div>
+                                <h3 style="font-size:15px; font-weight:800; color:#0f172a; margin:0;">Módulo 2: Productos, Catálogos y Precios</h3>
+                                <div style="font-size:12px; color:#64748b;">Maestro de Productos, Factores, Catálogos y Listas de Precios</div>
+                            </div>
+                        </div>
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; background:#f8fafc; padding:5px 12px; border-radius:20px; border:1px solid #e2e8f0;">
+                            <input type="checkbox" id="chkAutoProductos" style="width:16px; height:16px; cursor:pointer;" checked>
+                            <span style="font-size:12.5px; font-weight:700; color:#334155;">Automático</span>
+                        </label>
+                    </div>
+
+                    <!-- Selector de Modo de Ejecución para Productos -->
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block; font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px;">Modo de Ejecución Automática:</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <button type="button" id="btnModoPrdInt" class="btn-modo-pill active" onclick="cambiarModoProductos('INTERVALO')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
+                                <div style="font-weight:700; font-size:13px; color:#0f172a;">⏱ Intervalo Periódico</div>
+                                <div style="font-size:11px; color:#64748b;">Dentro de una ventana horaria</div>
+                            </button>
+                            <button type="button" id="btnModoPrdMad" class="btn-modo-pill" onclick="cambiarModoProductos('MADRUGADA')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
+                                <div style="font-weight:700; font-size:13px; color:#0f172a;">🌙 1 Vez en la Madrugada</div>
+                                <div style="font-size:11px; color:#64748b;">Ejecución nocturna desatendida</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Configuración: MODO INTERVALO -->
+                    <div id="panelProductosIntervalo" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:14px;">
+                        <div style="font-size:12px; font-weight:700; color:#334155; margin-bottom:12px;">Parámetros del Intervalo Periódico:</div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                            <div class="field-group" style="padding:0;">
+                                <label style="font-size:11.5px; font-weight:700; color:#64748b; margin-bottom:4px; display:block;">Hora Inicio</label>
+                                <input type="text" id="txtHoraInicioProductos" value="05:00" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-family:monospace; font-size:13px; font-weight:700;">
+                            </div>
+                            <div class="field-group" style="padding:0;">
+                                <label style="font-size:11.5px; font-weight:700; color:#64748b; margin-bottom:4px; display:block;">Hora Fin</label>
+                                <input type="text" id="txtHoraFinProductos" value="23:30" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-family:monospace; font-size:13px; font-weight:700;">
+                            </div>
+                            <div class="field-group" style="padding:0;">
+                                <label style="font-size:11.5px; font-weight:700; color:#64748b; margin-bottom:4px; display:block;">Cada (Minutos)</label>
+                                <input type="number" id="txtIntervaloProductos" min="1" max="720" value="3" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-family:monospace; font-size:13px; font-weight:700;">
+                            </div>
+                        </div>
+                        <div style="font-size:11.5px; color:#64748b; margin-top:8px;">
+                            💡 Se ejecutará automáticamente cada intervalo configurado únicamente entre la hora de inicio y fin.
+                        </div>
+                    </div>
+
+                    <!-- Panel de Configuración: MODO MADRUGADA -->
+                    <div id="panelProductosMadrugada" style="display:none; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:12px; padding:16px; margin-bottom:14px;">
+                        <div style="font-size:12px; font-weight:700; color:#5b21b6; margin-bottom:12px;">Parámetros de Ejecución Nocturna:</div>
+                        <div style="display:flex; align-items:center; gap:16px;">
+                            <div style="flex:1;">
+                                <label style="font-size:11.5px; font-weight:700; color:#6b21a8; margin-bottom:4px; display:block;">Hora Madrugada (Hora Perú · 24h)</label>
+                                <input type="text" id="txtHoraMadrugadaProductos" value="03:30" style="width:160px; padding:8px 12px; border-radius:8px; border:1px solid #c4b5fd; font-family:monospace; font-size:14px; font-weight:700; color:#5b21b6; background:#ffffff;">
+                            </div>
+                            <div style="font-size:12px; color:#5b21b6; line-height:1.4; flex:2;">
+                                🌙 <strong>Cero Impacto Diurno:</strong> Se procesará 1 sola vez cada día en la madrugada (ideal para grandes catálogos y listas de precios masivas).
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="border-top:1px solid #f1f5f9; padding-top:10px; font-size:11.5px; color:#64748b; display:flex; align-items:center; gap:6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Aplica salto inteligente instantáneo si no detecta diferencias.
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 3. TARJETA RESILIENCIA ANTE CAÍDAS Y RENDIMIENTO SQL -->
+        <div style="background:#ffffff; border-radius:16px; padding:22px 26px; box-shadow:var(--shadow-card); border:1px solid #e2e8f0; margin-bottom:24px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid #f1f5f9;">
+                <div style="width:36px; height:36px; border-radius:10px; background:#ecfdf5; color:#059669; display:flex; align-items:center; justify-content:center;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+                </div>
+                <div>
+                    <h3 style="font-size:15px; font-weight:800; color:#0f172a; margin:0;">Políticas de Resiliencia ante Caídas y Rendimiento SQL</h3>
+                    <div style="font-size:12px; color:#64748b;">Recuperación automática tras microcortes de red, caídas de servidor o timeouts</div>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:20px; align-items:flex-end;">
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:#64748b; margin-bottom:8px;">Reintento Automático</label>
+                    <label style="display:flex; align-items:center; gap:10px; background:#f8fafc; padding:10px 14px; border-radius:10px; border:1px solid #cbd5e1; cursor:pointer;">
+                        <input type="checkbox" id="chkHabilitarReintentos" style="width:18px; height:18px; cursor:pointer;" checked>
+                        <span style="font-size:13px; font-weight:700; color:#0f172a;">Habilitar reintentos en fallos</span>
+                    </label>
+                </div>
+
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:#64748b; margin-bottom:8px;">Número Máximo de Reintentos</label>
+                    <select id="selReintentosMaximos" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid #cbd5e1; font-family:inherit; font-size:13px; font-weight:600; background:#ffffff;">
+                        <option value="1">1 intento (sin reintento adicional)</option>
+                        <option value="2">2 reintentos tras fallo</option>
+                        <option value="3" selected>3 reintentos tras fallo (Recomendado)</option>
+                        <option value="4">4 reintentos tras fallo</option>
+                        <option value="5">5 reintentos tras fallo</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:#64748b; margin-bottom:8px;">Espera entre Reintentos</label>
+                    <select id="selEsperaReintento" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid #cbd5e1; font-family:inherit; font-size:13px; font-weight:600; background:#ffffff;">
+                        <option value="15">15 segundos</option>
+                        <option value="30" selected>30 segundos (Recomendado)</option>
+                        <option value="60">60 segundos (1 minuto)</option>
+                        <option value="120">120 segundos (2 minutos)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:#64748b; margin-bottom:8px;">Tamaño de Lote SQL (Bloques)</label>
+                    <input type="number" id="txtTamanoLote" min="100" max="5000" step="100" value="500" style="width:100%; padding:9px 12px; border-radius:10px; border:1px solid #cbd5e1; font-family:monospace; font-size:13.5px; font-weight:700;">
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTÓN INFERIOR DE ACCIÓN -->
+        <div style="display:flex; justify-content:flex-end; gap:12px; padding:10px 0;">
+            <button class="btn btn-outline" onclick="navegarVista('hub')">Cancelar y Volver</button>
+            <button class="btn btn-primary" onclick="guardarConfiguracion()" style="padding:12px 28px; font-size:14px; font-weight:800; display:flex; align-items:center; gap:10px; box-shadow:0 8px 20px rgba(24,119,242,0.35);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Parámetros de Automatización
+            </button>
         </div>
     </section>
 
 </main>
+
+<!-- ==============================================================
+     OVERLAY EJECUTIVO DE CARGA EN CONSULTAS / ANÁLISIS EN VIVO
+     ============================================================== -->
+<div id="loadingOverlay" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(15, 23, 42, 0.72); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); align-items:center; justify-content:center; flex-direction:column;">
+    <div style="background:#ffffff; border-radius:24px; padding:36px 42px; max-width:560px; width:92%; box-shadow:0 35px 75px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.8); text-align:center; position:relative; overflow:hidden;" onclick="event.stopPropagation()">
+        <!-- Barra de gradiente superior -->
+        <div style="position:absolute; top:0; left:0; right:0; height:5px; background:linear-gradient(90deg, #2563eb, #38bdf8, #10b981, #2563eb); background-size:200% 100%; animation:moveGradientBar 2s linear infinite;"></div>
+
+        <!-- Radar y animación circular -->
+        <div style="position:relative; width:80px; height:80px; margin:0 auto 20px; display:flex; align-items:center; justify-content:center;">
+            <div style="position:absolute; inset:0; border-radius:50%; border:3px solid #e0f2fe; border-top-color:#0284c7; animation:spinClockwise 1s linear infinite;"></div>
+            <div style="position:absolute; inset:8px; border-radius:50%; border:3px solid transparent; border-top-color:#38bdf8; animation:spinCounterClockwise 1.5s linear infinite;"></div>
+            <div style="width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg, #0284c7, #2563eb); display:flex; align-items:center; justify-content:center; box-shadow:0 8px 18px rgba(37,99,235,0.35);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.3">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+            </div>
+        </div>
+
+        <h3 id="loadingOverlayTitulo" style="margin:0 0 8px; font-size:20px; font-weight:800; color:#0f172a; letter-spacing:-0.02em;">
+            Consultando y Analizando Datos...
+        </h3>
+
+        <p id="loadingOverlaySubtitulo" style="margin:0 0 20px; font-size:13.5px; color:#64748b; line-height:1.5;">
+            Comparando tablas en vivo mediante lecturas limpias (NOLOCK) entre ERP Antiguo y Force. Por favor espere...
+        </p>
+
+        <!-- Contador de tiempo en vivo -->
+        <div style="display:inline-flex; align-items:center; gap:8px; background:#f1f5f9; padding:6px 16px; border-radius:999px; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:20px; border:1px solid #e2e8f0;">
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#0284c7; animation:pulseDotLive 1.2s infinite;"></span>
+            <span>Tiempo transcurrido: <span id="loadingOverlayTimer" style="font-variant-numeric:tabular-nums; font-family:monospace; font-size:13px; color:#0284c7;">0.0s</span></span>
+        </div>
+
+        <!-- Barra de progreso indeterminada animada -->
+        <div style="height:6px; background:#e2e8f0; border-radius:999px; overflow:hidden; position:relative;">
+            <div style="position:absolute; top:0; bottom:0; left:0; width:45%; background:linear-gradient(90deg, #0284c7, #38bdf8); border-radius:999px; animation:indeterminateProgress 1.6s ease-in-out infinite;"></div>
+        </div>
+
+        <!-- Badge de seguridad NOLOCK y ERP Antiguo -->
+        <div style="margin-top:20px; font-size:11.5px; color:#059669; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:6px 12px; display:flex; align-items:center; justify-content:center; gap:6px; font-weight:600;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Operación 100% Segura · Solo lectura en ERP Antiguo (Cero modificaciones)
+        </div>
+    </div>
+</div>
+
+<!-- TOAST CONTAINER GLOBAL -->
+<div id="toastContainer"></div>
 
 <!-- ==============================================================
      MODAL SUPERIOR: TRAZA TÉCNICA / DETALLE DE ERROR SQL (Z-INDEX 12000)
@@ -3415,6 +3757,7 @@
             btn.textContent = 'Analizando tablas...';
         }
         document.getElementById('lblTiempoAnalisis').textContent = 'Comparando registros en vivo con Hora Perú...';
+        mostrarLoading('Analizando Módulo Clientes y Rutas...', 'Comparando tablas en vivo con lectura limpia (NOLOCK) entre ERP Antiguo y Force...');
 
         try {
             const res = await fetch('/api/sync/preview');
@@ -3482,7 +3825,9 @@
             cargarEstado();
         } catch (e) {
             console.error('Error al validar diferencias:', e);
+            mostrarToast('Error al consultar diferencias de clientes: ' + e.message, 'error');
         } finally {
+            ocultarLoading();
             if (btn) {
                 btn.disabled = false;
                 btn.textContent = '1. Consultar Diferencias';
@@ -3620,41 +3965,267 @@
         } catch (e) { console.error('Error cargando estado:', e); }
     }
 
-    // Configuración
+    // ==============================================================
+    // CONTROL DE OVERLAY DE CARGA Y NOTIFICACIONES TOAST
+    // ==============================================================
+    let loadingCounter = 0;
+    let loadingTimerInterval = null;
+    let loadingStartSeconds = 0;
+
+    function mostrarLoading(titulo, subtitulo) {
+        loadingCounter++;
+        const overlay = document.getElementById('loadingOverlay');
+        if (!overlay) return;
+
+        if (titulo) {
+            const elTit = document.getElementById('loadingOverlayTitulo');
+            if (elTit) elTit.textContent = titulo;
+        }
+        if (subtitulo) {
+            const elSub = document.getElementById('loadingOverlaySubtitulo');
+            if (elSub) elSub.textContent = subtitulo;
+        }
+
+        if (loadingCounter === 1) {
+            const timerEl = document.getElementById('loadingOverlayTimer');
+            if (timerEl) timerEl.textContent = '0.0s';
+            loadingStartSeconds = Date.now();
+
+            if (loadingTimerInterval) clearInterval(loadingTimerInterval);
+            loadingTimerInterval = setInterval(() => {
+                const seg = ((Date.now() - loadingStartSeconds) / 1000).toFixed(1);
+                const tEl = document.getElementById('loadingOverlayTimer');
+                if (tEl) tEl.textContent = `${seg}s`;
+            }, 100);
+        }
+
+        overlay.style.display = 'flex';
+    }
+
+    function ocultarLoading() {
+        loadingCounter = Math.max(0, loadingCounter - 1);
+        if (loadingCounter === 0) {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) overlay.style.display = 'none';
+            if (loadingTimerInterval) {
+                clearInterval(loadingTimerInterval);
+                loadingTimerInterval = null;
+            }
+        }
+    }
+
+    function mostrarToast(mensaje, tipo = 'info') {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        toast.className = `toast-msg ${tipo}`;
+        
+        let iconSvg = '';
+        if (tipo === 'success') {
+            iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+        } else if (tipo === 'error') {
+            iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+        } else {
+            iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`;
+        }
+
+        toast.innerHTML = `${iconSvg}<span>${mensaje}</span>`;
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(10px)';
+            toast.style.transition = 'all 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
+    }
+
+    // ==============================================================
+    // CONFIGURACIÓN MODULAR DEL INTEGRADOR
+    // ==============================================================
+    function actualizarLabelMasterSwitch(activo) {
+        const lbl = document.getElementById('lblEstadoMasterSwitch');
+        if (!lbl) return;
+        if (activo) {
+            lbl.textContent = 'AUTOMÁTICO ACTIVO';
+            lbl.style.background = '#dcfce7';
+            lbl.style.color = '#059669';
+        } else {
+            lbl.textContent = 'MODO MANUAL';
+            lbl.style.background = '#fef3c7';
+            lbl.style.color = '#b45309';
+        }
+    }
+
+    function cambiarModoClientes(modo) {
+        const pInt = document.getElementById('panelClientesIntervalo');
+        const pMad = document.getElementById('panelClientesMadrugada');
+        const btnInt = document.getElementById('btnModoCliInt');
+        const btnMad = document.getElementById('btnModoCliMad');
+
+        if (modo === 'MADRUGADA') {
+            if (pInt) pInt.style.display = 'none';
+            if (pMad) pMad.style.display = 'block';
+            if (btnInt) btnInt.classList.remove('active');
+            if (btnMad) btnMad.classList.add('active');
+        } else {
+            if (pInt) pInt.style.display = 'block';
+            if (pMad) pMad.style.display = 'none';
+            if (btnInt) btnInt.classList.add('active');
+            if (btnMad) btnMad.classList.remove('active');
+        }
+    }
+
+    function cambiarModoProductos(modo) {
+        const pInt = document.getElementById('panelProductosIntervalo');
+        const pMad = document.getElementById('panelProductosMadrugada');
+        const btnInt = document.getElementById('btnModoPrdInt');
+        const btnMad = document.getElementById('btnModoPrdMad');
+
+        if (modo === 'MADRUGADA') {
+            if (pInt) pInt.style.display = 'none';
+            if (pMad) pMad.style.display = 'block';
+            if (btnInt) btnInt.classList.remove('active');
+            if (btnMad) btnMad.classList.add('active');
+        } else {
+            if (pInt) pInt.style.display = 'block';
+            if (pMad) pMad.style.display = 'none';
+            if (btnInt) btnInt.classList.add('active');
+            if (btnMad) btnMad.classList.remove('active');
+        }
+    }
+
+    async function toggleModoSincronizacion() {
+        try {
+            const nuevoEstado = !configGlobalCache?.sincronizacionActiva;
+            const res = await fetch('/api/sync/config');
+            const c = await res.json();
+            c.sincronizacionActiva = nuevoEstado;
+            const saveRes = await fetch('/api/sync/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(c)
+            });
+            if (saveRes.ok) {
+                configGlobalCache = c;
+                actualizarResumenGlobalDashboard();
+                const chk = document.getElementById('chkActiva');
+                if (chk) chk.checked = nuevoEstado;
+                actualizarLabelMasterSwitch(nuevoEstado);
+                mostrarToast(nuevoEstado ? 'Servicio automático en segundo plano ACTIVADO.' : 'MODO MANUAL activado. Servicio automático pausado.', nuevoEstado ? 'success' : 'info');
+            }
+        } catch (e) {
+            console.error('Error toggling sync mode:', e);
+            mostrarToast('Error al alternar modo: ' + e.message, 'error');
+        }
+    }
+
     async function cargarConfiguracion() {
         try {
             const res = await fetch('/api/sync/config');
             const c = await res.json();
             configGlobalCache = c;
             actualizarResumenGlobalDashboard();
+
+            // 1. Master Switch Global
             const chk = document.getElementById('chkActiva');
-            if (chk) chk.checked = c.sincronizacionActiva;
-            const tInt = document.getElementById('txtIntervalo');
-            if (tInt) tInt.value = c.intervaloMinutos;
-            const tIni = document.getElementById('txtHoraInicio');
-            if (tIni) tIni.value = c.horaInicioVentana;
-            const tFin = document.getElementById('txtHoraFin');
-            if (tFin) tFin.value = c.horaFinVentana;
+            if (chk) {
+                chk.checked = c.sincronizacionActiva;
+                actualizarLabelMasterSwitch(c.sincronizacionActiva);
+            }
+
+            // 2. Módulo Clientes
+            const chkCli = document.getElementById('chkAutoClientes');
+            if (chkCli) chkCli.checked = c.autoClientesActivo !== false;
+            cambiarModoClientes(c.modoClientes || 'INTERVALO');
+            const tIniCli = document.getElementById('txtHoraInicioClientes');
+            if (tIniCli) tIniCli.value = c.horaInicioClientes || c.horaInicioVentana || '05:00';
+            const tFinCli = document.getElementById('txtHoraFinClientes');
+            if (tFinCli) tFinCli.value = c.horaFinClientes || c.horaFinVentana || '23:30';
+            const tIntCli = document.getElementById('txtIntervaloClientes');
+            if (tIntCli) tIntCli.value = c.intervaloClientesMinutos || c.intervaloMinutos || 3;
+            const tMadCli = document.getElementById('txtHoraMadrugadaClientes');
+            if (tMadCli) tMadCli.value = c.horaMadrugadaClientes || '02:00';
+
+            // 3. Módulo Productos
+            const chkPrd = document.getElementById('chkAutoProductos');
+            if (chkPrd) chkPrd.checked = c.autoProductosActivo !== false;
+            cambiarModoProductos(c.modoProductos || 'INTERVALO');
+            const tIniPrd = document.getElementById('txtHoraInicioProductos');
+            if (tIniPrd) tIniPrd.value = c.horaInicioProductos || c.horaInicioVentana || '05:00';
+            const tFinPrd = document.getElementById('txtHoraFinProductos');
+            if (tFinPrd) tFinPrd.value = c.horaFinProductos || c.horaFinVentana || '23:30';
+            const tIntPrd = document.getElementById('txtIntervaloProductos');
+            if (tIntPrd) tIntPrd.value = c.intervaloProductosMinutos || c.intervaloMinutos || 3;
+            const tMadPrd = document.getElementById('txtHoraMadrugadaProductos');
+            if (tMadPrd) tMadPrd.value = c.horaMadrugadaProductos || '03:30';
+
+            // 4. Resiliencia ante Caídas y Rendimiento SQL
+            const chkReint = document.getElementById('chkHabilitarReintentos');
+            if (chkReint) chkReint.checked = c.habilitarReintentos !== false;
+            const selReint = document.getElementById('selReintentosMaximos');
+            if (selReint) selReint.value = c.reintentosMaximos || 3;
+            const selEsp = document.getElementById('selEsperaReintento');
+            if (selEsp) selEsp.value = c.esperaReintentoSegundos || 30;
             const tLot = document.getElementById('txtTamanoLote');
-            if (tLot) tLot.value = c.tamanoLote;
-        } catch (e) { console.error(e); }
+            if (tLot) tLot.value = c.tamanoLote || 500;
+
+        } catch (e) {
+            console.error('Error al cargar configuración:', e);
+        }
     }
 
     async function guardarConfiguracion() {
+        const modoCli = document.getElementById('btnModoCliMad')?.classList.contains('active') ? 'MADRUGADA' : 'INTERVALO';
+        const modoPrd = document.getElementById('btnModoPrdMad')?.classList.contains('active') ? 'MADRUGADA' : 'INTERVALO';
+
         const body = {
-            sincronizacionActiva: document.getElementById('chkActiva').checked,
-            intervaloMinutos: parseInt(document.getElementById('txtIntervalo').value) || 3,
-            horaInicioVentana: document.getElementById('txtHoraInicio').value || '05:00',
-            horaFinVentana: document.getElementById('txtHoraFin').value || '23:30',
-            tamanoLote: parseInt(document.getElementById('txtTamanoLote').value) || 500,
-            reintentosMaximos: 3
+            sincronizacionActiva: document.getElementById('chkActiva')?.checked || false,
+            intervaloMinutos: parseInt(document.getElementById('txtIntervaloClientes')?.value) || 3,
+            horaInicioVentana: document.getElementById('txtHoraInicioClientes')?.value || '05:00',
+            horaFinVentana: document.getElementById('txtHoraFinClientes')?.value || '23:30',
+            tamanoLote: parseInt(document.getElementById('txtTamanoLote')?.value) || 500,
+            reintentosMaximos: parseInt(document.getElementById('selReintentosMaximos')?.value) || 3,
+
+            autoClientesActivo: document.getElementById('chkAutoClientes')?.checked || false,
+            modoClientes: modoCli,
+            intervaloClientesMinutos: parseInt(document.getElementById('txtIntervaloClientes')?.value) || 3,
+            horaInicioClientes: document.getElementById('txtHoraInicioClientes')?.value || '05:00',
+            horaFinClientes: document.getElementById('txtHoraFinClientes')?.value || '23:30',
+            horaMadrugadaClientes: document.getElementById('txtHoraMadrugadaClientes')?.value || '02:00',
+
+            autoProductosActivo: document.getElementById('chkAutoProductos')?.checked || false,
+            modoProductos: modoPrd,
+            intervaloProductosMinutos: parseInt(document.getElementById('txtIntervaloProductos')?.value) || 3,
+            horaInicioProductos: document.getElementById('txtHoraInicioProductos')?.value || '05:00',
+            horaFinProductos: document.getElementById('txtHoraFinProductos')?.value || '23:30',
+            horaMadrugadaProductos: document.getElementById('txtHoraMadrugadaProductos')?.value || '03:30',
+
+            habilitarReintentos: document.getElementById('chkHabilitarReintentos')?.checked || false,
+            esperaReintentoSegundos: parseInt(document.getElementById('selEsperaReintento')?.value) || 30
         };
-        const res = await fetch('/api/sync/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-        if (res.ok) alert('Parámetros guardados correctamente en BDForceGVD.');
+
+        mostrarToast('Guardando configuración en BDForceGVD...', 'info');
+
+        try {
+            const res = await fetch('/api/sync/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            if (res.ok) {
+                mostrarToast('¡Parámetros de automatización guardados correctamente!', 'success');
+                await cargarConfiguracion();
+                await cargarEstado();
+            } else {
+                mostrarToast('Error al persistir parámetros en BDForceGVD.', 'error');
+            }
+        } catch (e) {
+            console.error('Error al guardar configuración:', e);
+            mostrarToast('Error de red al guardar: ' + e.message, 'error');
+        }
     }
 
     // Historial de Lotes y Timeline de Actividad Reciente
@@ -4418,6 +4989,7 @@
             btn.textContent = 'Analizando Productos y Precios...';
         }
         document.getElementById('lblTiempoAnalisisProd').textContent = 'Comparando maestros de productos, factores, catálogos y precios...';
+        mostrarLoading('Analizando Módulo Productos y Precios...', 'Comparando maestros de productos, factores, catálogos y escalas de precios con ERP Antiguo (NOLOCK)...');
 
         try {
             const res = await fetch('/api/sync/productos/preview');
@@ -4492,7 +5064,9 @@
             cargarEstadoProductos();
         } catch (e) {
             console.error('Error al validar diferencias de productos:', e);
+            mostrarToast('Error al consultar diferencias de productos: ' + e.message, 'error');
         } finally {
+            ocultarLoading();
             if (btn) {
                 btn.disabled = false;
                 btn.textContent = '1. Consultar Diferencias';

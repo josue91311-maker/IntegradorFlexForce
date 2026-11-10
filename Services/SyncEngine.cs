@@ -1607,6 +1607,48 @@ namespace IntegradorFlexForce.Services
                         case "REINTENTOS_MAXIMOS":
                             if (int.TryParse(valor, out int r)) config.ReintentosMaximos = r;
                             break;
+                        case "AUTO_CLIENTES_ACTIVO":
+                            config.AutoClientesActivo = valor == "1";
+                            break;
+                        case "MODO_CLIENTES":
+                            config.ModoClientes = string.IsNullOrWhiteSpace(valor) ? "INTERVALO" : valor;
+                            break;
+                        case "INTERVALO_CLIENTES_MINUTOS":
+                            if (int.TryParse(valor, out int minCli)) config.IntervaloClientesMinutos = minCli;
+                            break;
+                        case "HORA_INICIO_CLIENTES":
+                            config.HoraInicioClientes = valor;
+                            break;
+                        case "HORA_FIN_CLIENTES":
+                            config.HoraFinClientes = valor;
+                            break;
+                        case "HORA_MADRUGADA_CLIENTES":
+                            config.HoraMadrugadaClientes = valor;
+                            break;
+                        case "AUTO_PRODUCTOS_ACTIVO":
+                            config.AutoProductosActivo = valor == "1";
+                            break;
+                        case "MODO_PRODUCTOS":
+                            config.ModoProductos = string.IsNullOrWhiteSpace(valor) ? "INTERVALO" : valor;
+                            break;
+                        case "INTERVALO_PRODUCTOS_MINUTOS":
+                            if (int.TryParse(valor, out int minPrd)) config.IntervaloProductosMinutos = minPrd;
+                            break;
+                        case "HORA_INICIO_PRODUCTOS":
+                            config.HoraInicioProductos = valor;
+                            break;
+                        case "HORA_FIN_PRODUCTOS":
+                            config.HoraFinProductos = valor;
+                            break;
+                        case "HORA_MADRUGADA_PRODUCTOS":
+                            config.HoraMadrugadaProductos = valor;
+                            break;
+                        case "HABILITAR_REINTENTOS":
+                            config.HabilitarReintentos = valor == "1";
+                            break;
+                        case "ESPERA_REINTENTO_SEGUNDOS":
+                            if (int.TryParse(valor, out int sReint)) config.EsperaReintentoSegundos = sReint;
+                            break;
                     }
                 }
             }
@@ -1626,10 +1668,27 @@ namespace IntegradorFlexForce.Services
             {
                 ("SINCRONIZACION_ACTIVA", config.SincronizacionActiva ? "1" : "0"),
                 ("INTERVALO_MINUTOS", config.IntervaloMinutos.ToString()),
-                ("HORA_INICIO_VENTANA", config.HoraInicioVentana),
-                ("HORA_FIN_VENTANA", config.HoraFinVentana),
+                ("HORA_INICIO_VENTANA", config.HoraInicioVentana ?? "05:00"),
+                ("HORA_FIN_VENTANA", config.HoraFinVentana ?? "23:30"),
                 ("TAMANO_LOTE", config.TamanoLote.ToString()),
-                ("REINTENTOS_MAXIMOS", config.ReintentosMaximos.ToString())
+                ("REINTENTOS_MAXIMOS", config.ReintentosMaximos.ToString()),
+
+                ("AUTO_CLIENTES_ACTIVO", config.AutoClientesActivo ? "1" : "0"),
+                ("MODO_CLIENTES", config.ModoClientes ?? "INTERVALO"),
+                ("INTERVALO_CLIENTES_MINUTOS", config.IntervaloClientesMinutos.ToString()),
+                ("HORA_INICIO_CLIENTES", config.HoraInicioClientes ?? "05:00"),
+                ("HORA_FIN_CLIENTES", config.HoraFinClientes ?? "23:30"),
+                ("HORA_MADRUGADA_CLIENTES", config.HoraMadrugadaClientes ?? "02:00"),
+
+                ("AUTO_PRODUCTOS_ACTIVO", config.AutoProductosActivo ? "1" : "0"),
+                ("MODO_PRODUCTOS", config.ModoProductos ?? "INTERVALO"),
+                ("INTERVALO_PRODUCTOS_MINUTOS", config.IntervaloProductosMinutos.ToString()),
+                ("HORA_INICIO_PRODUCTOS", config.HoraInicioProductos ?? "05:00"),
+                ("HORA_FIN_PRODUCTOS", config.HoraFinProductos ?? "23:30"),
+                ("HORA_MADRUGADA_PRODUCTOS", config.HoraMadrugadaProductos ?? "03:30"),
+
+                ("HABILITAR_REINTENTOS", config.HabilitarReintentos ? "1" : "0"),
+                ("ESPERA_REINTENTO_SEGUNDOS", config.EsperaReintentoSegundos.ToString())
             };
 
             const string sql = @"

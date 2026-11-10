@@ -13,6 +13,11 @@ namespace IntegradorFlexForce.Services
         private readonly ILogger<SyncBackgroundWorker> _logger;
         private static readonly SemaphoreSlim _cycleLock = new(1, 1);
 
+        private DateTime? _ultimaEjecucionClientes;
+        private DateTime? _ultimaEjecucionProductos;
+        private DateTime? _ultimoDiaMadrugadaClientes;
+        private DateTime? _ultimoDiaMadrugadaProductos;
+
         public SyncBackgroundWorker(SyncEngine syncEngine, SyncProductosEngine syncProductosEngine, ILogger<SyncBackgroundWorker> logger)
         {
             _syncEngine = syncEngine;
@@ -22,59 +27,34 @@ namespace IntegradorFlexForce.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Iniciando servicio de fondo profesional SyncBackgroundWorker (Clientes + Productos)...");
+            _logger.LogInformation("Iniciando servicio de fondo profesional SyncBackgroundWorker con control modular independiente y reintentos...");
 
             // Esperar 10 segundos tras el arranque antes del primer ciclo
             await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)
             {
-                int delayMinutes = 3;
-
                 try
                 {
                     var config = await _syncEngine.CargarConfiguracionAsync(stoppingToken);
-                    delayMinutes = config.IntervaloMinutos > 0 ? config.IntervaloMinutos : 3;
 
                     if (!config.SincronizacionActiva)
                     {
-                        _logger.LogInformation("Modo manual activo: La sincronización automática en segundo plano está pausada.");
+                        // Modo Manual global activo
+                        await Task.Delay(TimeSpan.FromSeconds(20), stoppingToken);
+                        continue;
                     }
-                    else if (!EstaEnVentanaHoraria(config.HoraInicioVentana, config.HoraFinVentana))
-                    {
-                        _logger.LogInformation("Fuera de la ventana horaria permitida ({Inicio} - {Fin}). Próxima revisión en {Min} min.", 
-                            config.HoraInicioVentana, config.HoraFinVentana, delayMinutes);
-                    }
-                    else
-                    {
-                        // Control de concurrencia profesional: nunca cruzarse ni bloquearse
-                        if (await _cycleLock.WaitAsync(0, stoppingToken))
-                        {
-                            try
-                            {
-                                // 1. Ciclo automático Módulo Clientes (Inteligente: salta entidades al día)
-                                if (!await _syncEngine.IsRunningAsync())
-                                {
-                                    _logger.LogInformation("Ejecutando ciclo automático inteligente Módulo Clientes...");
-                                    await _syncEngine.EjecutarSincronizacionClientesAsync("AUTOMATICO", "WORKER_SERVICE", incluirZonas: true, stoppingToken);
-                                }
 
-                                // 2. Ciclo automático Módulo Productos (Inteligente: salta entidades al día)
-                                if (!_syncProductosEngine.GetCurrentStatus().IsRunning)
-                                {
-                                    _logger.LogInformation("Ejecutando ciclo automático inteligente Módulo Productos...");
-                                    await _syncProductosEngine.EjecutarSincronizacionProductosAsync("TODOS", "WORKER_SERVICE", stoppingToken);
-                                }
-                            }
-                            finally
-                            {
-                                _cycleLock.Release();
-                            }
-                        }
-                        else
-                        {
-                            _logger.LogWarning("Ciclo automático omitido: ya existe un proceso de sincronización en ejecución.");
-                        }
+                    // 1. EVALUAR EJECUCIÓN MODULAR: CLIENTES, RUTAS Y CRÉDITOS
+                    if (config.AutoClientesActivo && DebeEjecutarseClientes(config))
+                    {
+                        await EjecutarClientesConReintentosAsync(config, stoppingToken);
+                    }
+
+                    // 2. EVALUAR EJECUCIÓN MODULAR: PRODUCTOS, PRECIOS Y CATÁLOGOS
+                    if (config.AutoProductosActivo && DebeEjecutarseProductos(config))
+                    {
+                        await EjecutarProductosConReintentosAsync(config, stoppingToken);
                     }
                 }
                 catch (OperationCanceledException)
@@ -83,13 +63,212 @@ namespace IntegradorFlexForce.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error en SyncBackgroundWorker. Reintentando en {Min} min.", delayMinutes);
+                    _logger.LogError(ex, "Error en ciclo principal de SyncBackgroundWorker.");
                 }
 
-                await Task.Delay(TimeSpan.FromMinutes(delayMinutes), stoppingToken);
+                // Ciclo de evaluación constante cada 20 segundos
+                await Task.Delay(TimeSpan.FromSeconds(20), stoppingToken);
             }
 
             _logger.LogInformation("Servicio de fondo SyncBackgroundWorker detenido.");
+        }
+
+        private bool DebeEjecutarseClientes(Models.SyncConfigDto config)
+        {
+            var ahora = DateTime.Now;
+
+            if (config.ModoClientes == "MADRUGADA")
+            {
+                // Modo Madrugada: 1 vez al día en la hora configurada (ej: 02:00)
+                if (_ultimoDiaMadrugadaClientes.HasValue && _ultimoDiaMadrugadaClientes.Value.Date == ahora.Date)
+                {
+                    return false; // Ya se ejecutó hoy en la madrugada
+                }
+                return EsHoraObjetivo(config.HoraMadrugadaClientes, ahora);
+            }
+            else
+            {
+                // Modo Intervalo periódico dentro de ventana horaria
+                string horaInicio = string.IsNullOrWhiteSpace(config.HoraInicioClientes) ? config.HoraInicioVentana : config.HoraInicioClientes;
+                string horaFin = string.IsNullOrWhiteSpace(config.HoraFinClientes) ? config.HoraFinVentana : config.HoraFinClientes;
+
+                if (!EstaEnVentanaHoraria(horaInicio, horaFin))
+                {
+                    return false;
+                }
+
+                int intervaloMin = config.IntervaloClientesMinutos > 0 ? config.IntervaloClientesMinutos : (config.IntervaloMinutos > 0 ? config.IntervaloMinutos : 3);
+                if (_ultimaEjecucionClientes == null)
+                {
+                    return true;
+                }
+
+                return (ahora - _ultimaEjecucionClientes.Value).TotalMinutes >= intervaloMin;
+            }
+        }
+
+        private bool DebeEjecutarseProductos(Models.SyncConfigDto config)
+        {
+            var ahora = DateTime.Now;
+
+            if (config.ModoProductos == "MADRUGADA")
+            {
+                // Modo Madrugada: 1 vez al día en la hora configurada (ej: 03:30)
+                if (_ultimoDiaMadrugadaProductos.HasValue && _ultimoDiaMadrugadaProductos.Value.Date == ahora.Date)
+                {
+                    return false; // Ya se ejecutó hoy en la madrugada
+                }
+                return EsHoraObjetivo(config.HoraMadrugadaProductos, ahora);
+            }
+            else
+            {
+                // Modo Intervalo periódico dentro de ventana horaria
+                string horaInicio = string.IsNullOrWhiteSpace(config.HoraInicioProductos) ? config.HoraInicioVentana : config.HoraInicioProductos;
+                string horaFin = string.IsNullOrWhiteSpace(config.HoraFinProductos) ? config.HoraFinVentana : config.HoraFinProductos;
+
+                if (!EstaEnVentanaHoraria(horaInicio, horaFin))
+                {
+                    return false;
+                }
+
+                int intervaloMin = config.IntervaloProductosMinutos > 0 ? config.IntervaloProductosMinutos : (config.IntervaloMinutos > 0 ? config.IntervaloMinutos : 3);
+                if (_ultimaEjecucionProductos == null)
+                {
+                    return true;
+                }
+
+                return (ahora - _ultimaEjecucionProductos.Value).TotalMinutes >= intervaloMin;
+            }
+        }
+
+        private async Task EjecutarClientesConReintentosAsync(Models.SyncConfigDto config, CancellationToken ct)
+        {
+            int maxIntentos = config.HabilitarReintentos ? Math.Max(1, config.ReintentosMaximos) : 1;
+            int esperaSegundos = config.EsperaReintentoSegundos > 0 ? config.EsperaReintentoSegundos : 30;
+
+            for (int intento = 1; intento <= maxIntentos; intento++)
+            {
+                if (ct.IsCancellationRequested) break;
+
+                bool lockTomado = false;
+                try
+                {
+                    if (await _syncEngine.IsRunningAsync())
+                    {
+                        _logger.LogInformation("Módulo Clientes ya se encuentra en ejecución manual o previa. Omitiendo ciclo automático.");
+                        return;
+                    }
+
+                    if (await _cycleLock.WaitAsync(0, ct))
+                    {
+                        lockTomado = true;
+                        _logger.LogInformation("Ejecutando ciclo automático Módulo Clientes (Intento {Intento}/{Max})...", intento, maxIntentos);
+                        await _syncEngine.EjecutarSincronizacionClientesAsync("AUTOMATICO", "WORKER_SERVICE", incluirZonas: true, ct);
+                        
+                        _ultimaEjecucionClientes = DateTime.Now;
+                        if (config.ModoClientes == "MADRUGADA")
+                        {
+                            _ultimoDiaMadrugadaClientes = DateTime.Today;
+                        }
+                        return; // Éxito total
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Ciclo Clientes omitido: semáforo de sincronización ocupado por otro módulo.");
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Fallo en ejecución automática de Clientes (Intento {Intento}/{Max}).", intento, maxIntentos);
+                    if (intento < maxIntentos)
+                    {
+                        _logger.LogInformation("Esperando {Seg}s antes de reintentar Módulo Clientes...", esperaSegundos);
+                        await Task.Delay(TimeSpan.FromSeconds(esperaSegundos), ct);
+                    }
+                    else
+                    {
+                        _logger.LogError("Se agotaron los {Max} reintentos de Módulo Clientes tras caída o error de conexión.", maxIntentos);
+                        _ultimaEjecucionClientes = DateTime.Now; // Registrar tiempo para evitar bucle infinito inmediato
+                    }
+                }
+                finally
+                {
+                    if (lockTomado) _cycleLock.Release();
+                }
+            }
+        }
+
+        private async Task EjecutarProductosConReintentosAsync(Models.SyncConfigDto config, CancellationToken ct)
+        {
+            int maxIntentos = config.HabilitarReintentos ? Math.Max(1, config.ReintentosMaximos) : 1;
+            int esperaSegundos = config.EsperaReintentoSegundos > 0 ? config.EsperaReintentoSegundos : 30;
+
+            for (int intento = 1; intento <= maxIntentos; intento++)
+            {
+                if (ct.IsCancellationRequested) break;
+
+                bool lockTomado = false;
+                try
+                {
+                    if (_syncProductosEngine.GetCurrentStatus().IsRunning)
+                    {
+                        _logger.LogInformation("Módulo Productos ya se encuentra en ejecución manual o previa. Omitiendo ciclo automático.");
+                        return;
+                    }
+
+                    if (await _cycleLock.WaitAsync(0, ct))
+                    {
+                        lockTomado = true;
+                        _logger.LogInformation("Ejecutando ciclo automático Módulo Productos (Intento {Intento}/{Max})...", intento, maxIntentos);
+                        await _syncProductosEngine.EjecutarSincronizacionProductosAsync("TODOS", "WORKER_SERVICE", ct);
+
+                        _ultimaEjecucionProductos = DateTime.Now;
+                        if (config.ModoProductos == "MADRUGADA")
+                        {
+                            _ultimoDiaMadrugadaProductos = DateTime.Today;
+                        }
+                        return; // Éxito total
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Ciclo Productos omitido: semáforo de sincronización ocupado por otro módulo.");
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Fallo en ejecución automática de Productos (Intento {Intento}/{Max}).", intento, maxIntentos);
+                    if (intento < maxIntentos)
+                    {
+                        _logger.LogInformation("Esperando {Seg}s antes de reintentar Módulo Productos...", esperaSegundos);
+                        await Task.Delay(TimeSpan.FromSeconds(esperaSegundos), ct);
+                    }
+                    else
+                    {
+                        _logger.LogError("Se agotaron los {Max} reintentos de Módulo Productos tras caída o error de conexión.", maxIntentos);
+                        _ultimaEjecucionProductos = DateTime.Now; // Registrar tiempo para evitar bucle infinito inmediato
+                    }
+                }
+                finally
+                {
+                    if (lockTomado) _cycleLock.Release();
+                }
+            }
+        }
+
+        private static bool EsHoraObjetivo(string horaObjetivoStr, DateTime ahora)
+        {
+            if (!TimeSpan.TryParse(horaObjetivoStr, out var objetivo))
+            {
+                // Si no tiene formato válido, probar 02:00
+                objetivo = new TimeSpan(2, 0, 0);
+            }
+
+            var horaActual = ahora.TimeOfDay;
+            // Ventana de coincidencia de 10 minutos
+            var diff = Math.Abs((horaActual - objetivo).TotalMinutes);
+            return diff <= 10;
         }
 
         private static bool EstaEnVentanaHoraria(string horaInicioStr, string horaFinStr)

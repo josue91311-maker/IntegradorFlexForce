@@ -67,6 +67,27 @@ namespace IntegradorFlexForce.Models
         public string HoraFinVentana { get; set; } = "23:30";
         public int TamanoLote { get; set; } = 500;
         public int ReintentosMaximos { get; set; } = 3;
+
+        // --- Configuración por Módulo ---
+        // Módulo Clientes
+        public bool AutoClientesActivo { get; set; } = true;
+        public string ModoClientes { get; set; } = "INTERVALO"; // "INTERVALO" o "MADRUGADA"
+        public int IntervaloClientesMinutos { get; set; } = 3;
+        public string HoraInicioClientes { get; set; } = "05:00";
+        public string HoraFinClientes { get; set; } = "23:30";
+        public string HoraMadrugadaClientes { get; set; } = "02:00";
+
+        // Módulo Productos
+        public bool AutoProductosActivo { get; set; } = true;
+        public string ModoProductos { get; set; } = "INTERVALO"; // "INTERVALO" o "MADRUGADA"
+        public int IntervaloProductosMinutos { get; set; } = 3;
+        public string HoraInicioProductos { get; set; } = "05:00";
+        public string HoraFinProductos { get; set; } = "23:30";
+        public string HoraMadrugadaProductos { get; set; } = "03:30";
+
+        // Políticas de Resiliencia y Reintentos
+        public bool HabilitarReintentos { get; set; } = true;
+        public int EsperaReintentoSegundos { get; set; } = 30;
     }
 
     public class SyncTransaccionDto
