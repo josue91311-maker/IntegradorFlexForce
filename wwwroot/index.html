@@ -491,7 +491,7 @@
             flex-shrink: 0;
         }
         .proc-icon.blue { background: #e0edff; color: #1877f2; }
-        .proc-icon.purple { background: #e0e7ff; color: #6366f1; }
+        .proc-icon.purple { background: #f3e8ff; color: #7e22ce; }
         .proc-icon.green { background: #dcfce7; color: #10b981; }
         .proc-icon.orange { background: #ffedd5; color: #f97316; }
 
@@ -521,7 +521,7 @@
             transition: width 0.45s ease;
         }
         .proc-bar-fill.blue { background: linear-gradient(90deg, #1877f2, #3b82f6); }
-        .proc-bar-fill.purple { background: linear-gradient(90deg, #4f46e5, #818cf8); }
+        .proc-bar-fill.purple { background: linear-gradient(90deg, #7e22ce, #a855f7); }
         .proc-bar-fill.green { background: linear-gradient(90deg, #059669, #10b981); }
         .proc-bar-fill.orange { background: linear-gradient(90deg, #ea580c, #fb923c); }
 
@@ -2179,61 +2179,85 @@
 
             <!-- TARJETA MÓDULO 3: VENDEDORES, SUPERVISIÓN Y FUERZAS DE VENTA -->
             <div class="hub-module-card" onclick="navegarVista('vendedores')">
-                <div class="hub-card-top">
-                    <div style="display:flex; align-items:flex-start; gap:16px;">
-                        <div class="hub-module-avatar" style="background:#f3e8ff; color:#7e22ce;">
+                <div class="hub-card-header">
+                    <div class="hub-card-title-group">
+                        <div class="proc-icon purple">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
                         </div>
                         <div>
-                            <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                                 <h3 style="font-size:16px; font-weight:800; color:#0f172a; margin:0;">3. Módulo de Vendedores, Supervisores y Fuerzas de Venta</h3>
-                                <span class="tag-status live">En Vivo</span>
+                                <span id="hubRow3Status" class="status-pill completed"><span class="dot"></span>Al Día</span>
                             </div>
-                            <div style="font-size:12.5px; color:#64748b; font-weight:500; margin-top:2px;">
+                            <div id="hubRow3Sub" style="font-size:12.5px; color:#64748b; margin-top:3px; font-weight:500;">
                                 Sucursales, Canales, Jefes, Supervisores, Fuerzas, Grupos, Vendedores y Personas
                             </div>
-                            <div id="hubMod3DetalleDifs" style="font-size:11.5px; color:#7e22ce; font-weight:700; margin-top:4px;">
-                                Listo para consulta y sincronización de equipos
-                            </div>
                         </div>
                     </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase;">Salud Módulo</div>
-                        <div id="hubMod3Health" style="font-size:15px; font-weight:800; color:#10b981; margin-top:2px; display:flex; align-items:center; justify-content:flex-end; gap:5px;">
-                            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981;"></span>
-                            Operativo
+                    <div style="display:flex; align-items:center; gap:14px;">
+                        <div style="text-align:right;">
+                            <div id="hubRow3Pct" style="font-size:18px; font-weight:800; color:#0f172a; line-height:1;">100%</div>
+                            <div style="font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase;">Salud Módulo</div>
+                        </div>
+                        <div class="proc-bar-track" style="width:140px;">
+                            <div id="hubRow3Bar" class="proc-bar-fill purple" style="width: 100%;"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Barra de Progreso y Estadísticas -->
-                <div class="hub-card-metrics">
-                    <div class="hub-metric-pill">
-                        <span class="hub-metric-lbl">Sub-Entidades:</span>
-                        <span class="hub-metric-val">7 Tablas</span>
+                <!-- DIAGNÓSTICO PRÁCTICO DE ÚLTIMA EJECUCIÓN (VENDEDORES) -->
+                <div class="hub-card-diag-bar">
+                    <div class="hub-diag-item">
+                        <span class="hub-diag-label">⏱ Última Sincronización</span>
+                        <span id="hubMod3UltimaEjecucion" class="hub-diag-value mono">Sin ejecución previa</span>
                     </div>
-                    <div class="hub-metric-pill">
-                        <span class="hub-metric-lbl">Modo Actual:</span>
-                        <span id="hubMod3ModoPill" class="hub-metric-val green">Manual</span>
+                    <div class="hub-diag-item">
+                        <span class="hub-diag-label">⌛ Duración del Proceso</span>
+                        <span id="hubMod3Duracion" class="hub-diag-value mono">00:00:00 (0s)</span>
                     </div>
-                    <div class="hub-metric-pill">
-                        <span class="hub-metric-lbl">Último Lote:</span>
-                        <span id="hubMod3LastBatch" class="hub-metric-val">#1</span>
+                    <div class="hub-diag-item">
+                        <span class="hub-diag-label">🛡 Auditoría & Errores</span>
+                        <span id="hubMod3Errores" class="hub-diag-value ok">0 Errores · 100% Conforme</span>
                     </div>
-                    <div class="hub-metric-pill">
-                        <span class="hub-metric-lbl">Duración:</span>
-                        <span id="hubMod3Duracion" class="hub-metric-val">00:00:05</span>
-                    </div>
-                    <div class="hub-metric-pill" style="margin-left:auto;">
-                        <span class="hub-metric-lbl">Diferencias:</span>
-                        <span id="hubMod3DifsPill" class="hub-metric-val" style="color:#7e22ce; font-weight:800;">0 pendientes</span>
+                    <div class="hub-diag-item">
+                        <span class="hub-diag-label">📦 Registros en Último Lote</span>
+                        <span id="hubMod3Procesados" class="hub-diag-value">0 registros aplicados</span>
                     </div>
                 </div>
 
-                <div class="hub-progress-track">
-                    <div id="hubMod3ProgressBar" class="hub-progress-fill" style="width: 100%; background: linear-gradient(90deg, #9333ea, #7e22ce);"></div>
+                <!-- DESGLOSE DE SUB-TABLAS DE VENDEDORES -->
+                <div class="hub-subentities-grid">
+                    <div class="hub-subentity-box">
+                        <div class="hub-subentity-info">
+                            <span class="hub-subentity-name">1. Canales y Sucursales</span>
+                            <span id="hubCountVendCanales" class="hub-subentity-count">14 suc. / 9 can.</span>
+                        </div>
+                        <span id="hubBadgeVendCanales" class="hub-subentity-badge ok">Al día</span>
+                    </div>
+                    <div class="hub-subentity-box">
+                        <div class="hub-subentity-info">
+                            <span class="hub-subentity-name">2. Jefaturas y Supervisores</span>
+                            <span id="hubCountVendSupervisores" class="hub-subentity-count">38 jef. / 152 sup.</span>
+                        </div>
+                        <span id="hubBadgeVendSupervisores" class="hub-subentity-badge ok">Al día</span>
+                    </div>
+                    <div class="hub-subentity-box">
+                        <div class="hub-subentity-info">
+                            <span class="hub-subentity-name">3. Fuerzas y Equipos</span>
+                            <span id="hubCountVendGrupos" class="hub-subentity-count">145 fza. / 366 grp.</span>
+                        </div>
+                        <span id="hubBadgeVendGrupos" class="hub-subentity-badge ok">Al día</span>
+                    </div>
+                    <div class="hub-subentity-box">
+                        <div class="hub-subentity-info">
+                            <span class="hub-subentity-name">4. Cartera de Vendedores</span>
+                            <span id="hubCountVendVendedores" class="hub-subentity-count">2,992 reg.</span>
+                        </div>
+                        <span id="hubBadgeVendVendedores" class="hub-subentity-badge ok">Al día</span>
+                    </div>
                 </div>
 
+                <!-- FOOTER DE ACCIÓN (VENDEDORES) -->
                 <div class="hub-card-footer">
                     <div style="font-size:12px; color:#64748b; font-weight:600; display:flex; align-items:center; gap:6px;">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -2244,12 +2268,13 @@
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                             Sincronizar Módulo
                         </button>
-                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); navegarVista('vendedores')">
+                        <button class="btn btn-primary btn-sm" style="background:#7e22ce; border-color:#6b21a8;" onclick="event.stopPropagation(); navegarVista('vendedores')">
                             Abrir Consola y Detalle →
                         </button>
                     </div>
                 </div>
             </div>
+        </div>
         </div>
 
         <!-- 3 WIDGETS INFERIORES (COMO LA IMAGEN DE REFERENCIA) -->
@@ -4101,6 +4126,7 @@
     let configGlobalCache = null;
     let statusCliCache = null;
     let statusProdCache = null;
+    let statusVendCache = null;
 
     // Alternar modo automático / manual en 1 solo clic desde el Hub
     async function toggleModoAutomaticoRapido() {
@@ -4137,12 +4163,18 @@
     function actualizarResumenGlobalDashboard() {
         const diffCli = (resumenClientesCache || []).reduce((acc, r) => acc + (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0), 0);
         const diffProd = (resumenProductosCache || []).reduce((acc, r) => acc + (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0), 0);
+        const diffVend = (resumenVendedoresCache || []).reduce((acc, r) => acc + (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0), 0);
 
-        const totalModulos = 2;
+        const totalModulos = 3;
         let alDia = 0;
         if (resumenClientesCache.length > 0 && diffCli === 0) alDia++;
+        else if (resumenClientesCache.length === 0) alDia++;
+
         if (resumenProductosCache.length > 0 && diffProd === 0) alDia++;
-        else if (resumenProductosCache.length === 0) alDia++; // Por defecto al día
+        else if (resumenProductosCache.length === 0) alDia++;
+
+        if (resumenVendedoresCache.length > 0 && diffVend === 0) alDia++;
+        else if (resumenVendedoresCache.length === 0) alDia++;
 
         const conCambios = totalModulos - alDia;
         const pctAlDia = Math.round((alDia / totalModulos) * 1000) / 10;
@@ -4297,6 +4329,78 @@
             const elSub4 = document.getElementById('hubRow4Sub');
             if (elSub4) {
                 elSub4.textContent = `Catálogo Maestro, Presentaciones/Factores, Portafolios y Precios por Escala · ${totalDiffP === 0 ? 'Al día (0 diferencias)' : totalDiffP.toLocaleString() + ' diferencias detectadas'}`;
+            }
+        }
+        }
+
+        // 4. MÓDULO 3: VENDEDORES, SUPERVISIÓN Y FUERZAS DE VENTA
+        if (statusVendCache) {
+            const fecStrVend = statusVendCache.ultimaEjecucion ? formatearHoraPeru(statusVendCache.ultimaEjecucion) : 'Sin ejecución previa';
+            const durStrVend = segundosAHms(statusVendCache.ultimaDuracionSegundos);
+            const errsVend = statusVendCache.ultimoLoteErrores || 0;
+            const procsVend = statusVendCache.ultimoLoteProcesados || 0;
+
+            const elFecV = document.getElementById('hubMod3UltimaEjecucion');
+            if (elFecV) elFecV.textContent = fecStrVend;
+            const elDurV = document.getElementById('hubMod3Duracion');
+            if (elDurV) elDurV.textContent = `${durStrVend} (${Math.round(statusVendCache.ultimaDuracionSegundos || 0)}s)`;
+            const elErrV = document.getElementById('hubMod3Errores');
+            if (elErrV) {
+                elErrV.className = 'hub-diag-value ' + (errsVend === 0 ? 'ok' : 'warn');
+                elErrV.textContent = errsVend === 0 ? '0 Errores · 100% Conforme' : `${errsVend} Error(es) detectados`;
+            }
+            const elProcV = document.getElementById('hubMod3Procesados');
+            if (elProcV) elProcV.textContent = `${procsVend.toLocaleString()} registros aplicados`;
+        }
+
+        if (resumenVendedoresCache && resumenVendedoresCache.length > 0) {
+            const rSuc = resumenVendedoresCache.find(x => (x.codigoTabla || '').includes('SUCURSAL'));
+            const rCan = resumenVendedoresCache.find(x => (x.codigoTabla || '').includes('CANAL'));
+            const rJef = resumenVendedoresCache.find(x => (x.codigoTabla || '').includes('JEFE'));
+            const rSup = resumenVendedoresCache.find(x => (x.codigoTabla || '').includes('SUPERVISOR'));
+            const rFza = resumenVendedoresCache.find(x => (x.codigoTabla || '').includes('FUERZA'));
+            const rGrp = resumenVendedoresCache.find(x => (x.codigoTabla || '').includes('GRUPO'));
+            const rVen = resumenVendedoresCache.find(x => (x.codigoTabla || '').includes('VENDEDOR'));
+
+            const dCan = (rSuc ? (rSuc.insertsDetectados||0) + (rSuc.updatesDetectados||0) + (rSuc.deletesBajasDetectados||0) : 0) +
+                         (rCan ? (rCan.insertsDetectados||0) + (rCan.updatesDetectados||0) + (rCan.deletesBajasDetectados||0) : 0);
+            const dSup = (rJef ? (rJef.insertsDetectados||0) + (rJef.updatesDetectados||0) + (rJef.deletesBajasDetectados||0) : 0) +
+                         (rSup ? (rSup.insertsDetectados||0) + (rSup.updatesDetectados||0) + (rSup.deletesBajasDetectados||0) : 0);
+            const dGrp = (rFza ? (rFza.insertsDetectados||0) + (rFza.updatesDetectados||0) + (rFza.deletesBajasDetectados||0) : 0) +
+                         (rGrp ? (rGrp.insertsDetectados||0) + (rGrp.updatesDetectados||0) + (rGrp.deletesBajasDetectados||0) : 0);
+            const dVen = (rVen ? (rVen.insertsDetectados||0) + (rVen.updatesDetectados||0) + (rVen.deletesBajasDetectados||0) : 0);
+
+            const bCan = document.getElementById('hubBadgeVendCanales');
+            if (bCan) { bCan.className = 'hub-subentity-badge ' + (dCan === 0 ? 'ok' : 'warn'); bCan.textContent = dCan === 0 ? 'Al día' : `${dCan} dif`; }
+            const bSup = document.getElementById('hubBadgeVendSupervisores');
+            if (bSup) { bSup.className = 'hub-subentity-badge ' + (dSup === 0 ? 'ok' : 'warn'); bSup.textContent = dSup === 0 ? 'Al día' : `${dSup} dif`; }
+            const bGrp = document.getElementById('hubBadgeVendGrupos');
+            if (bGrp) { bGrp.className = 'hub-subentity-badge ' + (dGrp === 0 ? 'ok' : 'warn'); bGrp.textContent = dGrp === 0 ? 'Al día' : `${dGrp} dif`; }
+            const bVen = document.getElementById('hubBadgeVendVendedores');
+            if (bVen) { bVen.className = 'hub-subentity-badge ' + (dVen === 0 ? 'ok' : 'warn'); bVen.textContent = dVen === 0 ? 'Al día' : `${dVen} dif`; }
+
+            const cSuc = (rSuc ? rSuc.totalDestino || rSuc.totalOrigen : 14) || 14;
+            const cCan = (rCan ? rCan.totalDestino || rCan.totalOrigen : 9) || 9;
+            const cJef = (rJef ? rJef.totalDestino || rJef.totalOrigen : 38) || 38;
+            const cSup = (rSup ? rSup.totalDestino || rSup.totalOrigen : 152) || 152;
+            const cFza = (rFza ? rFza.totalDestino || rFza.totalOrigen : 145) || 145;
+            const cGrp = (rGrp ? rGrp.totalDestino || rGrp.totalOrigen : 366) || 366;
+            const cVen = (rVen ? rVen.totalDestino || rVen.totalOrigen : 2984) || 2984;
+
+            if (document.getElementById('hubCountVendCanales')) document.getElementById('hubCountVendCanales').textContent = `${cSuc} suc. / ${cCan} can.`;
+            if (document.getElementById('hubCountVendSupervisores')) document.getElementById('hubCountVendSupervisores').textContent = `${cJef} jef. / ${cSup} sup.`;
+            if (document.getElementById('hubCountVendGrupos')) document.getElementById('hubCountVendGrupos').textContent = `${cFza} fza. / ${cGrp} grp.`;
+            if (document.getElementById('hubCountVendVendedores')) document.getElementById('hubCountVendVendedores').textContent = `${cVen.toLocaleString()} reg.`;
+
+            const totalDiffV = dCan + dSup + dGrp + dVen;
+            const elStat3 = document.getElementById('hubRow3Status');
+            if (elStat3) {
+                elStat3.className = 'status-pill ' + (totalDiffV === 0 ? 'completed' : 'running');
+                elStat3.innerHTML = `<span class="dot"></span>${totalDiffV === 0 ? 'Al Día' : totalDiffV.toLocaleString() + ' Cambios'}`;
+            }
+            const elSub3 = document.getElementById('hubRow3Sub');
+            if (elSub3) {
+                elSub3.textContent = `Sucursales, Canales, Jefes, Supervisores, Fuerzas, Grupos y Vendedores — ${totalDiffV === 0 ? 'Al día (0 diferencias)' : totalDiffV.toLocaleString() + ' diferencias detectadas'}`;
             }
         }
     }
@@ -6207,7 +6311,9 @@
             }
 
             if (btnSync) {
-                btnSync.disabled = s.isRunning;
+                statusVendCache = s;
+            actualizarResumenGlobalDashboard();
+            btnSync.disabled = s.isRunning;
                 btnSync.innerHTML = s.isRunning 
                     ? `<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Sincronizando...`
                     : `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> 2. Sincronizar Vendedores y Equipos`;
