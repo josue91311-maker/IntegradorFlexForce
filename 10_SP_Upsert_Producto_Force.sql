@@ -431,7 +431,8 @@ CREATE OR ALTER PROCEDURE dbo.usp_Sync_UpsertCatalogoProducto
     @ObservacionPortafolio      nvarchar(max) = NULL,
     @EstadoPortafolio           bit = 1,
     @ID_Producto_Origen         int = 0,        -- ItemPortafolioProductoProducto.IDProducto (0 si solo se actualiza cabecera)
-    @EstadoAsignacion           bit = 1
+    @EstadoAsignacion           bit = 1,
+    @CodigoProducto             nvarchar(50) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -442,12 +443,7 @@ BEGIN
 
         -- 1. Resolver o crear el Catálogo en ctg_Catalogo
         DECLARE @IDCatalogo int;
-        SELECT TOP 1 @IDCatalogo = ID FROM dbo.ctg_Catalogo WHERE IDExtra = @ID_Portafolio_Origen AND Eliminado = 0;
-
-        IF @IDCatalogo IS NULL AND LTRIM(RTRIM(@CodigoPortafolio)) <> ''
-        BEGIN
-            SELECT TOP 1 @IDCatalogo = ID FROM dbo.ctg_Catalogo WHERE Codigo = LTRIM(RTRIM(@CodigoPortafolio)) AND Eliminado = 0;
-        END
+        SELECT TOP 1 @IDCatalogo = ID FROM dbo.ctg_Catalogo WHERE (IDExtra = @ID_Portafolio_Origen OR Codigo = LTRIM(RTRIM(@CodigoPortafolio))) AND Eliminado = 0;
 
         IF @IDCatalogo IS NULL
         BEGIN
@@ -471,20 +467,25 @@ BEGIN
                 Nombre = LEFT(LTRIM(RTRIM(ISNULL(@NombrePortafolio, Nombre))), 100),
                 Descripcion = ISNULL(@ObservacionPortafolio, Descripcion),
                 Estado = @EstadoPortafolio,
-                IDExtra = @ID_Portafolio_Origen,
+                IDExtra = ISNULL(IDExtra, @ID_Portafolio_Origen),
                 Eliminado = 0,
                 FechaModificacion = GETDATE()
             WHERE ID = @IDCatalogo;
         END
 
-        -- 2. Si se indicó un producto, vincularlo en ctg_CatalogoProducto
-        IF @ID_Producto_Origen > 0 AND @IDCatalogo IS NOT NULL
+        -- 2. Si se indicó un producto, vincularlo en ctg_CatalogoProducto (por IDExtra o por Código)
+        IF (@ID_Producto_Origen > 0 OR (@CodigoProducto IS NOT NULL AND LTRIM(RTRIM(@CodigoProducto)) <> '')) AND @IDCatalogo IS NOT NULL
         BEGIN
             DECLARE @IDProducto int;
-            SELECT TOP 1 @IDProducto = ID FROM dbo.prd_Producto WHERE IDExtra = @ID_Producto_Origen;
+            SELECT TOP 1 @IDProducto = ID FROM dbo.prd_Producto 
+            WHERE (IDExtra = @ID_Producto_Origen OR (Codigo = LTRIM(RTRIM(@CodigoProducto)) AND @CodigoProducto IS NOT NULL)) 
+              AND Eliminado = 0;
 
             IF @IDProducto IS NOT NULL
             BEGIN
+                IF @ID_Producto_Origen > 0
+                    UPDATE dbo.prd_Producto SET IDExtra = @ID_Producto_Origen WHERE ID = @IDProducto AND IDExtra IS NULL;
+
                 IF NOT EXISTS (SELECT 1 FROM dbo.ctg_CatalogoProducto WHERE IDCatalogo = @IDCatalogo AND IDProducto = @IDProducto)
                 BEGIN
                     INSERT INTO dbo.ctg_CatalogoProducto (IDCatalogo, IDProducto, Estado, FechaCreacion, FechaModificacion)
