@@ -2956,6 +2956,8 @@
         }
     }
 
+    let syncCliEstabaCorriendo = false;
+
     async function cargarEstado() {
         try {
             const res = await fetch('/api/sync/status');
@@ -2984,6 +2986,17 @@
 
             document.getElementById('kpiErrores').textContent = s.ultimoLoteErrores || 0;
             document.getElementById('legendValError').textContent = s.ultimoLoteErrores || 0;
+
+            if (syncCliEstabaCorriendo && !s.isRunning && s.estadoActual === 'COMPLETADO') {
+                syncCliEstabaCorriendo = false;
+                validarDiferencias();
+                cargarLotes();
+                cargarLogs();
+                if (moduloAuditoriaActivo === 'clientes' && document.getElementById('modalAuditoriaEjecucion')?.style.display === 'flex') {
+                    recargarAuditoriaModal();
+                }
+            }
+            syncCliEstabaCorriendo = s.isRunning;
         } catch (e) { console.error('Error cargando estado:', e); }
     }
 
@@ -3894,6 +3907,8 @@
         }
     }
 
+    let syncProdEstabaCorriendo = false;
+
     async function cargarEstadoProductos() {
         try {
             const res = await fetch('/api/sync/productos/status');
@@ -3928,6 +3943,17 @@
                 document.getElementById('hubRow4Status').className = 'status-pill running';
                 document.getElementById('hubRow4Status').innerHTML = `<span class="dot"></span>En Proceso`;
             }
+
+            if (syncProdEstabaCorriendo && !s.isRunning && s.estadoActual === 'COMPLETADO') {
+                syncProdEstabaCorriendo = false;
+                validarDiferenciasProductos();
+                cargarLotes();
+                cargarLogs();
+                if (moduloAuditoriaActivo === 'productos' && document.getElementById('modalAuditoriaEjecucion')?.style.display === 'flex') {
+                    recargarAuditoriaModal();
+                }
+            }
+            syncProdEstabaCorriendo = s.isRunning;
         } catch (e) {
             console.error('Error cargando estado de productos:', e);
         }
@@ -3940,6 +3966,7 @@
     cargarLotes();
     cargarLogs();
     validarDiferencias();
+    validarDiferenciasProductos();
 
     setInterval(() => { cargarEstado(); cargarEstadoProductos(); }, 2000);
     setInterval(() => { cargarLotes(); cargarLogs(); }, 6000);

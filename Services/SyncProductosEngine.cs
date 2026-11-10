@@ -330,6 +330,7 @@ namespace IntegradorFlexForce.Services
             try
             {
                 var unidadesForcePorExtra = new Dictionary<int, (int IDForce, int? IDProdExtra, string Abrev, decimal Factor, bool EsBase, bool Estado)>(60000);
+                var unidadesForcePorProdAbrev = new Dictionary<string, (int IDForce, int? IDProdExtra, string Abrev, decimal Factor, bool EsBase, bool Estado)>(60000, StringComparer.OrdinalIgnoreCase);
 
                 using (var connForce = new SqlConnection(_connectionStringForce))
                 {
@@ -363,6 +364,12 @@ namespace IntegradorFlexForce.Services
 
                         if (idExtra.HasValue)
                             unidadesForcePorExtra[idExtra.Value] = (idForce, idProdEx, abrev, factor, esBase, est);
+
+                        if (idProdEx.HasValue && !string.IsNullOrEmpty(abrev))
+                        {
+                            string claveProd = $"{idProdEx.Value}_{abrev.Trim()}_{factor:F4}";
+                            unidadesForcePorProdAbrev[claveProd] = (idForce, idProdEx, abrev, factor, esBase, est);
+                        }
                     }
                 }
 
@@ -400,7 +407,18 @@ namespace IntegradorFlexForce.Services
                         decimal factor = r.GetDecimal(7);
                         bool activo = r.GetBoolean(8);
 
-                        if (!unidadesForcePorExtra.TryGetValue(idUnid, out var uf))
+                        bool encontrada = unidadesForcePorExtra.TryGetValue(idUnid, out var uf);
+                        if (!encontrada && !string.IsNullOrEmpty(abrev))
+                        {
+                            string claveProd = $"{idProd}_{abrev.Trim()}_{factor:F4}";
+                            if (unidadesForcePorProdAbrev.TryGetValue(claveProd, out var ufProd))
+                            {
+                                uf = ufProd;
+                                encontrada = true;
+                            }
+                        }
+
+                        if (!encontrada)
                         {
                             if (!activo) continue;
 
