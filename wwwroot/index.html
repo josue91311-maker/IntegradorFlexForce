@@ -6490,8 +6490,9 @@ async function ejecutarSincronizacion(modo) {
             const lblUlt = document.getElementById('lblUltimaEjecucionVend');
             const btnSync = document.getElementById('btnSyncVend');
 
-            const esCompletado = s.estadoActual === 'COMPLETADO' && (s.ultimoLoteErrores === 0 || s.ultimoLoteErrores == null);
-            const esError = !s.isRunning && !esCompletado && (s.estadoActual === 'ERROR' || s.estadoActual === 'FALLIDO' || (s.ultimoLoteErrores > 0));
+            const tieneErroresReales = (s.ultimoLoteErrores > 0) || s.estadoActual === 'ERROR' || s.estadoActual === 'FALLIDO';
+            const esCompletado = !s.isRunning && !tieneErroresReales && (s.estadoActual === 'COMPLETADO' || s.estadoActual === 'EXITOSO' || ((s.porcentaje >= 100 || s.progresoActual >= (s.progresoTotal || 0)) && (s.progresoTotal || 0) > 0));
+            const esError = !s.isRunning && !esCompletado && tieneErroresReales;
 
             if (badge) {
                 if (s.isRunning) {

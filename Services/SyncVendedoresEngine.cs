@@ -300,7 +300,7 @@ END;";
                     _currentStatus.UltimaDuracionSegundos = r.IsDBNull(1) ? 0 : Convert.ToDouble(r.GetDecimal(1));
                     _currentStatus.UltimoLoteProcesados = (r.IsDBNull(3) ? 0 : r.GetInt32(3)) + (r.IsDBNull(4) ? 0 : r.GetInt32(4));
                     _currentStatus.UltimoLoteErrores = r.IsDBNull(5) ? 0 : r.GetInt32(5);
-                    _currentStatus.EstadoActual = r.GetString(6) == "COMPLETADO" ? "COMPLETADO" : (r.GetString(6) == "FALLIDO" ? "ERROR" : "EN_ESPERA");
+                    _currentStatus.EstadoActual = (r.GetString(6) == "COMPLETADO" || r.GetString(6) == "EXITOSO") ? "COMPLETADO" : (r.GetString(6) == "FALLIDO" ? "ERROR" : "EN_ESPERA");
                     _currentStatus.FaseDetalle = $"Última ejecución: {_currentStatus.UltimoLoteProcesados} procesados ({_currentStatus.UltimoLoteErrores} errores).";
                 }
             }
