@@ -229,6 +229,12 @@ namespace IntegradorFlexForce.Services
             return new SqlConnection(csb.ConnectionString);
         }
 
+        private static string NormalizarTexto(string? input)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return "";
+            return input.Trim();
+        }
+
         // =========================================================================
         // 1. AUDITORÍA Y COMPARACIÓN DIRECTA TABLA POR TABLA (EJECUCIÓN EN PARALELO)
         // =========================================================================
