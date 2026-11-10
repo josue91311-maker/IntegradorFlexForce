@@ -313,7 +313,8 @@ CREATE OR ALTER PROCEDURE dbo.usp_Sync_UpsertProductoUnidad
     @Largo                      decimal(10, 4) = 0,
     @Ancho                      decimal(10, 4) = 0,
     @Alto                       decimal(10, 4) = 0,
-    @Estado                     bit = 1
+    @Estado                     bit = 1,
+    @CodigoProducto             nvarchar(50) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -322,12 +323,22 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        -- 1. Obtener IDProducto en Force
+        -- 1. Obtener IDProducto en Force (por IDExtra o por Código)
         DECLARE @IDProducto int;
         SELECT TOP 1 @IDProducto = ID FROM dbo.prd_Producto WHERE IDExtra = @ID_Producto_Origen;
 
+        IF @IDProducto IS NULL AND @CodigoProducto IS NOT NULL AND LTRIM(RTRIM(@CodigoProducto)) <> ''
+        BEGIN
+            SELECT TOP 1 @IDProducto = ID FROM dbo.prd_Producto WHERE Codigo = LTRIM(RTRIM(@CodigoProducto)) AND Eliminado = 0;
+            IF @IDProducto IS NOT NULL
+            BEGIN
+                UPDATE dbo.prd_Producto SET IDExtra = @ID_Producto_Origen WHERE ID = @IDProducto;
+            END
+        END
+
         IF @IDProducto IS NULL
         BEGIN
+            -- El producto no existe en Force (es un producto antiguo dado de baja en ERP antiguo)
             ROLLBACK TRANSACTION;
             RETURN;
         END

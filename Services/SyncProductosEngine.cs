@@ -331,6 +331,7 @@ namespace IntegradorFlexForce.Services
             {
                 var unidadesForcePorExtra = new Dictionary<int, (int IDForce, int? IDProdExtra, string Abrev, decimal Factor, bool EsBase, bool Estado)>(60000);
                 var unidadesForcePorProdAbrev = new Dictionary<string, (int IDForce, int? IDProdExtra, string Abrev, decimal Factor, bool EsBase, bool Estado)>(60000, StringComparer.OrdinalIgnoreCase);
+                var unidadesForcePorCodProdAbrev = new Dictionary<string, (int IDForce, int? IDProdExtra, string Abrev, decimal Factor, bool EsBase, bool Estado)>(60000, StringComparer.OrdinalIgnoreCase);
 
                 using (var connForce = new SqlConnection(_connectionStringForce))
                 {
@@ -341,6 +342,7 @@ namespace IntegradorFlexForce.Services
                             pu.ID,
                             pu.IDExtra,
                             p.IDExtra AS IDProdExtra,
+                            LTRIM(RTRIM(ISNULL(p.Codigo, ''))) AS CodigoProducto,
                             LTRIM(RTRIM(ISNULL(pu.Abrev, ''))) AS Abrev,
                             ISNULL(pu.Factor, 1) AS Factor,
                             CAST(ISNULL(pu.EsUnidadBase, 0) AS bit) AS EsBase,
@@ -357,10 +359,11 @@ namespace IntegradorFlexForce.Services
                         int idForce = r.GetInt32(0);
                         int? idExtra = r.IsDBNull(1) ? null : r.GetInt32(1);
                         int? idProdEx = r.IsDBNull(2) ? null : r.GetInt32(2);
-                        string abrev = r.GetString(3);
-                        decimal factor = r.GetDecimal(4);
-                        bool esBase = r.GetBoolean(5);
-                        bool est = r.GetBoolean(6);
+                        string codProdForce = r.GetString(3);
+                        string abrev = r.GetString(4);
+                        decimal factor = r.GetDecimal(5);
+                        bool esBase = r.GetBoolean(6);
+                        bool est = r.GetBoolean(7);
 
                         if (idExtra.HasValue)
                             unidadesForcePorExtra[idExtra.Value] = (idForce, idProdEx, abrev, factor, esBase, est);
@@ -369,6 +372,12 @@ namespace IntegradorFlexForce.Services
                         {
                             string claveProd = $"{idProdEx.Value}_{abrev.Trim()}_{factor:F4}";
                             unidadesForcePorProdAbrev[claveProd] = (idForce, idProdEx, abrev, factor, esBase, est);
+                        }
+
+                        if (!string.IsNullOrEmpty(codProdForce) && !string.IsNullOrEmpty(abrev))
+                        {
+                            string claveCod = $"{codProdForce.Trim()}_{abrev.Trim()}_{factor:F4}";
+                            unidadesForcePorCodProdAbrev[claveCod] = (idForce, idProdEx, abrev, factor, esBase, est);
                         }
                     }
                 }
@@ -387,7 +396,8 @@ namespace IntegradorFlexForce.Services
                             LTRIM(RTRIM(ISNULL(u.Abreviacion, 'UN'))) AS Abrev,
                             CAST(ISNULL(u.Base, 0) AS bit) AS EsBase,
                             CAST(ISNULL(u.Factor, 1) AS decimal(18,6)) AS Factor,
-                            CAST(ISNULL(u.Activo, 0) AS bit) AS Activo
+                            CAST(ISNULL(u.Activo, 0) AS bit) AS Activo,
+                            CAST(ISNULL(ps.Activo, 0) AS bit) AS ProdActivo
                         FROM dbo.Unidad u WITH (NOLOCK)
                         INNER JOIN dbo.ProductoServicio ps WITH (NOLOCK) ON ps.PKID = u.IDProductoServicio
                         INNER JOIN dbo.Producto p WITH (NOLOCK) ON p.PKID = ps.PKID;";
@@ -406,6 +416,17 @@ namespace IntegradorFlexForce.Services
                         bool esBase = r.GetBoolean(6);
                         decimal factor = r.GetDecimal(7);
                         bool activo = r.GetBoolean(8);
+                        bool prodActivo = r.GetBoolean(9);
+
+                        // Si el producto no está activo en ERP antiguo y no existe en Force (es del histórico de 5,734 dados de baja),
+                        // no corresponde exigir ni insertar sus unidades en Force
+                        bool prodExisteEnForce = productosForcePorExtra.ContainsKey(idProd) 
+                                              || (!string.IsNullOrEmpty(codProd) && productosForcePorCodigo.ContainsKey(codProd));
+
+                        if (!prodExisteEnForce && !prodActivo)
+                        {
+                            continue;
+                        }
 
                         bool encontrada = unidadesForcePorExtra.TryGetValue(idUnid, out var uf);
                         if (!encontrada && !string.IsNullOrEmpty(abrev))
@@ -416,11 +437,21 @@ namespace IntegradorFlexForce.Services
                                 uf = ufProd;
                                 encontrada = true;
                             }
+                            else if (!string.IsNullOrEmpty(codProd))
+                            {
+                                string claveCod = $"{codProd.Trim()}_{abrev.Trim()}_{factor:F4}";
+                                if (unidadesForcePorCodProdAbrev.TryGetValue(claveCod, out var ufCod))
+                                {
+                                    uf = ufCod;
+                                    encontrada = true;
+                                }
+                            }
                         }
 
                         if (!encontrada)
                         {
                             if (!activo) continue;
+                            if (!prodExisteEnForce && !prodActivo) continue;
 
                             unidInserts++;
                             nuevosIdsUnid.Add(idUnid);
@@ -1186,8 +1217,10 @@ namespace IntegradorFlexForce.Services
                     CAST(ISNULL(u.Largo, 0) AS decimal(10,4)) AS Largo,
                     CAST(ISNULL(u.Ancho, 0) AS decimal(10,4)) AS Ancho,
                     CAST(ISNULL(u.Alto, 0) AS decimal(10,4)) AS Alto,
-                    CAST(ISNULL(u.Activo, 0) AS bit) AS Activo
+                    CAST(ISNULL(u.Activo, 0) AS bit) AS Activo,
+                    LTRIM(RTRIM(ISNULL(ps.Codigo, ''))) AS CodigoProducto
                 FROM dbo.Unidad u WITH (NOLOCK)
+                INNER JOIN dbo.ProductoServicio ps WITH (NOLOCK) ON ps.PKID = u.IDProductoServicio
                 WHERE u.PKID IN ({inClause});";
 
             using var cmdRead = new SqlCommand(sql, connAntiguo) { CommandTimeout = 120 };
@@ -1218,6 +1251,7 @@ namespace IntegradorFlexForce.Services
                     cmd.Parameters.AddWithValue("@Ancho", r.GetDecimal(10));
                     cmd.Parameters.AddWithValue("@Alto", r.GetDecimal(11));
                     cmd.Parameters.AddWithValue("@Estado", r.GetBoolean(12));
+                    cmd.Parameters.AddWithValue("@CodigoProducto", r.GetString(13));
 
                     await cmd.ExecuteNonQueryAsync(ct);
                     procesados++;
