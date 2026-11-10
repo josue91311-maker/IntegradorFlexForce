@@ -304,6 +304,15 @@ BEGIN
               AND IDDia = @DiaDeSemana
               AND Estado = 1;
 
+            -- Desactivar también en cualquier zona con sufijo (-VENDEDOR) para este día
+            UPDATE rzd
+            SET rzd.Estado = 0, rzd.FechaModificacion = GETDATE()
+            FROM rut_RutaZonaDia rzd
+            INNER JOIN cat_Zona z ON z.ID = rzd.IDZona
+            WHERE (z.Codigo LIKE @CodigoZonaVenta + '-%' OR (@CodigoZonaVenta LIKE z.Codigo + '-%' AND z.ID <> @IDZona))
+              AND rzd.IDDia = @DiaDeSemana
+              AND rzd.Estado = 1;
+
             IF NOT EXISTS (SELECT 1 FROM rut_RutaZonaDia WHERE IDZona = @IDZona AND IDRuta = @IDRuta AND IDDia = @DiaDeSemana)
             BEGIN
                 INSERT INTO rut_RutaZonaDia (
@@ -333,6 +342,16 @@ BEGIN
         BEGIN
             -- Si no tiene ninguna zona con EsPrincipalVenta = 1, marcar esta como principal
             DECLARE @EsPrincVenta bit = CASE WHEN EXISTS (SELECT 1 FROM dir_DireccionZona WHERE IDDireccion = @IDDireccion AND EsPrincipalVenta = 1 AND IDZona <> @IDZona) THEN 0 ELSE 1 END;
+
+            -- Desactivar cualquier zona obsoleta con sufijo para esta misma dirección física
+            UPDATE dz
+            SET dz.Estado = 0, dz.EsPrincipalVenta = 0, dz.FechaModificacion = GETDATE()
+            FROM dir_DireccionZona dz
+            INNER JOIN cat_Zona z ON z.ID = dz.IDZona
+            WHERE dz.IDDireccion = @IDDireccion
+              AND dz.IDZona <> @IDZona
+              AND (z.Codigo LIKE @CodigoZonaVenta + '-%' OR (@CodigoZonaVenta LIKE z.Codigo + '-%' AND z.Codigo <> @CodigoZonaVenta))
+              AND dz.Estado = 1;
 
             IF NOT EXISTS (SELECT 1 FROM dir_DireccionZona WHERE IDDireccion = @IDDireccion AND IDZona = @IDZona)
             BEGIN

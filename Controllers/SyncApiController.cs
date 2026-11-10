@@ -65,7 +65,17 @@ namespace IntegradorFlexForce.Controllers
         {
             if (await _syncEngine.IsRunningAsync())
             {
-                return Conflict(new { message = "Ya hay un proceso de sincronización en ejecución." });
+                // Esperar hasta 15 segundos si el servicio de fondo está por finalizar su ciclo
+                var swWait = System.Diagnostics.Stopwatch.StartNew();
+                while (await _syncEngine.IsRunningAsync() && swWait.ElapsedMilliseconds < 15000)
+                {
+                    await Task.Delay(400, ct);
+                }
+
+                if (await _syncEngine.IsRunningAsync())
+                {
+                    return Conflict(new { message = "El servicio automático en segundo plano está sincronizando un lote. Espere unos segundos a que termine para iniciar el proceso manual." });
+                }
             }
 
             if (modo == "zonas")
@@ -131,12 +141,21 @@ namespace IntegradorFlexForce.Controllers
         }
 
         [HttpPost("productos/trigger")]
-        public IActionResult TriggerProductos([FromQuery] string subModulo = "TODOS")
+        public async Task<IActionResult> TriggerProductos([FromQuery] string subModulo = "TODOS", CancellationToken ct = default)
         {
             var current = _syncProductosEngine.GetCurrentStatus();
             if (current.IsRunning)
             {
-                return Conflict(new { message = "Ya hay una sincronización de Productos en ejecución." });
+                var swWait = System.Diagnostics.Stopwatch.StartNew();
+                while (_syncProductosEngine.GetCurrentStatus().IsRunning && swWait.ElapsedMilliseconds < 15000)
+                {
+                    await Task.Delay(400, ct);
+                }
+
+                if (_syncProductosEngine.GetCurrentStatus().IsRunning)
+                {
+                    return Conflict(new { message = "El servicio automático en segundo plano está sincronizando Productos. Espere unos segundos a que termine para iniciar el proceso manual." });
+                }
             }
 
             _ = Task.Run(() => _syncProductosEngine.EjecutarSincronizacionProductosAsync(subModulo.ToUpperInvariant(), "PORTAL_WEB", CancellationToken.None));

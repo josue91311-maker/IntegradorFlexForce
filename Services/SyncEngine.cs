@@ -1546,24 +1546,65 @@ namespace IntegradorFlexForce.Services
             using var conn = new SqlConnection(_connectionStringForce);
             await conn.OpenAsync(ct);
 
-            using var cmd = new SqlCommand("dbo.usp_Sync_VincularCarteraRuta", conn);
-            cmd.CommandType = CommandType.StoredProcedure;
-            cmd.CommandTimeout = 60;
+            // 1. Ejecutar Stored Procedure de vinculación
+            using (var cmd = new SqlCommand("dbo.usp_Sync_VincularCarteraRuta", conn))
+            {
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandTimeout = 60;
 
-            cmd.Parameters.AddWithValue("@ID_Cliente_Origen", r.ID_Cliente);
-            cmd.Parameters.AddWithValue("@ID_Direccion_Origen", r.ID_Direccion);
-            cmd.Parameters.AddWithValue("@CodigoCliente", r.CodigoCliente);
-            cmd.Parameters.AddWithValue("@CodigoZonaVenta", r.CodigoZonaVenta);
-            cmd.Parameters.AddWithValue("@NombreZonaVenta", r.NombreZonaVenta);
-            cmd.Parameters.AddWithValue("@CodigoZonaReparto", (object?)r.CodigoZonaReparto ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@CodigoRuta", r.CodigoRuta);
-            cmd.Parameters.AddWithValue("@CodigoVendedor", r.CodigoVendedor);
-            cmd.Parameters.AddWithValue("@NombreVendedor", r.NombreVendedor);
-            cmd.Parameters.AddWithValue("@DiaDeSemana", r.DiaDeSemana);
-            cmd.Parameters.AddWithValue("@OrdenVisita", 1);
-            cmd.Parameters.AddWithValue("@Estado", true);
+                cmd.Parameters.AddWithValue("@ID_Cliente_Origen", r.ID_Cliente);
+                cmd.Parameters.AddWithValue("@ID_Direccion_Origen", r.ID_Direccion);
+                cmd.Parameters.AddWithValue("@CodigoCliente", r.CodigoCliente);
+                cmd.Parameters.AddWithValue("@CodigoZonaVenta", r.CodigoZonaVenta);
+                cmd.Parameters.AddWithValue("@NombreZonaVenta", r.NombreZonaVenta);
+                cmd.Parameters.AddWithValue("@CodigoZonaReparto", (object?)r.CodigoZonaReparto ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@CodigoRuta", r.CodigoRuta);
+                cmd.Parameters.AddWithValue("@CodigoVendedor", r.CodigoVendedor);
+                cmd.Parameters.AddWithValue("@NombreVendedor", r.NombreVendedor);
+                cmd.Parameters.AddWithValue("@DiaDeSemana", r.DiaDeSemana);
+                cmd.Parameters.AddWithValue("@OrdenVisita", 1);
+                cmd.Parameters.AddWithValue("@Estado", true);
 
-            await cmd.ExecuteNonQueryAsync(ct);
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+
+            // 2. Desactivar de forma contundente cualquier vendedor/ruta anterior para esta misma zona y día en Force
+            const string sqlCleanRutaDia = @"
+                UPDATE rzd
+                SET rzd.Estado = 0, rzd.FechaModificacion = GETDATE()
+                FROM dbo.rut_RutaZonaDia rzd
+                INNER JOIN dbo.cat_Zona z ON z.ID = rzd.IDZona
+                INNER JOIN dbo.rut_Ruta rr ON rr.ID = rzd.IDRuta
+                INNER JOIN dbo.vnd_Vendedor v ON v.ID = rr.IDVendedor
+                WHERE (z.Codigo = @CodigoZonaVenta OR z.Codigo LIKE @CodigoZonaVenta + '-%' OR @CodigoZonaVenta LIKE z.Codigo + '-%')
+                  AND rzd.IDDia = @DiaDeSemana
+                  AND v.Codigo <> @CodigoVendedor
+                  AND rzd.Estado = 1;
+
+                -- Desactivar zonas obsoletas con sufijo (-VENDEDOR) para esta misma dirección física
+                UPDATE dz
+                SET dz.Estado = 0, dz.EsPrincipalVenta = 0, dz.FechaModificacion = GETDATE()
+                FROM dbo.dir_DireccionZona dz
+                INNER JOIN dbo.dir_Direccion dd ON dd.ID = dz.IDDireccion
+                INNER JOIN dbo.cat_Zona z ON z.ID = dz.IDZona
+                WHERE dd.IDExtra = @ID_Direccion_Origen
+                  AND (z.Codigo LIKE @CodigoZonaVenta + '-%' OR (@CodigoZonaVenta LIKE z.Codigo + '-%' AND z.Codigo <> @CodigoZonaVenta))
+                  AND dz.Estado = 1;";
+
+            try
+            {
+                using var cmdClean = new SqlCommand(sqlCleanRutaDia, conn);
+                cmdClean.CommandTimeout = 60;
+                cmdClean.Parameters.AddWithValue("@CodigoZonaVenta", r.CodigoZonaVenta);
+                cmdClean.Parameters.AddWithValue("@DiaDeSemana", r.DiaDeSemana);
+                cmdClean.Parameters.AddWithValue("@CodigoVendedor", r.CodigoVendedor);
+                cmdClean.Parameters.AddWithValue("@ID_Direccion_Origen", r.ID_Direccion);
+                await cmdClean.ExecuteNonQueryAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Aviso de limpieza de rutas obsoletas en Force para zona {Zona}, día {Dia}", r.CodigoZonaVenta, r.DiaDeSemana);
+            }
         }
 
         // =========================================================================

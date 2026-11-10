@@ -3322,12 +3322,9 @@
         document.getElementById(targetBtn)?.classList.add('active');
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        // Consultar diferencias bajo demanda según el módulo que se abra
-        if (vista === 'clientes') {
-            validarDiferencias();
-        } else if (vista === 'productos') {
-            validarDiferenciasProductos();
-        } else if (vista === 'config') {
+        // Solo cargar configuración al entrar a Configuración
+        // (Las consultas de diferencias solo se ejecutan cuando el usuario presiona el botón "1. Consultar Diferencias")
+        if (vista === 'config') {
             cargarConfiguracion();
         }
     }
@@ -3913,15 +3910,17 @@
 
     async function ejecutarSincronizacion(modo) {
         try {
+            mostrarToast('Iniciando sincronización manual... Concurrencia aislada.', 'info');
             const res = await fetch(`/api/sync/trigger?modo=${modo}`, { method: 'POST' });
             const data = await res.json();
             if (!res.ok) {
-                alert(data.message || 'No se pudo iniciar el proceso.');
+                mostrarToast(data.message || 'No se pudo iniciar el proceso.', 'error');
                 return;
             }
+            mostrarToast(data.message || 'Proceso iniciado correctamente.', 'success');
             cargarEstado();
         } catch (e) {
-            alert('Error al ejecutar sincronización: ' + e.message);
+            mostrarToast('Error al ejecutar sincronización: ' + e.message, 'error');
         }
     }
 
@@ -3961,9 +3960,9 @@
 
             if (syncCliEstabaCorriendo && !s.isRunning && s.estadoActual === 'COMPLETADO') {
                 syncCliEstabaCorriendo = false;
-                validarDiferencias();
                 cargarLotes();
                 cargarLogs();
+                mostrarToast('Sincronización de Clientes finalizada exitosamente.', 'success');
                 if (moduloAuditoriaActivo === 'clientes' && document.getElementById('modalAuditoriaEjecucion')?.style.display === 'flex') {
                     recargarAuditoriaModal();
                 }
@@ -5205,15 +5204,17 @@
         }
 
         try {
+            mostrarToast(`Iniciando sincronización de Productos (${subModulo})...`, 'info');
             const res = await fetch(`/api/sync/productos/trigger?subModulo=${encodeURIComponent(subModulo)}`, { method: 'POST' });
             const data = await res.json();
             if (!res.ok) {
-                alert(data.message || 'No se pudo iniciar la sincronización de productos.');
+                mostrarToast(data.message || 'No se pudo iniciar la sincronización de productos.', 'error');
                 return;
             }
+            mostrarToast(data.message || 'Proceso de productos iniciado.', 'success');
             cargarEstadoProductos();
         } catch (e) {
-            alert('Error al iniciar sincronización de productos: ' + e.message);
+            mostrarToast('Error al iniciar sincronización de productos: ' + e.message, 'error');
         }
     }
 
@@ -5269,9 +5270,9 @@
 
             if (syncProdEstabaCorriendo && !s.isRunning && s.estadoActual === 'COMPLETADO') {
                 syncProdEstabaCorriendo = false;
-                validarDiferenciasProductos();
                 cargarLotes();
                 cargarLogs();
+                mostrarToast('Sincronización de Productos finalizada exitosamente.', 'success');
                 if (moduloAuditoriaActivo === 'productos' && document.getElementById('modalAuditoriaEjecucion')?.style.display === 'flex') {
                     recargarAuditoriaModal();
                 }
