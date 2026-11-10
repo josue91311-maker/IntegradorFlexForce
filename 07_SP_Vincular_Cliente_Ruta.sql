@@ -258,8 +258,6 @@ BEGIN
 
         -- -------------------------------------------------------------
         -- 4. RESOLVER O CREAR ZONA (cat_Zona)
-        -- NOTA: Si una zona genérica (ej. '02999') es compartida por varios vendedores/rutas,
-        --       cada vendedor usa su propia instancia de zona para no desactivar a los demás.
         -- -------------------------------------------------------------
         IF @DiaDeSemana < 1 OR @DiaDeSemana > 7 SET @DiaDeSemana = 1;
         IF @DiaDeSemana = 1 AND (@CodigoZonaVenta LIKE '%SAB%' OR @CodigoRuta LIKE '%SAB%') SET @DiaDeSemana = 6;
@@ -270,77 +268,23 @@ BEGIN
         IF @DiaDeSemana = 1 AND (@CodigoZonaVenta LIKE '%MAR%' OR @CodigoRuta LIKE '%MAR%') SET @DiaDeSemana = 2;
 
         DECLARE @IDZona int;
-        DECLARE @CodZonaVend nvarchar(50) = LEFT(LTRIM(RTRIM(@CodigoZonaVenta)) + '-' + LTRIM(RTRIM(@CodigoVendedor)), 50);
+        SELECT TOP 1 @IDZona = ID FROM cat_Zona WHERE Codigo = @CodigoZonaVenta;
 
-        -- Primero buscar si ya existe la zona vinculada a esta misma ruta
-        SELECT TOP 1 @IDZona = z.ID
-        FROM cat_Zona z
-        INNER JOIN rut_RutaZonaDia rzd ON rzd.IDZona = z.ID
-        WHERE (z.Codigo = @CodigoZonaVenta OR z.Codigo = @CodZonaVend)
-          AND rzd.IDRuta = @IDRuta
-          AND rzd.IDDia = @DiaDeSemana;
-
-        IF @IDZona IS NULL
+        IF @IDZona IS NULL AND @CodigoZonaVenta IS NOT NULL AND LTRIM(RTRIM(@CodigoZonaVenta)) <> ''
         BEGIN
-            DECLARE @IDZonaBase int;
-            SELECT TOP 1 @IDZonaBase = ID FROM cat_Zona WHERE Codigo = @CodigoZonaVenta;
-
-            IF @IDZonaBase IS NULL AND @CodigoZonaVenta IS NOT NULL AND LTRIM(RTRIM(@CodigoZonaVenta)) <> ''
-            BEGIN
-                INSERT INTO cat_Zona (
-                    Codigo, Descripcion, EsVenta, EsReparto, 
-                    Estado, FechaCreacion, FechaModificacion
-                )
-                VALUES (
-                    @CodigoZonaVenta, 
-                    CASE WHEN LTRIM(RTRIM(@NombreZonaVenta)) = '' THEN 'ZONA ' + @CodigoZonaVenta ELSE @NombreZonaVenta END,
-                    1, 0, 
-                    1, GETDATE(), GETDATE()
-                );
-                SET @IDZona = SCOPE_IDENTITY();
-            END
-            ELSE IF @IDZonaBase IS NOT NULL
-            BEGIN
-                -- Verificar si @IDZonaBase está siendo usada activamente por OTRO VENDEDOR distinto
-                IF NOT EXISTS (
-                    SELECT 1
-                    FROM dir_DireccionZona dz
-                    INNER JOIN rut_RutaZonaDia rzd ON rzd.IDZona = dz.IDZona
-                    INNER JOIN rut_Ruta rr ON rr.ID = rzd.IDRuta
-                    WHERE dz.IDZona = @IDZonaBase
-                      AND dz.Estado = 1
-                      AND rzd.Estado = 1
-                      AND rr.IDVendedor <> @IDVendedor
-                )
-                BEGIN
-                    SET @IDZona = @IDZonaBase;
-                    UPDATE cat_Zona SET Estado = 1, FechaModificacion = GETDATE() WHERE ID = @IDZona AND Estado = 0;
-                END
-                ELSE
-                BEGIN
-                    SELECT TOP 1 @IDZona = ID FROM cat_Zona WHERE Codigo = @CodZonaVend;
-                    IF @IDZona IS NULL
-                    BEGIN
-                        INSERT INTO cat_Zona (
-                            Codigo, Descripcion, EsVenta, EsReparto, 
-                            Estado, FechaCreacion, FechaModificacion
-                        )
-                        VALUES (
-                            @CodZonaVend, 
-                            CASE WHEN LTRIM(RTRIM(@NombreZonaVenta)) = '' THEN 'ZONA ' + @CodZonaVend ELSE @NombreZonaVenta END,
-                            1, 0, 
-                            1, GETDATE(), GETDATE()
-                        );
-                        SET @IDZona = SCOPE_IDENTITY();
-                    END
-                    ELSE
-                    BEGIN
-                        UPDATE cat_Zona SET Estado = 1, FechaModificacion = GETDATE() WHERE ID = @IDZona AND Estado = 0;
-                    END
-                END
-            END
+            INSERT INTO cat_Zona (
+                Codigo, Descripcion, EsVenta, EsReparto, 
+                Estado, FechaCreacion, FechaModificacion
+            )
+            VALUES (
+                @CodigoZonaVenta, 
+                CASE WHEN LTRIM(RTRIM(@NombreZonaVenta)) = '' THEN 'ZONA ' + @CodigoZonaVenta ELSE @NombreZonaVenta END,
+                1, 0, 
+                1, GETDATE(), GETDATE()
+            );
+            SET @IDZona = SCOPE_IDENTITY();
         END
-        ELSE
+        ELSE IF @IDZona IS NOT NULL
         BEGIN
             UPDATE cat_Zona SET Estado = 1, FechaModificacion = GETDATE() WHERE ID = @IDZona AND Estado = 0;
         END
