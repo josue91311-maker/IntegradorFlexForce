@@ -541,6 +541,33 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
+        -- 0. Si la Escala ya existe por IDExtra en prc_PrecioEscala (caso UPDATE de precio vigente),
+        -- actualizar de inmediato precio neto, con IGV y vigencia sin riesgo de descarte
+        DECLARE @IDEscalaDirecta int;
+        SELECT TOP 1 @IDEscalaDirecta = ID FROM dbo.prc_PrecioEscala WHERE IDExtra = @ID_Escala_Origen;
+
+        IF @IDEscalaDirecta IS NOT NULL
+        BEGIN
+            IF @Precio < 0 SET @Precio = 0;
+            IF @PrecioIncImpto < 0 SET @PrecioIncImpto = 0;
+
+            UPDATE dbo.prc_PrecioEscala
+            SET Precio = @Precio,
+                PrecioIncImpto = @PrecioIncImpto,
+                UtilidadMonto = @UtilidadMonto,
+                UtilidadPorcentual = @UtilidadPorcentual,
+                Desde = @Desde,
+                Hasta = @Hasta,
+                Esvigente = @EsVigente,
+                Eliminado = 0,
+                FechaUltimaModificacion = GETDATE(),
+                FechaModificacion = GETDATE()
+            WHERE ID = @IDEscalaDirecta;
+
+            COMMIT TRANSACTION;
+            RETURN;
+        END
+
         -- 1. Resolver Producto y ProductoUnidad en Force
         DECLARE @IDProducto int, @IDProductoUnidad int;
         SELECT TOP 1 @IDProducto = ID FROM dbo.prd_Producto WHERE IDExtra = @ID_Producto_Origen;

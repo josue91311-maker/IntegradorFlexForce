@@ -1363,37 +1363,82 @@ namespace IntegradorFlexForce.Services
             using var connForce = new SqlConnection(_connectionStringForce);
             await connForce.OpenAsync(ct);
 
+            const string sqlDirectUpdate = @"
+                UPDATE dbo.prc_PrecioEscala
+                SET Precio = @Precio,
+                    PrecioIncImpto = @PrecioIncImpto,
+                    UtilidadMonto = @UtilidadMonto,
+                    UtilidadPorcentual = @UtilidadPorcentual,
+                    Desde = @Desde,
+                    Hasta = @Hasta,
+                    Esvigente = @EsVigente,
+                    Eliminado = 0,
+                    FechaUltimaModificacion = GETDATE(),
+                    FechaModificacion = GETDATE()
+                WHERE IDExtra = @ID_Escala_Origen;";
+
             while (await r.ReadAsync(ct))
             {
                 try
                 {
-                    using var cmd = new SqlCommand("dbo.usp_Sync_UpsertPrecioEscala", connForce)
-                    {
-                        CommandType = CommandType.StoredProcedure,
-                        CommandTimeout = 60
-                    };
-                    cmd.Parameters.AddWithValue("@ID_Escala_Origen", r.GetInt32(0));
-                    cmd.Parameters.AddWithValue("@ID_UnidadItemLista_Origen", r.GetInt32(1));
-                    cmd.Parameters.AddWithValue("@ID_ItemLista_Origen", r.GetInt32(2));
-                    cmd.Parameters.AddWithValue("@ID_ListaPrecio_Origen", r.GetInt32(3));
-                    cmd.Parameters.AddWithValue("@NombreListaPrecio", r.GetString(4));
-                    cmd.Parameters.AddWithValue("@EstadoListaPrecio", r.GetBoolean(5));
-                    cmd.Parameters.AddWithValue("@ID_Producto_Origen", r.GetInt32(6));
-                    cmd.Parameters.AddWithValue("@ID_Unidad_Origen", r.GetInt32(7));
-                    cmd.Parameters.AddWithValue("@DesactivadoItem", r.GetBoolean(8));
-                    cmd.Parameters.AddWithValue("@Credito", r.GetBoolean(9));
-                    cmd.Parameters.AddWithValue("@Contado", r.GetBoolean(10));
-                    cmd.Parameters.AddWithValue("@PermiteVentaUnidad", r.GetBoolean(11));
-                    cmd.Parameters.AddWithValue("@Desde", r.GetDecimal(12));
-                    cmd.Parameters.AddWithValue("@Hasta", r.GetDecimal(13));
-                    cmd.Parameters.AddWithValue("@Precio", r.GetDecimal(14));
-                    cmd.Parameters.AddWithValue("@PrecioIncImpto", r.GetDecimal(15));
-                    cmd.Parameters.AddWithValue("@UtilidadMonto", r.GetDecimal(16));
-                    cmd.Parameters.AddWithValue("@UtilidadPorcentual", r.GetDecimal(17));
-                    cmd.Parameters.AddWithValue("@EsVigente", r.GetBoolean(18));
+                    int idEscalaOrigen = r.GetInt32(0);
+                    decimal desde = r.GetDecimal(12);
+                    decimal hasta = r.GetDecimal(13);
+                    decimal precio = r.GetDecimal(14);
+                    decimal precioIncImpto = r.GetDecimal(15);
+                    decimal utilidadMonto = r.GetDecimal(16);
+                    decimal utilidadPorc = r.GetDecimal(17);
+                    bool esVigente = r.GetBoolean(18);
 
-                    await cmd.ExecuteNonQueryAsync(ct);
-                    procesados++;
+                    // 1. Intentar UPDATE directo ultrarrápido si la escala ya existe por IDExtra
+                    using (var cmdUpd = new SqlCommand(sqlDirectUpdate, connForce))
+                    {
+                        cmdUpd.CommandTimeout = 30;
+                        cmdUpd.Parameters.AddWithValue("@ID_Escala_Origen", idEscalaOrigen);
+                        cmdUpd.Parameters.AddWithValue("@Precio", precio);
+                        cmdUpd.Parameters.AddWithValue("@PrecioIncImpto", precioIncImpto);
+                        cmdUpd.Parameters.AddWithValue("@UtilidadMonto", utilidadMonto);
+                        cmdUpd.Parameters.AddWithValue("@UtilidadPorcentual", utilidadPorc);
+                        cmdUpd.Parameters.AddWithValue("@Desde", desde);
+                        cmdUpd.Parameters.AddWithValue("@Hasta", hasta);
+                        cmdUpd.Parameters.AddWithValue("@EsVigente", esVigente);
+
+                        int rowsUpdated = await cmdUpd.ExecuteNonQueryAsync(ct);
+                        if (rowsUpdated > 0)
+                        {
+                            procesados++;
+                            continue; // Actualizado con éxito inmediato en BDForceGVD
+                        }
+                    }
+
+                    // 2. Si es una escala nueva que aún no existe en Force, invocar SP para crear la estructura completa
+                    using (var cmd = new SqlCommand("dbo.usp_Sync_UpsertPrecioEscala", connForce))
+                    {
+                        cmd.CommandType = CommandType.StoredProcedure;
+                        cmd.CommandTimeout = 60;
+                        cmd.Parameters.AddWithValue("@ID_Escala_Origen", idEscalaOrigen);
+                        cmd.Parameters.AddWithValue("@ID_UnidadItemLista_Origen", r.GetInt32(1));
+                        cmd.Parameters.AddWithValue("@ID_ItemLista_Origen", r.GetInt32(2));
+                        cmd.Parameters.AddWithValue("@ID_ListaPrecio_Origen", r.GetInt32(3));
+                        cmd.Parameters.AddWithValue("@NombreListaPrecio", r.GetString(4));
+                        cmd.Parameters.AddWithValue("@EstadoListaPrecio", r.GetBoolean(5));
+                        cmd.Parameters.AddWithValue("@ID_Producto_Origen", r.GetInt32(6));
+                        cmd.Parameters.AddWithValue("@ID_Unidad_Origen", r.GetInt32(7));
+                        cmd.Parameters.AddWithValue("@DesactivadoItem", r.GetBoolean(8));
+                        cmd.Parameters.AddWithValue("@Credito", r.GetBoolean(9));
+                        cmd.Parameters.AddWithValue("@Contado", r.GetBoolean(10));
+                        cmd.Parameters.AddWithValue("@PermiteVentaUnidad", r.GetBoolean(11));
+                        cmd.Parameters.AddWithValue("@Desde", desde);
+                        cmd.Parameters.AddWithValue("@Hasta", hasta);
+                        cmd.Parameters.AddWithValue("@Precio", precio);
+                        cmd.Parameters.AddWithValue("@PrecioIncImpto", precioIncImpto);
+                        cmd.Parameters.AddWithValue("@UtilidadMonto", utilidadMonto);
+                        cmd.Parameters.AddWithValue("@UtilidadPorcentual", utilidadPorc);
+                        cmd.Parameters.AddWithValue("@EsVigente", esVigente);
+
+                        await cmd.ExecuteNonQueryAsync(ct);
+                        procesados++;
+                    }
                 }
                 catch (Exception ex)
                 {
