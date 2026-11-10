@@ -213,7 +213,24 @@ namespace IntegradorFlexForce.Services
         }
 
         // =========================================================================
-        // 1. AUDITORÍA Y COMPARACIÓN DIRECTA TABLA POR TABLA
+        // HELPER: CONEXIONES SQL CON PACKET SIZE OPTIMIZADO (32 KB)
+        // =========================================================================
+        private SqlConnection CrearConexionForce(int packetSize = 32767)
+        {
+            var csb = new SqlConnectionStringBuilder(_connectionStringForce);
+            if (packetSize > 0) csb.PacketSize = packetSize;
+            return new SqlConnection(csb.ConnectionString);
+        }
+
+        private SqlConnection CrearConexionAntiguo(int packetSize = 32767)
+        {
+            var csb = new SqlConnectionStringBuilder(_connectionStringAntiguo);
+            if (packetSize > 0) csb.PacketSize = packetSize;
+            return new SqlConnection(csb.ConnectionString);
+        }
+
+        // =========================================================================
+        // 1. AUDITORÍA Y COMPARACIÓN DIRECTA TABLA POR TABLA (EJECUCIÓN EN PARALELO)
         // =========================================================================
         public async Task<SyncPreviewDto> AnalizarCambiosPendientesAsync(CancellationToken ct = default)
         {
@@ -221,77 +238,115 @@ namespace IntegradorFlexForce.Services
 
             var sw = Stopwatch.StartNew();
             var preview = new SyncPreviewDto();
-            var nuevosIdsClientes = new HashSet<int>();
-            var nuevosIdsZonas = new HashSet<int>();
-            var zonasQuitadasIds = new HashSet<int>();
 
-            // ---------------------------------------------------------------------
-            // A. CARGAR ESTADO ACTUAL EN FORCE (cli_Cliente y dir_Direccion)
-            // ---------------------------------------------------------------------
+            // EJECUCIÓN PARALELA DE SUB-MÓDULOS INDEPENDIENTES (Task.WhenAll)
+            // Ambos servidores (192.168.2.93 y 192.168.2.16) leen concurrentemente sin bloquearse
+            var taskClientes = Task.Run(async () => await AnalizarClientesYDireccionesAsync(ct), ct);
+            var taskZonas    = Task.Run(async () => await AnalizarZonasYRutasAsync(ct), ct);
+            var taskCreditos = Task.Run(async () => await AnalizarCreditosAsync(ct), ct);
+
+            await Task.WhenAll(taskClientes, taskZonas, taskCreditos);
+
+            var (resCli, resDir, detallesCli, nuevosIdsCli) = await taskClientes;
+            var (resZonas, detallesZonas, nuevosIdsZonas, zonasQuitadasIds) = await taskZonas;
+            var (resCred, detallesCred, credIds) = await taskCreditos;
+
+            // Ensamblar resumen en orden canónico (1. Clientes, 2. Direcciones, 3. Zonas, 4. Créditos)
+            preview.ResumenPorTabla.Add(resCli);
+            preview.ResumenPorTabla.Add(resDir);
+            preview.ResumenPorTabla.Add(resZonas);
+            preview.ResumenPorTabla.Add(resCred);
+
+            // Consolidar detalles hasta un máximo seguro para la UI
+            preview.DetalleCambios.AddRange(detallesCli);
+            preview.DetalleCambios.AddRange(detallesZonas);
+            preview.DetalleCambios.AddRange(detallesCred);
+            if (preview.DetalleCambios.Count > 2500)
+            {
+                preview.DetalleCambios = preview.DetalleCambios.Take(2500).ToList();
+            }
+
+            // Actualizar cachés de IDs con diferencias para la sincronización
+            _idsClientesConCambios = nuevosIdsCli;
+            _idsDireccionesZonaConCambios = nuevosIdsZonas;
+            _idsDireccionesZonaQuitadas = zonasQuitadasIds;
+            _idsCreditosConCambios = credIds;
+
+            sw.Stop();
+            preview.TiempoEscaneoSegundos = Math.Round(sw.Elapsed.TotalSeconds, 2);
+            _currentStatus.FaseDetalle = $"Análisis completado en {preview.TiempoEscaneoSegundos}s. Detectadas {nuevosIdsCli.Count} diferencias en clientes/direcciones y {resZonas.InsertsDetectados + resZonas.UpdatesDetectados + resZonas.DeletesBajasDetectados} en zonas/rutas.";
+
+            return preview;
+        }
+
+        // -------------------------------------------------------------------------
+        // SUB-PROCESO 1: CLIENTES Y DIRECCIONES (Lectura paralela en Force y ERP Antiguo)
+        // -------------------------------------------------------------------------
+        private async Task<(TablaComparacionResumenDto ResCli, TablaComparacionResumenDto ResDir, List<CambioDetectadoItemDto> Detalles, HashSet<int> NuevosIds)> AnalizarClientesYDireccionesAsync(CancellationToken ct)
+        {
+            var detalles = new List<CambioDetectadoItemDto>();
+            var nuevosIdsClientes = new HashSet<int>();
+
             var clientesForcePorIdExtra = new Dictionary<int, (int IDForce, string Codigo, string Nombre, bool Estado)>(380000);
-            var clientesForcePorCodigo = new Dictionary<string, (int IDForce, int? IDExtra, string Nombre, bool Estado)>(380000, StringComparer.OrdinalIgnoreCase);
+            var clientesForcePorCodigo  = new Dictionary<string, (int IDForce, int? IDExtra, string Nombre, bool Estado)>(380000, StringComparer.OrdinalIgnoreCase);
             var direccionesForcePorIdExtra = new Dictionary<int, (int IDForce, string Direccion, bool Estado)>(380000);
 
-            using (var connForce = new SqlConnection(_connectionStringForce))
+            // Cargar cli_Cliente y dir_Direccion concurrentemente desde Force
+            var taskCliForce = Task.Run(async () =>
             {
-                await connForce.OpenAsync(ct);
-
-                const string sqlCliForce = @"
+                using var conn = CrearConexionForce();
+                await conn.OpenAsync(ct);
+                const string sql = @"
                     SELECT ID, IDExtra, LTRIM(RTRIM(ISNULL(Codigo, ''))), LTRIM(RTRIM(ISNULL(NombreCompleto, ''))), CAST(ISNULL(Estado, 0) AS bit)
                     FROM dbo.cli_Cliente WITH (NOLOCK)
                     WHERE Eliminado = 0;";
-
-                using (var cmd = new SqlCommand(sqlCliForce, connForce) { CommandTimeout = 120 })
-                using (var r = await cmd.ExecuteReaderAsync(ct))
+                using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 };
+                using var r = await cmd.ExecuteReaderAsync(ct);
+                while (await r.ReadAsync(ct))
                 {
-                    while (await r.ReadAsync(ct))
-                    {
-                        int idForce = r.GetInt32(0);
-                        int? idExtra = r.IsDBNull(1) ? null : r.GetInt32(1);
-                        string codigo = r.GetString(2);
-                        string nombre = r.GetString(3);
-                        bool estado = r.GetBoolean(4);
+                    int idForce = r.GetInt32(0);
+                    int? idExtra = r.IsDBNull(1) ? null : r.GetInt32(1);
+                    string codigo = r.GetString(2);
+                    string nombre = r.GetString(3);
+                    bool estado = r.GetBoolean(4);
 
-                        if (idExtra.HasValue)
-                            clientesForcePorIdExtra[idExtra.Value] = (idForce, codigo, nombre, estado);
-                        if (!string.IsNullOrEmpty(codigo))
-                            clientesForcePorCodigo[codigo] = (idForce, idExtra, nombre, estado);
-                    }
+                    if (idExtra.HasValue)
+                        clientesForcePorIdExtra[idExtra.Value] = (idForce, codigo, nombre, estado);
+                    if (!string.IsNullOrEmpty(codigo))
+                        clientesForcePorCodigo[codigo] = (idForce, idExtra, nombre, estado);
                 }
+            }, ct);
 
-                const string sqlDirForce = @"
+            var taskDirForce = Task.Run(async () =>
+            {
+                using var conn = CrearConexionForce();
+                await conn.OpenAsync(ct);
+                const string sql = @"
                     SELECT ID, IDExtra, LTRIM(RTRIM(ISNULL(Direccion, ''))), CAST(ISNULL(Estado, 1) AS bit)
                     FROM dbo.dir_Direccion WITH (NOLOCK)
                     WHERE Eliminado = 0 AND IDExtra IS NOT NULL
                     ORDER BY CASE WHEN LTRIM(RTRIM(ISNULL(Direccion, ''))) IN ('', 'SIN DIRECCION', 'DIRECCION PRINCIPAL RUTA') THEN 0 ELSE 1 END ASC, ID ASC;";
-
-                using (var cmd = new SqlCommand(sqlDirForce, connForce) { CommandTimeout = 120 })
-                using (var r = await cmd.ExecuteReaderAsync(ct))
+                using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 };
+                using var r = await cmd.ExecuteReaderAsync(ct);
+                while (await r.ReadAsync(ct))
                 {
-                    while (await r.ReadAsync(ct))
-                    {
-                        direccionesForcePorIdExtra[r.GetInt32(1)] = (r.GetInt32(0), r.GetString(2), r.GetBoolean(3));
-                    }
+                    direccionesForcePorIdExtra[r.GetInt32(1)] = (r.GetInt32(0), r.GetString(2), r.GetBoolean(3));
                 }
-            }
+            }, ct);
 
-            // ---------------------------------------------------------------------
-            // B. COMPARAR CLIENTES Y DIRECCIONES CONTRA ERP ANTIGUO (digalimenta41)
-            // ---------------------------------------------------------------------
-            int totalCliOrigen = 0;
-            int cliInserts = 0, cliUpdates = 0, cliDeletes = 0;
-            int totalDirOrigen = 0;
-            int dirInserts = 0, dirUpdates = 0, dirDeletes = 0;
+            await Task.WhenAll(taskCliForce, taskDirForce);
 
-            using (var connAntiguo = new SqlConnection(_connectionStringAntiguo))
+            // Comparar contra ERP Antiguo (digalimenta41)
+            int totalCliOrigen = 0, cliInserts = 0, cliUpdates = 0, cliDeletes = 0;
+            int totalDirOrigen = 0, dirInserts = 0, dirUpdates = 0, dirDeletes = 0;
+
+            using (var connAntiguo = CrearConexionAntiguo())
             {
                 await connAntiguo.OpenAsync(ct);
-
                 const string sqlAntiguo = @"
                     SELECT ID_Cliente, CodigoCliente, NombreCompleto, EstadoCliente,
                            ID_Direccion, Direccion, EstadoDireccion
                     FROM dbo.v_Extraccion_Clientes_Force WITH (NOLOCK);";
-
                 using var cmd = new SqlCommand(sqlAntiguo, connAntiguo) { CommandTimeout = 180 };
                 using var r = await cmd.ExecuteReaderAsync(ct);
 
@@ -323,9 +378,9 @@ namespace IntegradorFlexForce.Services
                         {
                             cliInserts++;
                             nuevosIdsClientes.Add(idCliente);
-                            if (preview.DetalleCambios.Count < 2500)
+                            if (detalles.Count < 2500)
                             {
-                                preview.DetalleCambios.Add(new CambioDetectadoItemDto
+                                detalles.Add(new CambioDetectadoItemDto
                                 {
                                     Tabla = "CLIENTES",
                                     TipoOperacion = "INSERT",
@@ -345,9 +400,9 @@ namespace IntegradorFlexForce.Services
                         {
                             cliDeletes++;
                             nuevosIdsClientes.Add(idCliente);
-                            if (preview.DetalleCambios.Count < 2500)
+                            if (detalles.Count < 2500)
                             {
-                                preview.DetalleCambios.Add(new CambioDetectadoItemDto
+                                detalles.Add(new CambioDetectadoItemDto
                                 {
                                     Tabla = "CLIENTES",
                                     TipoOperacion = "BAJA / DELETE",
@@ -364,9 +419,9 @@ namespace IntegradorFlexForce.Services
                         {
                             cliUpdates++;
                             nuevosIdsClientes.Add(idCliente);
-                            if (preview.DetalleCambios.Count < 2500)
+                            if (detalles.Count < 2500)
                             {
-                                preview.DetalleCambios.Add(new CambioDetectadoItemDto
+                                detalles.Add(new CambioDetectadoItemDto
                                 {
                                     Tabla = "CLIENTES",
                                     TipoOperacion = "UPDATE",
@@ -383,9 +438,9 @@ namespace IntegradorFlexForce.Services
                         {
                             cliUpdates++;
                             nuevosIdsClientes.Add(idCliente);
-                            if (preview.DetalleCambios.Count < 2500)
+                            if (detalles.Count < 2500)
                             {
-                                preview.DetalleCambios.Add(new CambioDetectadoItemDto
+                                detalles.Add(new CambioDetectadoItemDto
                                 {
                                     Tabla = "CLIENTES",
                                     TipoOperacion = "UPDATE",
@@ -409,9 +464,9 @@ namespace IntegradorFlexForce.Services
                             {
                                 dirInserts++;
                                 nuevosIdsClientes.Add(idCliente);
-                                if (preview.DetalleCambios.Count < 2500)
+                                if (detalles.Count < 2500)
                                 {
-                                    preview.DetalleCambios.Add(new CambioDetectadoItemDto
+                                    detalles.Add(new CambioDetectadoItemDto
                                     {
                                         Tabla = "DIRECCIONES",
                                         TipoOperacion = "INSERT",
@@ -431,9 +486,9 @@ namespace IntegradorFlexForce.Services
                             {
                                 dirDeletes++;
                                 nuevosIdsClientes.Add(idCliente);
-                                if (preview.DetalleCambios.Count < 2500)
+                                if (detalles.Count < 2500)
                                 {
-                                    preview.DetalleCambios.Add(new CambioDetectadoItemDto
+                                    detalles.Add(new CambioDetectadoItemDto
                                     {
                                         Tabla = "DIRECCIONES",
                                         TipoOperacion = "BAJA / DELETE",
@@ -452,9 +507,9 @@ namespace IntegradorFlexForce.Services
                             {
                                 dirUpdates++;
                                 nuevosIdsClientes.Add(idCliente);
-                                if (preview.DetalleCambios.Count < 2500)
+                                if (detalles.Count < 2500)
                                 {
-                                    preview.DetalleCambios.Add(new CambioDetectadoItemDto
+                                    detalles.Add(new CambioDetectadoItemDto
                                     {
                                         Tabla = "DIRECCIONES",
                                         TipoOperacion = "UPDATE",
@@ -472,7 +527,7 @@ namespace IntegradorFlexForce.Services
                 }
             }
 
-            preview.ResumenPorTabla.Add(new TablaComparacionResumenDto
+            var resCli = new TablaComparacionResumenDto
             {
                 CodigoTabla = "CLIENTES",
                 NombreTabla = "1. Clientes y Personas",
@@ -483,9 +538,9 @@ namespace IntegradorFlexForce.Services
                 UpdatesDetectados = cliUpdates,
                 DeletesBajasDetectados = cliDeletes,
                 Observacion = (cliInserts + cliUpdates + cliDeletes) == 0 ? "Al día (Sin diferencias)" : "Cambios pendientes de aplicar"
-            });
+            };
 
-            preview.ResumenPorTabla.Add(new TablaComparacionResumenDto
+            var resDir = new TablaComparacionResumenDto
             {
                 CodigoTabla = "DIRECCIONES",
                 NombreTabla = "2. Direcciones de Clientes",
@@ -496,15 +551,23 @@ namespace IntegradorFlexForce.Services
                 UpdatesDetectados = dirUpdates,
                 DeletesBajasDetectados = dirDeletes,
                 Observacion = (dirInserts + dirUpdates + dirDeletes) == 0 ? "Al día (Sin diferencias)" : "Cambios pendientes de aplicar"
-            });
+            };
 
-            // ---------------------------------------------------------------------
-            // C. COMPARAR ZONAS, RUTAS, VENDEDOR Y DÍAS DE VISITA
-            // Utiliza la relación exacta provista por el usuario para BDForceGVD
-            // ---------------------------------------------------------------------
+            return (resCli, resDir, detalles, nuevosIdsClientes);
+        }
+
+        // -------------------------------------------------------------------------
+        // SUB-PROCESO 2: CARTERA DE ZONAS, RUTAS Y VENDEDOR (Lectura concurrente)
+        // -------------------------------------------------------------------------
+        private async Task<(TablaComparacionResumenDto ResumenZonas, List<CambioDetectadoItemDto> Detalles, HashSet<int> NuevosIdsZonas, HashSet<int> ZonasQuitadasIds)> AnalizarZonasYRutasAsync(CancellationToken ct)
+        {
             int totalZonasOrigen = 0, totalZonasDestino = 0;
             int zonasInserts = 0, zonasUpdates = 0, zonasDeletes = 0;
             string obsZonas = "Al día (Sin diferencias)";
+
+            var detalles = new List<CambioDetectadoItemDto>();
+            var nuevosIdsZonas = new HashSet<int>();
+            var zonasQuitadasIds = new HashSet<int>();
 
             try
             {
@@ -521,9 +584,11 @@ namespace IntegradorFlexForce.Services
                     set.Add(vendedor);
                 }
 
-                using (var connForce = new SqlConnection(_connectionStringForce))
+                // Cargar Cartera Force y Rutas Antiguo concurrentemente
+                var taskForce = Task.Run(async () =>
                 {
-                    await connForce.OpenAsync(ct);
+                    using var conn = CrearConexionForce();
+                    await conn.OpenAsync(ct);
 
                     const string sqlCarteraForce = @"
                         SELECT DISTINCT
@@ -560,7 +625,7 @@ namespace IntegradorFlexForce.Services
                           AND rr.Eliminado = 0
                           AND v.Eliminado = 0;";
 
-                    using var cmd = new SqlCommand(sqlCarteraForce, connForce) { CommandTimeout = 120 };
+                    using var cmd = new SqlCommand(sqlCarteraForce, conn) { CommandTimeout = 120 };
                     using var r = await cmd.ExecuteReaderAsync(ct);
                     while (await r.ReadAsync(ct))
                     {
@@ -574,7 +639,6 @@ namespace IntegradorFlexForce.Services
                         int idEd = r.GetInt32(7);
                         int idDz = r.GetInt32(8);
 
-                        // Extraer el código base original si tiene sufijo de vendedor (ej: "02999-02OF66" -> "02999")
                         string codZonaBase = codZonaRaw.Contains('-') ? codZonaRaw.Substring(0, codZonaRaw.IndexOf('-')).Trim() : codZonaRaw;
 
                         listaCarteraForce.Add((idCli, idCliExtra, codCliForce, codZonaBase, codVend, dia, idDirExtra, idEd, idDz));
@@ -598,21 +662,14 @@ namespace IntegradorFlexForce.Services
                                 AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"DIR_{idDirExtra.Value}_{codZonaRaw}_{dia}", codVend);
                         }
                     }
-                    totalZonasDestino = listaCarteraForce.Count;
-                }
+                }, ct);
 
-                var asignacionesVistasEnOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var asignacionesExactasEnOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var zonasVistasPorClienteOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var diasConUpdate = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var direccionesActivasPorClienteOrigen = new Dictionary<int, HashSet<int>>();
-                var duenoRealPorIdDirExtra = new Dictionary<int, int>();
-
-                using (var connAntiguo = new SqlConnection(_connectionStringAntiguo))
+                var filasAntiguo = new List<(int IDDir, int IDCli, string CodCli, string NomCli, string CodZona, string CodRuta, string CodVend, int DiaSemana)>(120000);
+                var taskAntiguo = Task.Run(async () =>
                 {
-                    await connAntiguo.OpenAsync(ct);
+                    using var conn = CrearConexionAntiguo();
+                    await conn.OpenAsync(ct);
 
-                    // Consultar directamente todas las rutas, zonas, vendedores y días de visita activos
                     const string sqlZonasAntiguo = @"
                         SELECT 
                             dc.PKID AS ID_Direccion,
@@ -648,116 +705,134 @@ namespace IntegradorFlexForce.Services
                         INNER JOIN dbo.ZonaRutaVendedor zrv WITH (NOLOCK) ON zrv.IDZona = z.PKID
                         INNER JOIN dbo.RutaVendedor rr WITH (NOLOCK) ON rr.PKID = zrv.IDRutaVendedor
                         INNER JOIN dbo.AsignacionRutaZonaVendedor ass WITH (NOLOCK) ON ass.PKID = rr.IDAsignacionRutaZonaVendedor
-                        INNER JOIN dbo.Persona pv WITH (NOLOCK) ON pv.PKID = ass.IDVendedor
-                        LEFT JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = pv.PKID
-                        LEFT JOIN dbo.GrupoVentas gv WITH (NOLOCK) ON gv.PKID = v.IDGrupoVentas
-                        LEFT JOIN dbo.FuerzaVentas fv WITH (NOLOCK) ON fv.PKID = gv.IDFuerzaVentas
-                        WHERE dd.Activo = 1 AND p.Activo = 1
-                        GROUP BY dc.PKID, p.PKID, p.Codigo, p.Nombre, z.Codigo, rr.Codigo, pv.Codigo, rr.DiaDeSemana;";
+                        INNER JOIN dbo.Vendedor v WITH (NOLOCK) ON v.PKID = ass.IDVendedor
+                        INNER JOIN dbo.Persona pv WITH (NOLOCK) ON pv.PKID = v.PKID
+                        WHERE z.Activo = 1 
+                          AND rr.Activo = 1 
+                          AND ass.Activo = 1 
+                          AND v.Activo = 1
+                          AND p.Activo = 1;";
 
-                    using var cmd = new SqlCommand(sqlZonasAntiguo, connAntiguo) { CommandTimeout = 180 };
+                    using var cmd = new SqlCommand(sqlZonasAntiguo, conn) { CommandTimeout = 180 };
                     using var r = await cmd.ExecuteReaderAsync(ct);
                     while (await r.ReadAsync(ct))
                     {
-                        totalZonasOrigen++;
-                        int idDir = r.GetInt32(0);
-                        int idCli = r.GetInt32(1);
-                        string codCli = r.GetString(2);
-                        string nomCli = r.GetString(3);
-                        string codZona = r.GetString(4).Trim();
-                        string codRuta = r.IsDBNull(5) ? "" : r.GetString(5).Trim();
-                        string codVend = r.IsDBNull(6) ? "" : r.GetString(6).Trim();
-                        int diaSemana = r.GetInt32(7);
+                        filasAntiguo.Add((
+                            r.GetInt32(0),
+                            r.GetInt32(1),
+                            r.GetString(2),
+                            r.GetString(3),
+                            r.GetString(4).Trim(),
+                            r.GetString(5).Trim(),
+                            r.GetString(6).Trim(),
+                            r.GetInt32(7)
+                        ));
+                    }
+                }, ct);
 
-                        duenoRealPorIdDirExtra[idDir] = idCli;
+                await Task.WhenAll(taskForce, taskAntiguo);
+                totalZonasDestino = listaCarteraForce.Count;
 
-                        if (!direccionesActivasPorClienteOrigen.TryGetValue(idCli, out var setDirs))
+                var asignacionesVistasEnOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var asignacionesExactasEnOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var zonasVistasPorClienteOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var diasConUpdate = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var direccionesActivasPorClienteOrigen = new Dictionary<int, HashSet<int>>();
+                var duenoRealPorIdDirExtra = new Dictionary<int, int>();
+
+                foreach (var fila in filasAntiguo)
+                {
+                    totalZonasOrigen++;
+                    int idDir = fila.IDDir;
+                    int idCli = fila.IDCli;
+                    string codCli = fila.CodCli;
+                    string nomCli = fila.NomCli;
+                    string codZona = fila.CodZona;
+                    string codRuta = fila.CodRuta;
+                    string codVend = fila.CodVend;
+                    int diaSemana = fila.DiaSemana;
+
+                    if (!direccionesActivasPorClienteOrigen.TryGetValue(idCli, out var setDirs))
+                    {
+                        setDirs = new HashSet<int>();
+                        direccionesActivasPorClienteOrigen[idCli] = setDirs;
+                    }
+                    setDirs.Add(idDir);
+                    duenoRealPorIdDirExtra[idDir] = idCli;
+
+                    zonasVistasPorClienteOrigen.Add($"EX_{idCli}_{codZona}");
+                    zonasVistasPorClienteOrigen.Add($"COD_{codCli}_{codZona}");
+                    zonasVistasPorClienteOrigen.Add($"DIR_{idDir}_{codZona}");
+
+                    string keyExacta = $"{idCli}_{idDir}_{codZona}_{codVend}_{diaSemana}";
+                    string keyOrigen = $"{idCli}_{idDir}_{codZona}_{diaSemana}";
+
+                    if (!asignacionesVistasEnOrigen.Add(keyOrigen))
+                        continue;
+
+                    asignacionesExactasEnOrigen.Add(keyExacta);
+
+                    HashSet<string>? setVendsForce = null;
+                    if (vendedoresForcePorCliDia.TryGetValue($"EX_{idCli}_{codZona}_{diaSemana}", out var sEx))
+                    {
+                        setVendsForce = new HashSet<string>(sEx, StringComparer.OrdinalIgnoreCase);
+                    }
+                    if (vendedoresForcePorCliDia.TryGetValue($"COD_{codCli}_{codZona}_{diaSemana}", out var sCod))
+                    {
+                        setVendsForce ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        setVendsForce.UnionWith(sCod);
+                    }
+                    if (vendedoresForcePorCliDia.TryGetValue($"DIR_{idDir}_{codZona}_{diaSemana}", out var sDir))
+                    {
+                        setVendsForce ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        setVendsForce.UnionWith(sDir);
+                    }
+
+                    if (setVendsForce == null || setVendsForce.Count == 0)
+                    {
+                        zonasInserts++;
+                        nuevosIdsZonas.Add(idDir);
+                        if (detalles.Count < 2500)
                         {
-                            setDirs = new HashSet<int>();
-                            direccionesActivasPorClienteOrigen[idCli] = setDirs;
-                        }
-                        setDirs.Add(idDir);
-
-                        string keyOrigen = $"EX_{idCli}_{codZona}_{diaSemana}";
-                        asignacionesVistasEnOrigen.Add(keyOrigen);
-                        asignacionesVistasEnOrigen.Add($"COD_{codCli}_{codZona}_{diaSemana}");
-                        asignacionesVistasEnOrigen.Add($"DIR_{idDir}_{codZona}_{diaSemana}");
-                        asignacionesExactasEnOrigen.Add($"EX_{idCli}_{codZona}_{diaSemana}_{codVend}");
-
-                        // Registrar presencia de zona para control de bajas de dir_DireccionZona
-                        zonasVistasPorClienteOrigen.Add($"EX_{idCli}_{codZona}");
-                        zonasVistasPorClienteOrigen.Add($"COD_{codCli}_{codZona}");
-                        zonasVistasPorClienteOrigen.Add($"DIR_{idDir}_{codZona}");
-
-                        // Unificar todos los vendedores activos en Force para este cliente/dirección/zona/día
-                        HashSet<string>? setVendsForce = null;
-                        if (vendedoresForcePorCliDia.TryGetValue(keyOrigen, out var sEx))
-                        {
-                            setVendsForce = new HashSet<string>(sEx, StringComparer.OrdinalIgnoreCase);
-                        }
-                        if (vendedoresForcePorCliDia.TryGetValue($"COD_{codCli}_{codZona}_{diaSemana}", out var sCod))
-                        {
-                            setVendsForce ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                            setVendsForce.UnionWith(sCod);
-                        }
-                        if (vendedoresForcePorCliDia.TryGetValue($"DIR_{idDir}_{codZona}_{diaSemana}", out var sDir))
-                        {
-                            setVendsForce ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                            setVendsForce.UnionWith(sDir);
-                        }
-
-                        if (setVendsForce == null || setVendsForce.Count == 0)
-                        {
-                            // Es una asignación nueva (o día/ruta nuevo)
-                            zonasInserts++;
-                            nuevosIdsZonas.Add(idDir);
-                            if (preview.DetalleCambios.Count < 2500)
+                            detalles.Add(new CambioDetectadoItemDto
                             {
-                                preview.DetalleCambios.Add(new CambioDetectadoItemDto
-                                {
-                                    Tabla = "ZONAS Y RUTAS",
-                                    TipoOperacion = "INSERT",
-                                    IDOrigen = idDir,
-                                    CodigoCliente = codCli,
-                                    NombreCliente = nomCli,
-                                    CampoModificado = $"Nueva Asignación Zona {codZona} (Día {diaSemana})",
-                                    ValorActualForce = "Sin ruta activa en Force para este día",
-                                    ValorNuevoERP = $"Vend: {codVend} | Día: {diaSemana} | Zona: {codZona} | Ruta: {codRuta}"
-                                });
-                            }
+                                Tabla = "ZONAS Y RUTAS",
+                                TipoOperacion = "INSERT",
+                                IDOrigen = idDir,
+                                CodigoCliente = codCli,
+                                NombreCliente = nomCli,
+                                CampoModificado = $"Nueva Asignación Zona {codZona} (Día {diaSemana})",
+                                ValorActualForce = "Sin ruta activa en Force para este día",
+                                ValorNuevoERP = $"Vend: {codVend} | Día: {diaSemana} | Zona: {codZona} | Ruta: {codRuta}"
+                            });
                         }
-                        else if (!setVendsForce.Contains(codVend))
+                    }
+                    else if (!setVendsForce.Contains(codVend))
+                    {
+                        string vendActual = string.Join(", ", setVendsForce);
+                        zonasUpdates++;
+                        diasConUpdate.Add(keyOrigen);
+                        nuevosIdsZonas.Add(idDir);
+                        if (detalles.Count < 2500)
                         {
-                            // Misma zona y día pero cambiaron de vendedor
-                            string vendActual = string.Join(", ", setVendsForce);
-                            zonasUpdates++;
-                            diasConUpdate.Add(keyOrigen);
-                            nuevosIdsZonas.Add(idDir);
-                            if (preview.DetalleCambios.Count < 2500)
+                            detalles.Add(new CambioDetectadoItemDto
                             {
-                                preview.DetalleCambios.Add(new CambioDetectadoItemDto
-                                {
-                                    Tabla = "ZONAS Y RUTAS",
-                                    TipoOperacion = "UPDATE",
-                                    IDOrigen = idDir,
-                                    CodigoCliente = codCli,
-                                    NombreCliente = nomCli,
-                                    CampoModificado = $"Cambio de Vendedor (Zona {codZona}, Día {diaSemana})",
-                                    ValorActualForce = $"Vendedor: {vendActual}",
-                                    ValorNuevoERP = $"Vendedor: {codVend} | Día: {diaSemana} | Zona: {codZona} | Ruta: {codRuta}"
-                                });
-                            }
+                                Tabla = "ZONAS Y RUTAS",
+                                TipoOperacion = "UPDATE",
+                                IDOrigen = idDir,
+                                CodigoCliente = codCli,
+                                NombreCliente = nomCli,
+                                CampoModificado = $"Cambio de Vendedor (Zona {codZona}, Día {diaSemana})",
+                                ValorActualForce = $"Vendedor: {vendActual}",
+                                ValorNuevoERP = $"Vendedor: {codVend} | Día: {diaSemana} | Zona: {codZona} | Ruta: {codRuta}"
+                            });
                         }
                     }
                 }
 
                 var idsEdColisionados = new HashSet<int>();
-
-                // Detectar eliminaciones / filas borradas o zonas antiguas que quedaron activas en Force (DELETE)
                 foreach (var itemForce in listaCarteraForce)
                 {
-                    // Si esta dirección física en el ERP Antiguo pertenece a otro cliente real distinto,
-                    // este vínculo en dir_EntidadDireccion fue producto de colisión de ID ('SIN DIRECCION'); lo auto-depuramos
                     if (itemForce.IDDireccionExtra.HasValue
                         && duenoRealPorIdDirExtra.TryGetValue(itemForce.IDDireccionExtra.Value, out int idCliDuenoReal)
                         && itemForce.IDClienteExtra.HasValue
@@ -771,14 +846,13 @@ namespace IntegradorFlexForce.Services
                                           || (!string.IsNullOrEmpty(itemForce.CodigoCliente) && zonasVistasPorClienteOrigen.Contains($"COD_{itemForce.CodigoCliente}_{itemForce.CodigoZona}"))
                                           || (itemForce.IDDireccionExtra.HasValue && zonasVistasPorClienteOrigen.Contains($"DIR_{itemForce.IDDireccionExtra.Value}_{itemForce.CodigoZona}"));
 
-                    // Contabilizar como BAJA / DELETE solo si esa zona ya no existe para el cliente/dirección en el ERP Antiguo
                     if (!tieneZonaEnOrigen)
                     {
                         zonasDeletes++;
                         zonasQuitadasIds.Add(itemForce.IDDireccionZona);
-                        if (preview.DetalleCambios.Count < 2500)
+                        if (detalles.Count < 2500)
                         {
-                            preview.DetalleCambios.Add(new CambioDetectadoItemDto
+                            detalles.Add(new CambioDetectadoItemDto
                             {
                                 Tabla = "ZONAS Y RUTAS",
                                 TipoOperacion = "BAJA / DELETE",
@@ -793,10 +867,9 @@ namespace IntegradorFlexForce.Services
                     }
                 }
 
-                // Auto-depurar en BDForceGVD los vínculos de dir_EntidadDireccion colisionados
                 if (idsEdColisionados.Count > 0)
                 {
-                    using var connForceClean = new SqlConnection(_connectionStringForce);
+                    using var connForceClean = CrearConexionForce();
                     await connForceClean.OpenAsync(ct);
                     var inEd = string.Join(",", idsEdColisionados);
                     var sqlCleanEd = $"UPDATE dbo.dir_EntidadDireccion SET Estado = 0, EsPrincipal = 0, FechaModificacion = GETDATE() WHERE ID IN ({inEd});";
@@ -813,7 +886,7 @@ namespace IntegradorFlexForce.Services
                 _logger.LogWarning(ex, "Fallo al comparar cartera de rutas");
             }
 
-            preview.ResumenPorTabla.Add(new TablaComparacionResumenDto
+            var resZonas = new TablaComparacionResumenDto
             {
                 CodigoTabla = "ZONAS_RUTAS",
                 NombreTabla = "3. Cartera de Zonas, Rutas y Vendedor",
@@ -824,23 +897,30 @@ namespace IntegradorFlexForce.Services
                 UpdatesDetectados = zonasUpdates,
                 DeletesBajasDetectados = zonasDeletes,
                 Observacion = obsZonas
-            });
+            };
 
-            // ---------------------------------------------------------------------
-            // D. RESUMEN Y COMPARACIÓN DE LÍNEAS DE CRÉDITO POR PORTAFOLIO
-            // ---------------------------------------------------------------------
+            return (resZonas, detalles, nuevosIdsZonas, zonasQuitadasIds);
+        }
+
+        // -------------------------------------------------------------------------
+        // SUB-PROCESO 3: LÍNEAS DE CRÉDITO (Lectura concurrente)
+        // -------------------------------------------------------------------------
+        private async Task<(TablaComparacionResumenDto ResCred, List<CambioDetectadoItemDto> Detalles, HashSet<int> CreditosIds)> AnalizarCreditosAsync(CancellationToken ct)
+        {
             int totalCreditosOrigen = 0, totalCreditosDestino = 0;
             int credInserts = 0, credUpdates = 0, credDeletes = 0;
             var creditosPendientesIds = new HashSet<int>();
+            var detalles = new List<CambioDetectadoItemDto>();
             string obsCreditos = "Al día (Sin diferencias)";
 
             try
             {
-                // Cargar créditos actuales en BDForceGVD agrupados por (IDClienteExtra, CodigoCatalogo) e (IDClienteExtra, IDCatalogoExtra)
                 var creditosForce = new Dictionary<string, (decimal Monto, int DiasGracia, bool Estado)>(1500000, StringComparer.OrdinalIgnoreCase);
-                using (var connForce = new SqlConnection(_connectionStringForce))
+
+                var taskForce = Task.Run(async () =>
                 {
-                    await connForce.OpenAsync(ct);
+                    using var conn = CrearConexionForce();
+                    await conn.OpenAsync(ct);
                     const string sqlCredForce = @"
                         SELECT 
                             c.IDExtra AS IDClienteExtra,
@@ -854,7 +934,7 @@ namespace IntegradorFlexForce.Services
                         INNER JOIN dbo.ctg_Catalogo cat WITH (NOLOCK) ON cat.ID = cc.IDCatalogo
                         WHERE cc.Eliminado = 0 AND c.IDExtra IS NOT NULL;";
 
-                    using var cmd = new SqlCommand(sqlCredForce, connForce) { CommandTimeout = 120 };
+                    using var cmd = new SqlCommand(sqlCredForce, conn) { CommandTimeout = 120 };
                     using var r = await cmd.ExecuteReaderAsync(ct);
                     while (await r.ReadAsync(ct))
                     {
@@ -870,13 +950,13 @@ namespace IntegradorFlexForce.Services
                         if (!string.IsNullOrEmpty(codCat))
                             creditosForce[$"{idCliEx}_COD_{codCat}"] = (monto, dias, estado);
                     }
-                    totalCreditosDestino = creditosForce.Count;
-                }
+                }, ct);
 
-                // Comparar contra LineaCreditoPorPortafolioProducto del ERP Antiguo
-                using (var connAntiguo = new SqlConnection(_connectionStringAntiguo))
+                var filasAntiguo = new List<(int IDLinea, int IDCli, string CodCli, string NomCli, int IDPort, string CodPort, string NomPort, decimal Monto, int Dias, bool Activo)>(10000);
+                var taskAntiguo = Task.Run(async () =>
                 {
-                    await connAntiguo.OpenAsync(ct);
+                    using var conn = CrearConexionAntiguo();
+                    await conn.OpenAsync(ct);
                     const string sqlCredAntiguo = @"
                         SELECT 
                             l.PKID AS ID_LineaCredito,
@@ -894,66 +974,85 @@ namespace IntegradorFlexForce.Services
                         LEFT JOIN dbo.PortafolioProducto pp WITH (NOLOCK) ON pp.PKID = l.IDPortafolioProducto
                         WHERE p.Activo = 1;";
 
-                    using var cmd = new SqlCommand(sqlCredAntiguo, connAntiguo) { CommandTimeout = 180 };
+                    using var cmd = new SqlCommand(sqlCredAntiguo, conn) { CommandTimeout = 180 };
                     using var r = await cmd.ExecuteReaderAsync(ct);
                     while (await r.ReadAsync(ct))
                     {
-                        totalCreditosOrigen++;
-                        int idLinea = r.GetInt32(0);
-                        int idCli = r.GetInt32(1);
-                        string codCli = r.GetString(2);
-                        string nomCli = r.GetString(3);
-                        int idPort = r.GetInt32(4);
-                        string codPort = r.GetString(5);
-                        string nomPort = r.GetString(6);
-                        decimal monto = r.GetDecimal(7);
-                        int dias = r.GetInt32(8);
-                        bool activo = r.GetBoolean(9);
+                        filasAntiguo.Add((
+                            r.GetInt32(0),
+                            r.GetInt32(1),
+                            r.GetString(2),
+                            r.GetString(3),
+                            r.GetInt32(4),
+                            r.GetString(5),
+                            r.GetString(6),
+                            r.GetDecimal(7),
+                            r.GetInt32(8),
+                            r.GetBoolean(9)
+                        ));
+                    }
+                }, ct);
 
-                        string key = $"{idCli}_{idPort}";
-                        string keyCod = $"{idCli}_COD_{codPort}";
-                        if (!creditosForce.TryGetValue(key, out var credF) && !creditosForce.TryGetValue(keyCod, out credF))
+                await Task.WhenAll(taskForce, taskAntiguo);
+                totalCreditosDestino = creditosForce.Count;
+
+                foreach (var f in filasAntiguo)
+                {
+                    totalCreditosOrigen++;
+                    int idLinea = f.IDLinea;
+                    int idCli = f.IDCli;
+                    string codCli = f.CodCli;
+                    string nomCli = f.NomCli;
+                    int idPort = f.IDPort;
+                    string codPort = f.CodPort;
+                    string nomPort = f.NomPort;
+                    decimal monto = f.Monto;
+                    int dias = f.Dias;
+                    bool activo = f.Activo;
+
+                    string key = $"{idCli}_{idPort}";
+                    string keyCod = $"{idCli}_COD_{codPort}";
+                    if (!creditosForce.TryGetValue(key, out var credF) && !creditosForce.TryGetValue(keyCod, out credF))
+                    {
+                        if (activo && monto > 0)
                         {
-                            if (activo && monto > 0)
+                            credInserts++;
+                            creditosPendientesIds.Add(idLinea);
+                            if (detalles.Count < 2500)
                             {
-                                credInserts++;
-                                creditosPendientesIds.Add(idLinea);
-                                if (preview.DetalleCambios.Count < 2500)
+                                detalles.Add(new CambioDetectadoItemDto
                                 {
-                                    preview.DetalleCambios.Add(new CambioDetectadoItemDto
-                                    {
-                                        Tabla = "LINEAS DE CREDITO",
-                                        TipoOperacion = "INSERT",
-                                        IDOrigen = idLinea,
-                                        CodigoCliente = codCli,
-                                        NombreCliente = nomCli,
-                                        CampoModificado = $"Línea Crédito ({nomPort})",
-                                        ValorActualForce = "Sin línea asignada",
-                                        ValorNuevoERP = $"Línea: S/. {monto:N2} | Días: {dias}"
-                                    });
-                                }
+                                    Tabla = "LINEAS DE CREDITO",
+                                    TipoOperacion = "INSERT",
+                                    IDOrigen = idLinea,
+                                    CodigoCliente = codCli,
+                                    NombreCliente = nomCli,
+                                    CampoModificado = $"Línea Crédito ({nomPort})",
+                                    ValorActualForce = "Sin línea asignada",
+                                    ValorNuevoERP = $"Línea: S/. {monto:N2} | Días: {dias}"
+                                });
                             }
                         }
-                        else
+                    }
+                    else
+                    {
+                        if (credF.Estado != activo || Math.Abs(credF.Monto - monto) > 0.01m || credF.DiasGracia != dias)
                         {
-                            if (credF.Estado != activo || Math.Abs(credF.Monto - monto) > 0.01m || credF.DiasGracia != dias)
+                            credUpdates++;
+                            creditosPendientesIds.Add(idLinea);
+                            if (detalles.Count < 2500)
                             {
-                                credUpdates++;
-                                creditosPendientesIds.Add(idLinea);
-                                if (preview.DetalleCambios.Count < 2500)
+                                detalles.Add(new CambioDetectadoItemDto
                                 {
-                                    preview.DetalleCambios.Add(new CambioDetectadoItemDto
-                                    {
-                                        Tabla = "LINEAS DE CREDITO",
-                                        TipoOperacion = "UPDATE",
-                                        IDOrigen = idLinea,
-                                        CodigoCliente = codCli,
-                                        NombreCliente = nomCli,
-                                        CampoModificado = $"Monto/Días Crédito ({nomPort})",
-                                        ValorActualForce = $"Línea: S/. {credF.Monto:N2} | Días: {credF.DiasGracia} | {(credF.Estado ? "ACTIVO" : "INACTIVO")}",
-                                        ValorNuevoERP = $"Línea: S/. {monto:N2} | Días: {dias} | {(activo ? "ACTIVO" : "INACTIVO")}"
-                                    });
-                                }
+                                    Tabla = "LINEAS DE CREDITO",
+                                    TipoOperacion = "UPDATE",
+                                    IDOrigen = idLinea,
+                                    CodigoCliente = codCli,
+                                    NombreCliente = nomCli,
+                                    CampoModificado = $"Monto/Días Crédito ({nomPort})",
+                                    ValorActualForce = $"Línea: S/. {credF.Monto:N2} | Días: {credF.DiasGracia} | {(credF.Estado ? "ACTIVO" : "INACTIVO")}",
+                                    ValorNuevoERP = $"Línea: S/. {monto:N2} | Días: {dias} | {(activo ? "ACTIVO" : "INACTIVO")}"
+                                });
                             }
                         }
                     }
@@ -967,7 +1066,7 @@ namespace IntegradorFlexForce.Services
                 _logger.LogWarning(ex, "Fallo al comparar líneas de crédito");
             }
 
-            preview.ResumenPorTabla.Add(new TablaComparacionResumenDto
+            var resCred = new TablaComparacionResumenDto
             {
                 CodigoTabla = "CREDITOS",
                 NombreTabla = "4. Líneas y Modalidades de Crédito",
@@ -978,24 +1077,9 @@ namespace IntegradorFlexForce.Services
                 UpdatesDetectados = credUpdates,
                 DeletesBajasDetectados = credDeletes,
                 Observacion = obsCreditos
-            });
+            };
 
-            _idsClientesConCambios = nuevosIdsClientes;
-            _idsDireccionesZonaConCambios = nuevosIdsZonas;
-            _idsDireccionesZonaQuitadas = zonasQuitadasIds;
-            _idsCreditosConCambios = creditosPendientesIds;
-
-            sw.Stop();
-            preview.TiempoEscaneoSegundos = Math.Round(sw.Elapsed.TotalSeconds, 2);
-            _currentStatus.FaseDetalle = $"Análisis completado en {preview.TiempoEscaneoSegundos}s. Detectadas {nuevosIdsClientes.Count} diferencias en clientes/direcciones y {zonasInserts + zonasUpdates + zonasDeletes} en zonas/rutas.";
-
-            return preview;
-        }
-
-        private static string NormalizarTexto(string? input)
-        {
-            if (string.IsNullOrWhiteSpace(input)) return "";
-            return input.Trim();
+            return (resCred, detalles, creditosPendientesIds);
         }
 
         // =========================================================================
