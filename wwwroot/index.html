@@ -4285,6 +4285,84 @@
                 </div>
             </div>
 
+            <!-- TARJETA MÓDULO 4: STOCK E INVENTARIO POR ALMACÉN -->
+            <div style="background:#ffffff; border-radius:16px; padding:22px 24px; box-shadow:var(--shadow-card); border:1px solid #e2e8f0; display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <!-- Encabezado Módulo Stock -->
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid #f1f5f9;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="width:40px; height:40px; border-radius:12px; background:#ecfdf5; color:#059669; display:flex; align-items:center; justify-content:center;">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="1" y="3" width="22" height="18" rx="2" ry="2"/><line x1="1" y1="9" x2="23" y2="9"/><line x1="8" y1="21" x2="8" y2="9"/><line x1="16" y1="21" x2="16" y2="9"/></svg>
+                            </div>
+                            <div>
+                                <h3 style="font-size:15px; font-weight:800; color:#0f172a; margin:0;">Módulo 4: Stock e Inventario por Almacén</h3>
+                                <div style="font-size:12px; color:#64748b;">Sincronización diferencial de existencias en inv_ProductoAlmacen</div>
+                            </div>
+                        </div>
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; background:#f8fafc; padding:5px 12px; border-radius:20px; border:1px solid #e2e8f0;">
+                            <input type="checkbox" id="chkAutoStock" style="width:16px; height:16px; cursor:pointer;" checked>
+                            <span style="font-size:12.5px; font-weight:700; color:#334155;">Automático</span>
+                        </label>
+                    </div>
+
+                    <!-- Selector de Modo de Ejecución para Stock -->
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block; font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px;">Modo de Ejecución Automática:</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <button type="button" id="btnModoStockInt" class="btn-modo-pill active" onclick="cambiarModoStock('INTERVALO')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
+                                <div style="font-weight:700; font-size:13px; color:#0f172a;">⏱ Intervalo Periódico</div>
+                                <div style="font-size:11px; color:#64748b;">Dentro de una ventana horaria</div>
+                            </button>
+                            <button type="button" id="btnModoStockMad" class="btn-modo-pill" onclick="cambiarModoStock('MADRUGADA')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
+                                <div style="font-weight:700; font-size:13px; color:#0f172a;">🌙 1 Vez en la Madrugada</div>
+                                <div style="font-size:11px; color:#64748b;">Ejecución nocturna desatendida</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Configuración: MODO INTERVALO -->
+                    <div id="panelStockIntervalo" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:14px;">
+                        <div style="font-size:12px; font-weight:700; color:#334155; margin-bottom:12px;">Parámetros del Intervalo Periódico:</div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                            <div class="field-group" style="padding:0;">
+                                <label style="font-size:11.5px; font-weight:700; color:#64748b; margin-bottom:4px; display:block;">Hora Inicio</label>
+                                <input type="text" id="txtHoraInicioStock" value="05:00" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-family:monospace; font-size:13px; font-weight:700;">
+                            </div>
+                            <div class="field-group" style="padding:0;">
+                                <label style="font-size:11.5px; font-weight:700; color:#64748b; margin-bottom:4px; display:block;">Hora Fin</label>
+                                <input type="text" id="txtHoraFinStock" value="23:30" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-family:monospace; font-size:13px; font-weight:700;">
+                            </div>
+                            <div class="field-group" style="padding:0;">
+                                <label style="font-size:11.5px; font-weight:700; color:#64748b; margin-bottom:4px; display:block;">Cada (Minutos)</label>
+                                <input type="number" id="txtIntervaloStock" min="1" max="720" value="2" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-family:monospace; font-size:13px; font-weight:700;">
+                            </div>
+                        </div>
+                        <div style="font-size:11.5px; color:#64748b; margin-top:8px;">
+                            💡 Se ejecutará automáticamente cada intervalo configurado únicamente entre la hora de inicio y fin.
+                        </div>
+                    </div>
+
+                    <!-- Panel de Configuración: MODO MADRUGADA -->
+                    <div id="panelStockMadrugada" style="display:none; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:12px; padding:16px; margin-bottom:14px;">
+                        <div style="font-size:12px; font-weight:700; color:#065f46; margin-bottom:12px;">Parámetros de Ejecución Nocturna:</div>
+                        <div style="display:flex; align-items:center; gap:16px;">
+                            <div style="flex:1;">
+                                <label style="font-size:11.5px; font-weight:700; color:#047857; margin-bottom:4px; display:block;">Hora Madrugada (Hora Perú · 24h)</label>
+                                <input type="text" id="txtHoraMadrugadaStock" value="04:30" style="width:160px; padding:8px 12px; border-radius:8px; border:1px solid #6ee7b7; font-family:monospace; font-size:14px; font-weight:700; color:#065f46; background:#ffffff;">
+                            </div>
+                            <div style="font-size:12px; color:#065f46; line-height:1.4; flex:2;">
+                                🌙 <strong>Cero Impacto Diurno:</strong> Se procesará 1 sola vez cada día en la madrugada para actualizar existencias completas.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="border-top:1px solid #f1f5f9; padding-top:10px; font-size:11.5px; color:#64748b; display:flex; align-items:center; gap:6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Aplica salto inteligente instantáneo si no detecta diferencias.
+                </div>
+            </div>
+
         </div>
 
         <!-- 3. TARJETA RESILIENCIA ANTE CAÍDAS Y RENDIMIENTO SQL -->
@@ -5875,6 +5953,25 @@ async function ejecutarSincronizacion(modo) {
         }
     }
 
+    function cambiarModoStock(modo) {
+        const pInt = document.getElementById('panelStockIntervalo');
+        const pMad = document.getElementById('panelStockMadrugada');
+        const btnInt = document.getElementById('btnModoStockInt');
+        const btnMad = document.getElementById('btnModoStockMad');
+
+        if (modo === 'MADRUGADA') {
+            if (pInt) pInt.style.display = 'none';
+            if (pMad) pMad.style.display = 'block';
+            if (btnInt) btnInt.classList.remove('active');
+            if (btnMad) btnMad.classList.add('active');
+        } else {
+            if (pInt) pInt.style.display = 'block';
+            if (pMad) pMad.style.display = 'none';
+            if (btnInt) btnInt.classList.add('active');
+            if (btnMad) btnMad.classList.remove('active');
+        }
+    }
+
     async function toggleModoSincronizacion() {
         try {
             const nuevoEstado = !configGlobalCache?.sincronizacionActiva;
@@ -5940,7 +6037,33 @@ async function ejecutarSincronizacion(modo) {
             const tMadPrd = document.getElementById('txtHoraMadrugadaProductos');
             if (tMadPrd) tMadPrd.value = c.horaMadrugadaProductos || '03:30';
 
-            // 4. Resiliencia ante Caídas y Rendimiento SQL
+            // 4. Módulo Vendedores
+            const chkVend = document.getElementById('chkAutoVendedores');
+            if (chkVend) chkVend.checked = c.autoVendedoresActivo !== false;
+            if (typeof cambiarModoVendedores === 'function') cambiarModoVendedores(c.modoVendedores || 'INTERVALO');
+            const tIniVend = document.getElementById('txtHoraInicioVendedores');
+            if (tIniVend) tIniVend.value = c.horaInicioVendedores || '05:00';
+            const tFinVend = document.getElementById('txtHoraFinVendedores');
+            if (tFinVend) tFinVend.value = c.horaFinVendedores || '23:30';
+            const tIntVend = document.getElementById('txtIntervaloVendedores');
+            if (tIntVend) tIntVend.value = c.intervaloVendedoresMinutos || 5;
+            const tMadVend = document.getElementById('txtHoraMadrugadaVendedores');
+            if (tMadVend) tMadVend.value = c.horaMadrugadaVendedores || '04:00';
+
+            // 5. Módulo Stock
+            const chkStk = document.getElementById('chkAutoStock');
+            if (chkStk) chkStk.checked = c.autoStockActivo !== false;
+            cambiarModoStock(c.modoStock || 'INTERVALO');
+            const tIniStk = document.getElementById('txtHoraInicioStock');
+            if (tIniStk) tIniStk.value = c.horaInicioStock || '05:00';
+            const tFinStk = document.getElementById('txtHoraFinStock');
+            if (tFinStk) tFinStk.value = c.horaFinStock || '23:30';
+            const tIntStk = document.getElementById('txtIntervaloStock');
+            if (tIntStk) tIntStk.value = c.intervaloStockMinutos || 2;
+            const tMadStk = document.getElementById('txtHoraMadrugadaStock');
+            if (tMadStk) tMadStk.value = c.horaMadrugadaStock || '04:30';
+
+            // 6. Resiliencia ante Caídas y Rendimiento SQL
             const chkReint = document.getElementById('chkHabilitarReintentos');
             if (chkReint) chkReint.checked = c.habilitarReintentos !== false;
             const selReint = document.getElementById('selReintentosMaximos');
@@ -5958,6 +6081,8 @@ async function ejecutarSincronizacion(modo) {
     async function guardarConfiguracion() {
         const modoCli = document.getElementById('btnModoCliMad')?.classList.contains('active') ? 'MADRUGADA' : 'INTERVALO';
         const modoPrd = document.getElementById('btnModoPrdMad')?.classList.contains('active') ? 'MADRUGADA' : 'INTERVALO';
+        const modoVend = document.getElementById('btnModoVendMad')?.classList.contains('active') ? 'MADRUGADA' : 'INTERVALO';
+        const modoStk = document.getElementById('btnModoStockMad')?.classList.contains('active') ? 'MADRUGADA' : 'INTERVALO';
 
         const body = {
             sincronizacionActiva: document.getElementById('chkActiva')?.checked || false,
@@ -5980,6 +6105,20 @@ async function ejecutarSincronizacion(modo) {
             horaInicioProductos: document.getElementById('txtHoraInicioProductos')?.value || '05:00',
             horaFinProductos: document.getElementById('txtHoraFinProductos')?.value || '23:30',
             horaMadrugadaProductos: document.getElementById('txtHoraMadrugadaProductos')?.value || '03:30',
+
+            autoVendedoresActivo: document.getElementById('chkAutoVendedores')?.checked || false,
+            modoVendedores: modoVend,
+            intervaloVendedoresMinutos: parseInt(document.getElementById('txtIntervaloVendedores')?.value) || 5,
+            horaInicioVendedores: document.getElementById('txtHoraInicioVendedores')?.value || '05:00',
+            horaFinVendedores: document.getElementById('txtHoraFinVendedores')?.value || '23:30',
+            horaMadrugadaVendedores: document.getElementById('txtHoraMadrugadaVendedores')?.value || '04:00',
+
+            autoStockActivo: document.getElementById('chkAutoStock')?.checked || false,
+            modoStock: modoStk,
+            intervaloStockMinutos: parseInt(document.getElementById('txtIntervaloStock')?.value) || 2,
+            horaInicioStock: document.getElementById('txtHoraInicioStock')?.value || '05:00',
+            horaFinStock: document.getElementById('txtHoraFinStock')?.value || '23:30',
+            horaMadrugadaStock: document.getElementById('txtHoraMadrugadaStock')?.value || '04:30',
 
             habilitarReintentos: document.getElementById('chkHabilitarReintentos')?.checked || false,
             esperaReintentoSegundos: parseInt(document.getElementById('selEsperaReintento')?.value) || 30
