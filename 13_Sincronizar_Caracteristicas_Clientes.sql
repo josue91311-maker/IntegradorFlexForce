@@ -34,7 +34,6 @@ GO
 -- 2. PROCEDIMIENTO DE POBLACIÓN MASIVA ULTRA RÁPIDA DE CARACTERÍSTICAS
 CREATE OR ALTER PROCEDURE dbo.usp_Sync_SincronizarCaracteristicasClientes
     @CodigoClienteEspecifico varchar(50) = NULL
-WITH EXECUTE AS OWNER
 AS
 BEGIN
     SET NOCOUNT ON;

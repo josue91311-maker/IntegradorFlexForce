@@ -54,7 +54,6 @@ CREATE OR ALTER PROCEDURE dbo.usp_Sync_SincronizarStock_Directo
     @TotalRemotos           int                  = 0 OUTPUT,
     @TotalActualizados      int                  = 0 OUTPUT,
     @TotalInsertados        int                  = 0 OUTPUT
-WITH EXECUTE AS OWNER
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -140,7 +139,7 @@ BEGIN
                     pa.TiempoDeEntrega, pa.FrecuenciaDeCompra, 
                     pa.CantidadMinima, pa.StockMinimo, pa.Activo
                 ) AS HashRemoto
-            FROM digalimenta41.dbo.ProductoAlmacen pa WITH (NOLOCK)
+            FROM ProductoAlmacen pa WITH (NOLOCK)
         ') r;
 
         SET @TotalRemotos = @@ROWCOUNT;
@@ -321,7 +320,6 @@ GO
 -- -------------------------------------------------------------
 CREATE OR ALTER PROCEDURE dbo.usp_Sync_PreviewStock
     @Top int = 100
-WITH EXECUTE AS OWNER
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -349,7 +347,7 @@ BEGIN
             pa.IDProducto, pa.IDAlmacen, pa.Capacidad, pa.StockFisico, pa.StockContable,
             pa.StockPorEntregar, pa.StockPorRecibir, pa.TiempoDeEntrega, pa.FrecuenciaDeCompra,
             pa.CantidadMinima, pa.StockMinimo, pa.Activo
-        FROM digalimenta41.dbo.ProductoAlmacen pa WITH (NOLOCK)
+        FROM ProductoAlmacen pa WITH (NOLOCK)
     ') pa;
 
     SELECT 

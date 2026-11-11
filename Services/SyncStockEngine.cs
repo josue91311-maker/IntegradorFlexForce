@@ -89,6 +89,8 @@ namespace IntegradorFlexForce.Services
                 if (!string.IsNullOrEmpty(path))
                 {
                     var sqlContent = await File.ReadAllTextAsync(path, ct);
+                    // Protección: nunca crear SPs con suplantación (evita error 15517 si el owner 'dbo' de la BD está huérfano)
+                    sqlContent = Regex.Replace(sqlContent, @"WITH\s+EXECUTE\s+AS\s+OWNER", "", RegexOptions.IgnoreCase);
                     var bloques = Regex.Split(sqlContent, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
                     foreach (var bloque in bloques)
                     {
@@ -153,7 +155,7 @@ namespace IntegradorFlexForce.Services
                             pa.IDProducto, pa.IDAlmacen, pa.Capacidad, pa.StockFisico, pa.StockContable,
                             pa.StockPorEntregar, pa.StockPorRecibir, pa.TiempoDeEntrega, pa.FrecuenciaDeCompra,
                             pa.CantidadMinima, pa.StockMinimo, pa.Activo
-                        FROM digalimenta41.dbo.ProductoAlmacen pa WITH (NOLOCK)
+                        FROM ProductoAlmacen pa WITH (NOLOCK)
                     ') pa;
 
                     SELECT 
