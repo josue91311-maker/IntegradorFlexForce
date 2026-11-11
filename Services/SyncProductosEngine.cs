@@ -279,6 +279,8 @@ namespace IntegradorFlexForce.Services
 
                         if (!encontrado)
                         {
+                            if (!activo) continue; // No insertar productos históricos que ya estaban dados de baja y nunca estuvieron en Force
+
                             prodInserts++;
                             nuevosIdsProd.Add(idProd);
                             if (prodDetalleCount < maxDetallePorSubmodulo)
@@ -291,9 +293,9 @@ namespace IntegradorFlexForce.Services
                                     IDOrigen = idProd,
                                     CodigoCliente = cod,
                                     NombreCliente = nom,
-                                    CampoModificado = activo ? "Alta de Producto Nuevo" : "Alta de Producto (Inactivo)",
+                                    CampoModificado = "Alta de Producto Nuevo",
                                     ValorActualForce = "No existe en Force",
-                                    ValorNuevoERP = $"{cod} - {nom} | Marca: {nomMarca} | Línea: {nomLinea} | Estado: {(activo ? "1" : "0")} | IGV: {(esInafecto ? "Inafecto" : "18%")}"
+                                    ValorNuevoERP = $"{cod} - {nom} | Marca: {nomMarca} | Línea: {nomLinea} | IGV: {(esInafecto ? "Inafecto" : "18%")}"
                                 });
                             }
                         }
@@ -531,6 +533,15 @@ namespace IntegradorFlexForce.Services
                         decimal volumen = r.GetDecimal(13);
                         decimal peso = r.GetDecimal(14);
 
+                        // Si el producto no está activo en ERP antiguo y no existe en Force, omitir sus unidades
+                        bool prodExisteEnForce = productosForcePorExtra.ContainsKey(idProd) 
+                                              || (!string.IsNullOrEmpty(codProd) && productosForcePorCodigo.ContainsKey(codProd));
+
+                        if (!prodExisteEnForce && !prodActivo)
+                        {
+                            continue;
+                        }
+
                         bool encontrada = unidadesForcePorExtra.TryGetValue(idUnid, out var uf);
                         if (!encontrada && !string.IsNullOrEmpty(abrev))
                         {
@@ -553,6 +564,9 @@ namespace IntegradorFlexForce.Services
 
                         if (!encontrada)
                         {
+                            if (!activo) continue;
+                            if (!prodExisteEnForce && !prodActivo) continue;
+
                             unidInserts++;
                             nuevosIdsUnid.Add(idUnid);
                             if (unidDetalleCount < maxDetallePorSubmodulo)
@@ -565,9 +579,9 @@ namespace IntegradorFlexForce.Services
                                     IDOrigen = idUnid,
                                     CodigoCliente = codProd,
                                     NombreCliente = nomProd,
-                                    CampoModificado = $"Nueva Presentación ({abrev})" + (!activo ? " [Inactiva]" : ""),
+                                    CampoModificado = $"Nueva Presentación ({abrev})",
                                     ValorActualForce = "Sin unidad en Force",
-                                    ValorNuevoERP = $"Unidad: {nomUnid} ({abrev}) | Factor: {factor:N2} | Base: {(esBase ? "Sí" : "No")} | Estado: {(activo ? "1" : "0")}"
+                                    ValorNuevoERP = $"Unidad: {nomUnid} ({abrev}) | Factor: {factor:N2} | Base: {(esBase ? "Sí" : "No")}"
                                 });
                             }
                         }
