@@ -279,24 +279,25 @@ BEGIN
         BEGIN
             UPDATE dbo.cli_CamposCliente
             SET 
-                Campo1 = ISNULL(@Campo1, Campo1),
-                Campo2 = ISNULL(@Campo2, Campo2),
-                Campo3 = ISNULL(@Campo3, Campo3),
-                Campo4 = ISNULL(@Campo4, Campo4),
-                Campo5 = ISNULL(@Campo5, Campo5),
-                Caracteristicas = CASE WHEN @CaracteristicasJson IS NOT NULL AND @CaracteristicasJson <> '' 
+                Campo1 = COALESCE(NULLIF(@Campo1, ''), Campo1),
+                Campo2 = COALESCE(NULLIF(@Campo2, ''), Campo2),
+                Campo3 = COALESCE(NULLIF(@Campo3, ''), Campo3),
+                Campo4 = COALESCE(NULLIF(@Campo4, ''), Campo4),
+                Campo5 = COALESCE(NULLIF(@Campo5, ''), Campo5),
+                Caracteristicas = CASE WHEN @CaracteristicasJson IS NOT NULL AND LTRIM(RTRIM(@CaracteristicasJson)) <> '' 
                                       THEN @CaracteristicasJson 
                                       ELSE Caracteristicas END,
                 FechaModificacion = GETDATE()
             WHERE IDCliente = @IDCliente;
         END
-        ELSE IF (@Campo1 IS NOT NULL OR @Campo2 IS NOT NULL OR @Campo3 IS NOT NULL OR @Campo4 IS NOT NULL OR (@CaracteristicasJson IS NOT NULL AND @CaracteristicasJson <> ''))
+        ELSE
         BEGIN
             INSERT INTO dbo.cli_CamposCliente (
                 IDCliente, Campo1, Campo2, Campo3, Campo4, Campo5, Caracteristicas, FechaCreacion, FechaModificacion
             )
             VALUES (
-                @IDCliente, @Campo1, @Campo2, @Campo3, @Campo4, @Campo5, @CaracteristicasJson, GETDATE(), GETDATE()
+                @IDCliente, NULLIF(@Campo1, ''), NULLIF(@Campo2, ''), NULLIF(@Campo3, ''), NULLIF(@Campo4, ''), NULLIF(@Campo5, ''), 
+                NULLIF(@CaracteristicasJson, ''), GETDATE(), GETDATE()
             );
         END
 
