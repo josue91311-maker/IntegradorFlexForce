@@ -232,8 +232,7 @@ namespace IntegradorFlexForce.Services
                             LTRIM(RTRIM(ISNULL(pp.Nombre, ''))) AS NombreProveedor,
                             ISNULL(subp.PKID, 0) AS IDSubProveedor,
                             ISNULL(subp.Descripcion, '') AS NombreSubProveedor,
-                            CAST(ISNULL(p.EsInafecto, 0) AS bit) AS EsInafecto,
-                            ISNULL(p.IDCategoria, 0) AS IDCategoria
+                            CAST(ISNULL(p.EsInafecto, 0) AS bit) AS EsInafecto
                         FROM dbo.Producto p WITH (NOLOCK)
                         INNER JOIN dbo.ProductoServicio ps WITH (NOLOCK) ON ps.PKID = p.PKID
                         LEFT JOIN dbo.Marca m WITH (NOLOCK) ON m.PKID = p.IDMarca
@@ -270,7 +269,6 @@ namespace IntegradorFlexForce.Services
                         int idSubProv = r.GetInt32(10);
                         string nomSubProv = r.GetString(11);
                         bool esInafecto = r.GetBoolean(12);
-                        int idCat = r.GetInt32(13);
 
                         bool encontrado = productosForcePorExtra.TryGetValue(idProd, out var pf);
                         if (!encontrado && !string.IsNullOrEmpty(cod) && productosForcePorCodigo.TryGetValue(cod, out var pfCod))
@@ -371,12 +369,6 @@ namespace IntegradorFlexForce.Services
                                 diffs.Add("SubProveedor");
                                 valForce = $"SubProv: {pf.NombreSubProv}";
                                 valErp = $"SubProv: {nomSubProv}";
-                            }
-                            if (idCat > 0 && pf.IDCategoria.HasValue && pf.IDCategoria.Value != idCat)
-                            {
-                                diffs.Add("Categoría");
-                                valForce = $"Cat: {pf.IDCategoria}";
-                                valErp = $"Cat: {idCat}";
                             }
 
                             if (diffs.Count > 0)
