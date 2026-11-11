@@ -1171,6 +1171,170 @@
             cursor: not-allowed;
         }
 
+        /* =========================================================================
+           SECCIÓN DE EJECUCIÓN MASIVA (SET-BASED FAST ENGINE)
+           ========================================================================= */
+        .seccion-ejecutar-masivo {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid #e2e8f0;
+            border-left: 5px solid var(--primary-blue);
+            border-radius: 14px;
+            padding: 18px 22px;
+            margin-bottom: 22px;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .seccion-ejecutar-masivo.prod { border-left-color: #f59e0b; }
+        .seccion-ejecutar-masivo.vend { border-left-color: #7e22ce; }
+        .seccion-ejecutar-masivo.stock { border-left-color: #059669; }
+
+        .bulk-header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .bulk-title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .bulk-icon-badge {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 19px;
+            background: #eff6ff;
+            color: #2563eb;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+            flex-shrink: 0;
+        }
+        .bulk-icon-badge.prod { background: #fffbeb; color: #d97706; box-shadow: 0 2px 8px rgba(217, 119, 6, 0.12); }
+        .bulk-icon-badge.vend { background: #faf5ff; color: #7e22ce; box-shadow: 0 2px 8px rgba(126, 34, 206, 0.12); }
+        .bulk-icon-badge.stock { background: #ecfdf5; color: #059669; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.12); }
+
+        .bulk-title {
+            font-size: 14.5px;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .bulk-tag {
+            font-size: 10.5px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 2.5px 8px;
+            border-radius: 999px;
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .bulk-tag.prod { background: #fef3c7; color: #92400e; }
+        .bulk-tag.vend { background: #f3e8ff; color: #6b21a8; }
+        .bulk-tag.stock { background: #d1fae5; color: #065f46; }
+
+        .bulk-desc {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 2px;
+            line-height: 1.4;
+        }
+
+        .bulk-actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+        }
+        .bulk-card-btn {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 13px 16px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+            font-family: inherit;
+        }
+        .bulk-card-btn:hover {
+            transform: translateY(-2px);
+            border-color: #cbd5e1;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+        }
+        .bulk-card-btn.primary {
+            border-color: #bfdbfe;
+            background: linear-gradient(180deg, #ffffff 0%, #f0f7ff 100%);
+        }
+        .bulk-card-btn.primary:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 6px 18px rgba(37, 99, 235, 0.15);
+        }
+        .bulk-card-btn.amber {
+            border-color: #fde68a;
+            background: linear-gradient(180deg, #ffffff 0%, #fffbeb 100%);
+        }
+        .bulk-card-btn.amber:hover {
+            border-color: #f59e0b;
+            box-shadow: 0 6px 18px rgba(245, 158, 11, 0.15);
+        }
+        .bulk-card-btn.purple {
+            border-color: #e9d5ff;
+            background: linear-gradient(180deg, #ffffff 0%, #faf5ff 100%);
+        }
+        .bulk-card-btn.purple:hover {
+            border-color: #a855f7;
+            box-shadow: 0 6px 18px rgba(168, 85, 247, 0.15);
+        }
+        .bulk-card-btn.emerald {
+            border-color: #a7f3d0;
+            background: linear-gradient(180deg, #ffffff 0%, #ecfdf5 100%);
+        }
+        .bulk-card-btn.emerald:hover {
+            border-color: #10b981;
+            box-shadow: 0 6px 18px rgba(16, 185, 129, 0.15);
+        }
+
+        .bulk-btn-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: 800;
+            color: #0f172a;
+            gap: 8px;
+        }
+        .bulk-btn-badge {
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: #e2e8f0;
+            color: #334155;
+            white-space: nowrap;
+        }
+        .bulk-btn-badge.fast {
+            background: #dcfce7;
+            color: #15803d;
+        }
+        .bulk-btn-desc {
+            font-size: 11.5px;
+            color: #64748b;
+            line-height: 1.35;
+        }
+
         /* Modal */
         .modal-overlay {
             display: none;
@@ -2699,6 +2863,46 @@
             </div>
         </div>
 
+        <!-- SECCIÓN: EJECUTAR MASIVO (CLIENTES) -->
+        <div class="seccion-ejecutar-masivo">
+            <div class="bulk-header-row">
+                <div class="bulk-title-group">
+                    <div class="bulk-icon-badge">
+                        ⚡
+                    </div>
+                    <div>
+                        <div class="bulk-title">
+                            Ejecución Masiva de Alto Rendimiento (Set-Based Fast Engine)
+                            <span class="bulk-tag">120K+ Reg / Minuto</span>
+                        </div>
+                        <div class="bulk-desc">
+                            Procesa volúmenes masivos directamente en el motor SQL Server evitando conexiones 1 a 1, eliminando cuellos de botella y manteniendo la integridad de Force ERP.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bulk-actions-grid">
+                <button type="button" class="bulk-card-btn primary" onclick="ejecutarSincronizacionMasivaCaracteristicas()">
+                    <div class="bulk-btn-title">
+                        <span>⚡ Carga Masiva de Características y Campos</span>
+                        <span class="bulk-btn-badge fast">Ultra Rápido (~1-2 min)</span>
+                    </div>
+                    <div class="bulk-btn-desc">
+                        Sincroniza en bloque las características completas (con descripciones JSON) y campos libres hacia <code>dbo.cli_CamposCliente</code> para todos los clientes (~123,711 registros).
+                    </div>
+                </button>
+                <button type="button" class="bulk-card-btn" onclick="ejecutarSincronizacion('todo')">
+                    <div class="bulk-btn-title">
+                        <span>⚡ Sincronización Masiva Total de Clientes</span>
+                        <span class="bulk-btn-badge">Clientes + Direcciones + Rutas</span>
+                    </div>
+                    <div class="bulk-btn-desc">
+                        Ejecuta la sincronización completa del maestro de clientes, direcciones fiscales y vinculación de rutas de entrega comerciales.
+                    </div>
+                </button>
+            </div>
+        </div>
+
         <!-- 1. MATRIZ DE VALIDACIÓN CLIENTES -->
         <div class="white-card">
             <div class="card-header-clean">
@@ -2932,6 +3136,46 @@
             </div>
         </div>
 
+        <!-- SECCIÓN: EJECUTAR MASIVO (PRODUCTOS) -->
+        <div class="seccion-ejecutar-masivo prod">
+            <div class="bulk-header-row">
+                <div class="bulk-title-group">
+                    <div class="bulk-icon-badge prod">
+                        ⚡
+                    </div>
+                    <div>
+                        <div class="bulk-title">
+                            Ejecución Masiva de Catálogo y Precios (Set-Based Fast Engine)
+                            <span class="bulk-tag prod">Catálogo Integral</span>
+                        </div>
+                        <div class="bulk-desc">
+                            Carga y sincroniza en lote miles de artículos, unidades de medida, factores de conversión, catálogos de portafolio y listas de precios hacia BDForceGVD.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bulk-actions-grid">
+                <button type="button" class="bulk-card-btn amber" onclick="ejecutarSincronizacionProductos('TODOS')">
+                    <div class="bulk-btn-title">
+                        <span>⚡ Carga Masiva de Catálogo y Precios Total</span>
+                        <span class="bulk-btn-badge fast">Catálogo Completo</span>
+                    </div>
+                    <div class="bulk-btn-desc">
+                        Sincroniza masivamente el catálogo entero: productos, unidades de conversión, portafolios y listas de precios vigentes.
+                    </div>
+                </button>
+                <button type="button" class="bulk-card-btn" onclick="ejecutarSincronizacionProductos('PRECIOS_ESCALAS')">
+                    <div class="bulk-btn-title">
+                        <span>⚡ Carga Masiva Rápida de Listas y Escalas</span>
+                        <span class="bulk-btn-badge">Listas + Escalas</span>
+                    </div>
+                    <div class="bulk-btn-desc">
+                        Actualiza rápidamente los precios base y matrices de escalas de descuento por volumen sin alterar maestros de artículos.
+                    </div>
+                </button>
+            </div>
+        </div>
+
         <!-- 1. MATRIZ DE VALIDACIÓN DE PRODUCTOS -->
         <div class="white-card">
             <div class="card-header-clean">
@@ -3151,6 +3395,37 @@
 
             <div class="proc-bar-track" style="margin-top:14px; height:12px;">
                 <div id="barraProgresoVend" class="proc-bar-fill" style="width:0%; background:linear-gradient(90deg, #9333ea, #7e22ce);"></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN: EJECUTAR MASIVO (VENDEDORES) -->
+        <div class="seccion-ejecutar-masivo vend">
+            <div class="bulk-header-row">
+                <div class="bulk-title-group">
+                    <div class="bulk-icon-badge vend">
+                        ⚡
+                    </div>
+                    <div>
+                        <div class="bulk-title">
+                            Sincronización Masiva de Estructura Comercial (Set-Based Fast Engine)
+                            <span class="bulk-tag vend">Estructura & Cartera</span>
+                        </div>
+                        <div class="bulk-desc">
+                            Actualiza de golpe la jerarquía completa de ventas: sucursales, canales, jefaturas, supervisores, fuerzas de ventas, grupos y cartera de vendedores.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bulk-actions-grid">
+                <button type="button" class="bulk-card-btn purple" onclick="ejecutarSincronizacionVendedores()">
+                    <div class="bulk-btn-title">
+                        <span>⚡ Sincronización Masiva de Estructura Comercial</span>
+                        <span class="bulk-btn-badge fast">Jerarquía Completa</span>
+                    </div>
+                    <div class="bulk-btn-desc">
+                        Aplica en lote todos los cambios en Sucursales, Canales, Jefes, Supervisores, Fuerzas, Grupos y Personas/Vendedores hacia BDForceGVD.
+                    </div>
+                </button>
             </div>
         </div>
 
@@ -3388,6 +3663,37 @@
 
             <div class="proc-bar-track" style="margin-top:14px; height:12px;">
                 <div id="barraProgresoStock" class="proc-bar-fill" style="width:0%; background:linear-gradient(90deg, #10b981, #059669);"></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN: EJECUTAR MASIVO (STOCK) -->
+        <div class="seccion-ejecutar-masivo stock">
+            <div class="bulk-header-row">
+                <div class="bulk-title-group">
+                    <div class="bulk-icon-badge stock">
+                        ⚡
+                    </div>
+                    <div>
+                        <div class="bulk-title">
+                            Sincronización Atómica Masiva de Existencias (Set-Based Fast Engine)
+                            <span class="bulk-tag stock">Stock en Segundos</span>
+                        </div>
+                        <div class="bulk-desc">
+                            Actualiza atómicamente el inventario de stock por almacén en modo Set-Based con cero impacto de bloqueos sobre la toma de pedidos móvil.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bulk-actions-grid">
+                <button type="button" class="bulk-card-btn emerald" onclick="ejecutarSincronizacionStock()">
+                    <div class="bulk-btn-title">
+                        <span>⚡ Sincronización Atómica Masiva de Existencias</span>
+                        <span class="bulk-btn-badge fast">Atómico (~2 seg)</span>
+                    </div>
+                    <div class="bulk-btn-desc">
+                        Aplica en bloque el snapshot de existencias físicas y disponibles en <code>dbo.stk_Stock</code> y <code>dbo.stk_StockAlmacen</code> para todos los almacenes.
+                    </div>
+                </button>
             </div>
         </div>
 
@@ -5145,6 +5451,42 @@ async function ejecutarSincronizacion(modo) {
                     cargarEstado();
                 } catch (e) {
                     mostrarToast('Error al ejecutar sincronización: ' + e.message, 'error');
+                }
+            }
+        });
+    }
+
+    async function ejecutarSincronizacionMasivaCaracteristicas(codigoCliente) {
+        const esPuntual = !!codigoCliente;
+        const titulo = esPuntual 
+            ? `¿Sincronizar Características del Cliente ${codigoCliente}?` 
+            : '¿Ejecutar Carga Masiva de Características y Campos?';
+        const desc = esPuntual
+            ? `Se actualizará inmediatamente el cliente ${codigoCliente} con sus características y campos en BDForceGVD.`
+            : 'Se ejecutará el procedimiento masivo Set-Based de alta velocidad para hidratar características completas (con descripciones JSON) y campos libres para todos los clientes (~123,711 registros) directamente en el motor SQL Server en ~1 a 2 minutos.';
+
+        mostrarConfirmacionModerna({
+            modulo: 'clientes',
+            titulo: titulo,
+            descripcion: desc,
+            detalleExtra: '<strong>Motor:</strong> Set-Based Stored Procedure · Ejecución masiva ultrarrápida sin bloqueos',
+            textoBoton: 'Sí, Iniciar Carga Masiva',
+            onAceptar: async () => {
+                try {
+                    mostrarToast('Disparando carga masiva de características (Set-Based Fast Engine)...', 'info');
+                    const url = esPuntual 
+                        ? `/api/sync/clientes/masivo-caracteristicas?codigo=${encodeURIComponent(codigoCliente)}`
+                        : '/api/sync/clientes/masivo-caracteristicas';
+                    const res = await fetch(url, { method: 'POST' });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        mostrarToast(data.message || 'No se pudo iniciar el proceso masivo.', 'error');
+                        return;
+                    }
+                    mostrarToast(data.message || 'Proceso masivo iniciado correctamente.', 'success');
+                    cargarEstado();
+                } catch (e) {
+                    mostrarToast('Error al iniciar carga masiva: ' + e.message, 'error');
                 }
             }
         });

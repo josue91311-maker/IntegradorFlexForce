@@ -110,6 +110,18 @@ namespace IntegradorFlexForce.Controllers
             }
         }
 
+        [HttpPost("clientes/masivo-caracteristicas")]
+        public async Task<IActionResult> SincronizarCaracteristicasMasivo([FromQuery] string? codigo = null, CancellationToken ct = default)
+        {
+            if (await _syncEngine.IsRunningAsync())
+            {
+                return Conflict(new { message = "El servicio de sincronización ya se encuentra en ejecución. Espere a que finalice para lanzar el proceso masivo." });
+            }
+
+            _ = Task.Run(() => _syncEngine.EjecutarSincronizacionCaracteristicasMasivoAsync("MANUAL_MASIVO", "PORTAL_WEB", codigo, CancellationToken.None));
+            return Accepted(new { message = "Carga masiva de Características y Campos (Set-Based Fast Engine) iniciada en segundo plano." });
+        }
+
         [HttpGet("config")]
         public async Task<IActionResult> GetConfig(CancellationToken ct)
         {
