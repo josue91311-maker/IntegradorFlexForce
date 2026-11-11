@@ -207,7 +207,16 @@ namespace IntegradorFlexForce.Services
                     DROP TABLE #StageStockPreview;
                 ";
 
-                using var cmd = new SqlCommand(sqlDiff, connForce) { CommandTimeout = 120 };
+                const string sqlExec = @"
+                    IF OBJECT_ID('dbo.usp_Sync_PreviewStock', 'P') IS NOT NULL
+                        EXEC dbo.usp_Sync_PreviewStock @Top = 100;
+                    ELSE
+                    BEGIN
+                " + sqlDiff + @"
+                    END;
+                ";
+
+                using var cmd = new SqlCommand(sqlExec, connForce) { CommandTimeout = 120 };
                 using var reader = await cmd.ExecuteReaderAsync(ct);
 
                 if (await reader.ReadAsync(ct))

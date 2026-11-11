@@ -54,6 +54,7 @@ CREATE OR ALTER PROCEDURE dbo.usp_Sync_SincronizarStock_Directo
     @TotalRemotos           int                  = 0 OUTPUT,
     @TotalActualizados      int                  = 0 OUTPUT,
     @TotalInsertados        int                  = 0 OUTPUT
+WITH EXECUTE AS OWNER
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -310,4 +311,98 @@ END;
 GO
 
 PRINT 'Procedimiento dbo.usp_Sync_SincronizarStock_Directo creado/actualizado exitosamente.';
+GO
+
+GRANT EXECUTE ON dbo.usp_Sync_SincronizarStock_Directo TO [public];
+GO
+
+-- -------------------------------------------------------------
+-- 3. PROCEDIMIENTO ALMACENADO PARA PREVIEW DE STOCK
+-- -------------------------------------------------------------
+CREATE OR ALTER PROCEDURE dbo.usp_Sync_PreviewStock
+    @Top int = 100
+WITH EXECUTE AS OWNER
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+    IF OBJECT_ID('tempdb..#StageStockPreview') IS NOT NULL DROP TABLE #StageStockPreview;
+
+    SELECT 
+        pa.IDProducto, pa.IDAlmacen, 
+        ISNULL(pa.Capacidad, 0) AS Capacidad,
+        ISNULL(pa.StockFisico, 0) AS StockFisico,
+        ISNULL(pa.StockContable, 0) AS StockContable,
+        ISNULL(pa.StockPorEntregar, 0) AS StockPorEntregar,
+        ISNULL(pa.StockPorRecibir, 0) AS StockPorRecibir,
+        pa.Activo,
+        BINARY_CHECKSUM(
+            pa.Capacidad, pa.StockFisico, pa.StockContable, 
+            pa.StockPorEntregar, pa.StockPorRecibir, 
+            pa.TiempoDeEntrega, pa.FrecuenciaDeCompra, 
+            pa.CantidadMinima, pa.StockMinimo, pa.Activo
+        ) AS HashRemoto
+    INTO #StageStockPreview
+    FROM OPENQUERY(SVBD7524, '
+        SELECT 
+            pa.IDProducto, pa.IDAlmacen, pa.Capacidad, pa.StockFisico, pa.StockContable,
+            pa.StockPorEntregar, pa.StockPorRecibir, pa.TiempoDeEntrega, pa.FrecuenciaDeCompra,
+            pa.CantidadMinima, pa.StockMinimo, pa.Activo
+        FROM digalimenta41.dbo.ProductoAlmacen pa WITH (NOLOCK)
+    ') pa;
+
+    SELECT 
+        (SELECT COUNT(*) FROM #StageStockPreview) AS TotalOrigen,
+        (SELECT COUNT(*) FROM dbo.inv_ProductoAlmacen WITH (NOLOCK)) AS TotalDestino,
+        (
+            SELECT COUNT(*) 
+            FROM #StageStockPreview rem
+            INNER JOIN dbo.prd_Producto p ON p.IDExtra = rem.IDProducto
+            INNER JOIN dbo.inv_Almacen a ON a.IDExtra = rem.IDAlmacen
+            WHERE NOT EXISTS (
+                SELECT 1 FROM dbo.inv_ProductoAlmacen loc 
+                WHERE loc.IDProducto = p.ID AND loc.IDAlmacen = a.ID
+            )
+        ) AS TotalNuevos,
+        (
+            SELECT COUNT(*)
+            FROM #StageStockPreview rem
+            INNER JOIN dbo.prd_Producto p ON p.IDExtra = rem.IDProducto
+            INNER JOIN dbo.inv_Almacen a ON a.IDExtra = rem.IDAlmacen
+            INNER JOIN dbo.inv_ProductoAlmacen loc ON loc.IDProducto = p.ID AND loc.IDAlmacen = a.ID
+            WHERE BINARY_CHECKSUM(
+                loc.Capacidad, loc.StockFisico, loc.StockContable, 
+                loc.StockPorEntregar, loc.StockPorRecibir, 
+                loc.TiempoDeEntrega, loc.FrecuenciaDeCompra, 
+                loc.CantidadMinima, loc.StockMinimo, loc.Estado
+            ) <> rem.HashRemoto
+        ) AS TotalModificados;
+
+    -- Muestra de los primeros con cambios para la grilla
+    SELECT TOP (@Top)
+        p.IDExtra AS IDProductoOrigen,
+        p.Codigo AS CodigoProducto,
+        p.Nombre AS NombreProducto,
+        a.Nombre AS NombreAlmacen,
+        loc.StockFisico AS StockFisicoActual,
+        rem.StockFisico AS StockFisicoNuevo,
+        loc.StockPorEntregar AS StockPorEntregarActual,
+        rem.StockPorEntregar AS StockPorEntregarNuevo
+    FROM #StageStockPreview rem
+    INNER JOIN dbo.prd_Producto p ON p.IDExtra = rem.IDProducto
+    INNER JOIN dbo.inv_Almacen a ON a.IDExtra = rem.IDAlmacen
+    INNER JOIN dbo.inv_ProductoAlmacen loc ON loc.IDProducto = p.ID AND loc.IDAlmacen = a.ID
+    WHERE BINARY_CHECKSUM(
+        loc.Capacidad, loc.StockFisico, loc.StockContable, 
+        loc.StockPorEntregar, loc.StockPorRecibir, 
+        loc.TiempoDeEntrega, loc.FrecuenciaDeCompra, 
+        loc.CantidadMinima, loc.StockMinimo, loc.Estado
+    ) <> rem.HashRemoto;
+
+    DROP TABLE #StageStockPreview;
+END;
+GO
+
+GRANT EXECUTE ON dbo.usp_Sync_PreviewStock TO [public];
 GO
