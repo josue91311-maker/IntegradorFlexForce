@@ -92,20 +92,10 @@ BEGIN
         END
         IF @IDCategoriaCliente IS NULL SELECT TOP 1 @IDCategoriaCliente = ID FROM cat_CategoriaCliente WHERE Estado = 1;
 
-        -- RESOLVER / AUTO-CREAR TIPO DE CLIENTE (cat_TipoCliente)
-        DECLARE @IDTipoCliente int;
-        SELECT TOP 1 @IDTipoCliente = ID 
-        FROM cat_TipoCliente 
-        WHERE IDExtra = TRY_CAST(@CodigoTipoCliente AS int) 
-           OR Codigo = @CodigoTipoCliente;
-
-        IF @IDTipoCliente IS NULL AND @CodigoTipoCliente IS NOT NULL
-        BEGIN
-            INSERT INTO cat_TipoCliente (Codigo, Descripcion, Estado, FechaCreacion, FechaModificacion, IDExtra)
-            VALUES (@CodigoTipoCliente, 'TIPO CLIENTE ' + @CodigoTipoCliente, 1, GETDATE(), GETDATE(), TRY_CAST(@CodigoTipoCliente AS int));
-            SET @IDTipoCliente = SCOPE_IDENTITY();
-        END
-        IF @IDTipoCliente IS NULL SELECT TOP 1 @IDTipoCliente = ID FROM cat_TipoCliente WHERE Estado = 1;
+        -- -------------------------------------------------------------
+        -- TIPO DE CLIENTE (cat_TipoCliente): SIEMPRE ES ID 1 (GENERAL)
+        -- -------------------------------------------------------------
+        DECLARE @IDTipoCliente int = 1;
 
         -- RESOLVER / AUTO-CREAR TIPO DE NEGOCIO (cat_TipoNegocio)
         DECLARE @IDTipoNegocio int;

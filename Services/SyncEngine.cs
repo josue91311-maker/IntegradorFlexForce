@@ -295,13 +295,12 @@ namespace IntegradorFlexForce.Services
                 const string sql = @"
                     SELECT c.ID, c.IDExtra, LTRIM(RTRIM(ISNULL(c.Codigo, ''))), LTRIM(RTRIM(ISNULL(c.NombreCompleto, ''))), CAST(ISNULL(c.Estado, 0) AS bit),
                            COALESCE(cat.IDExtra, TRY_CAST(cat.Codigo AS int), c.IDCategoriaCliente) AS IDCategoriaExtra,
-                           COALESCE(tc.IDExtra, TRY_CAST(tc.Codigo AS int), c.IDTipoCliente) AS IDTipoClienteExtra,
+                           1 AS IDTipoClienteExtra,
                            COALESCE(tn.IDExtra, TRY_CAST(tn.Codigo AS int), c.IDTipoNegocio) AS IDTipoNegocioExtra,
                            LTRIM(RTRIM(ISNULL(cc.Campo1, ''))), LTRIM(RTRIM(ISNULL(cc.Campo2, ''))),
                            LTRIM(RTRIM(ISNULL(cc.Campo3, ''))), LTRIM(RTRIM(ISNULL(cc.Campo4, '')))
                     FROM dbo.cli_Cliente c WITH (NOLOCK)
                     LEFT JOIN dbo.cat_CategoriaCliente cat WITH (NOLOCK) ON cat.ID = c.IDCategoriaCliente
-                    LEFT JOIN dbo.cat_TipoCliente tc WITH (NOLOCK) ON tc.ID = c.IDTipoCliente
                     LEFT JOIN dbo.cat_TipoNegocio tn WITH (NOLOCK) ON tn.ID = c.IDTipoNegocio
                     LEFT JOIN dbo.cli_CamposCliente cc WITH (NOLOCK) ON cc.IDCliente = c.ID
                     WHERE c.Eliminado = 0;";
@@ -365,7 +364,7 @@ namespace IntegradorFlexForce.Services
                            LTRIM(RTRIM(ISNULL(d.Descripcion, 'SIN DIRECCION'))) AS Direccion,
                            CAST(ISNULL(d.Activo, 1) AS bit) AS EstadoDireccion,
                            ISNULL(c.IDCategoriaCliente, 0) AS IDCategoriaCliente,
-                           ISNULL(c.IDTipoCliente, 0) AS IDTipoCliente,
+                           1 AS IDTipoCliente,
                            ISNULL(c.IDCaracteristica1, 0) AS IDTipoNegocio,
                            LTRIM(RTRIM(ISNULL(c.Campo1, ''))) AS Campo1,
                            LTRIM(RTRIM(ISNULL(c.Campo2, ''))) AS Campo2,
@@ -500,12 +499,6 @@ namespace IntegradorFlexForce.Services
                                 diffsCli.Add("Tipo Negocio / Giro");
                                 valForceCli = $"Giro: {cliForce.IDTipoNegocio}";
                                 valErpCli = $"Giro: {idTipoNeg}";
-                            }
-                            if (idTipoCli > 0 && cliForce.IDTipoCliente.HasValue && cliForce.IDTipoCliente.Value != 0 && cliForce.IDTipoCliente.Value != idTipoCli)
-                            {
-                                diffsCli.Add("Tipo Cliente");
-                                valForceCli = $"TipoCli: {cliForce.IDTipoCliente}";
-                                valErpCli = $"TipoCli: {idTipoCli}";
                             }
                             if (!SonValoresCamposIguales(cliForce.Campo1, campo1) ||
                                 !SonValoresCamposIguales(cliForce.Campo2, campo2) ||
