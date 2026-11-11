@@ -1259,6 +1259,31 @@ namespace IntegradorFlexForce.Services
                 var idsCreditos = _idsCreditosConCambios.ToList();
 
                 int totalOpsModulo = idsPendientes.Count + (incluirZonas ? (idsZonas.Count + idsQuitados.Count + idsCreditos.Count) : 0);
+                
+                // SALTO INTELIGENTE: Si no hay diferencias (0 pendientes), no perder tiempo ni hacer escrituras
+                if (totalOpsModulo == 0)
+                {
+                    swTotal.Stop();
+                    transaccion.TotalEscaneados = (resumenCli?.TotalOrigen ?? 0) + (incluirZonas ? (resumenZonas?.TotalOrigen ?? 0) : 0);
+                    transaccion.TotalNuevos = 0;
+                    transaccion.TotalModificados = 0;
+                    transaccion.TotalErrores = 0;
+                    transaccion.DuracionSegundos = (decimal)swTotal.Elapsed.TotalSeconds;
+                    transaccion.Estado = "EXITOSO";
+
+                    await RegistrarFinLoteAsync(transaccion, ct);
+
+                    _currentStatus.UltimaEjecucion = DateTime.Now;
+                    _currentStatus.UltimoLoteProcesados = 0;
+                    _currentStatus.UltimoLoteNuevos = 0;
+                    _currentStatus.UltimoLoteModificados = 0;
+                    _currentStatus.UltimoLoteErrores = 0;
+                    _currentStatus.UltimaDuracionSegundos = Math.Round(swTotal.Elapsed.TotalSeconds, 2);
+                    _currentStatus.EstadoActual = "COMPLETADO";
+                    _currentStatus.FaseDetalle = $"Módulo Clientes al día (0 diferencias detectadas). Finalizado en {_currentStatus.UltimaDuracionSegundos}s.";
+                    return transaccion;
+                }
+
                 _currentStatus.ProgresoTotal = totalOpsModulo > 0 ? totalOpsModulo : 1;
                 _currentStatus.ProgresoActual = 0;
 

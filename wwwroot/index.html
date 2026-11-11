@@ -2232,6 +2232,83 @@
             </div>
         </section>
 
+        <!-- PANEL RESUMEN EJECUTIVO: RESULTADO DE ÚLTIMAS EJECUCIONES -->
+        <div class="white-card" style="margin-bottom: 24px; padding: 20px; border: 1px solid #e2e8f0; border-radius: var(--radius-lg); background: #ffffff;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                <div class="card-title-row" style="margin-bottom:0;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    <h2 style="font-size: 16px; font-weight: 800; color: #0f172a; margin: 0;">Resultado de Última Ejecución por Módulo</h2>
+                </div>
+                <div style="display:flex; align-items:center; gap: 8px;">
+                    <span class="badge" style="background:#ecfdf5; color:#065f46; font-weight:700; border:1px solid #a7f3d0; padding:5px 12px; font-size:12px; border-radius:6px;">⚡ Auto-Skip Inteligente: Sin cambios (0) pasa directo</span>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px;">
+                
+                <!-- CARD RESUMEN 1: CLIENTES -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; position:relative; overflow:hidden; cursor:pointer;" onclick="navegarVista('clientes')">
+                    <div style="height: 3px; position:absolute; top:0; left:0; right:0; background:#3b82f6;"></div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:13px; font-weight:800; color:#1e293b;">1. Clientes & Rutas</span>
+                        <span id="execCardStatusCli" class="badge" style="background:#dbeafe; color:#1e40af; font-size:11px; font-weight:700;">Al Día</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11.5px; color:#64748b;">
+                        <div>⏱ <strong style="color:#0f172a;" id="execCardFechaCli">--:--:--</strong></div>
+                        <div>⚡ <strong style="color:#0f172a;" id="execCardDurCli">0s</strong></div>
+                        <div>📦 <strong style="color:#059669;" id="execCardRegsCli">0 aplicados</strong></div>
+                        <div>🛡 <strong style="color:#0f172a;" id="execCardErrCli">0 errores</strong></div>
+                    </div>
+                </div>
+
+                <!-- CARD RESUMEN 2: PRODUCTOS -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; position:relative; overflow:hidden; cursor:pointer;" onclick="navegarVista('productos')">
+                    <div style="height: 3px; position:absolute; top:0; left:0; right:0; background:#f97316;"></div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:13px; font-weight:800; color:#1e293b;">2. Productos & Precios</span>
+                        <span id="execCardStatusProd" class="badge" style="background:#ffedd5; color:#9a3412; font-size:11px; font-weight:700;">Al Día</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11.5px; color:#64748b;">
+                        <div>⏱ <strong style="color:#0f172a;" id="execCardFechaProd">--:--:--</strong></div>
+                        <div>⚡ <strong style="color:#0f172a;" id="execCardDurProd">0s</strong></div>
+                        <div>📦 <strong style="color:#059669;" id="execCardRegsProd">0 aplicados</strong></div>
+                        <div>🛡 <strong style="color:#0f172a;" id="execCardErrProd">0 errores</strong></div>
+                    </div>
+                </div>
+
+                <!-- CARD RESUMEN 3: VENDEDORES -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; position:relative; overflow:hidden; cursor:pointer;" onclick="navegarVista('vendedores')">
+                    <div style="height: 3px; position:absolute; top:0; left:0; right:0; background:#a855f7;"></div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:13px; font-weight:800; color:#1e293b;">3. Vendedores & Equipos</span>
+                        <span id="execCardStatusVend" class="badge" style="background:#f3e8ff; color:#6b21a8; font-size:11px; font-weight:700;">Al Día</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11.5px; color:#64748b;">
+                        <div>⏱ <strong style="color:#0f172a;" id="execCardFechaVend">--:--:--</strong></div>
+                        <div>⚡ <strong style="color:#0f172a;" id="execCardDurVend">0s</strong></div>
+                        <div>📦 <strong style="color:#059669;" id="execCardRegsVend">0 aplicados</strong></div>
+                        <div>🛡 <strong style="color:#0f172a;" id="execCardErrVend">0 errores</strong></div>
+                    </div>
+                </div>
+
+                <!-- CARD RESUMEN 4: STOCK -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; position:relative; overflow:hidden; cursor:pointer;" onclick="navegarVista('stock')">
+                    <div style="height: 3px; position:absolute; top:0; left:0; right:0; background:#10b981;"></div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:13px; font-weight:800; color:#1e293b;">4. Stock por Almacén</span>
+                        <span id="execCardStatusStock" class="badge" style="background:#dcfce7; color:#15803d; font-size:11px; font-weight:700;">Al Día</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11.5px; color:#64748b;">
+                        <div>⏱ <strong style="color:#0f172a;" id="execCardFechaStock">--:--:--</strong></div>
+                        <div>⚡ <strong style="color:#0f172a;" id="execCardDurStock">0s</strong></div>
+                        <div>📦 <strong style="color:#059669;" id="execCardRegsStock">0 aplicados</strong></div>
+                        <div>🛡 <strong style="color:#0f172a;" id="execCardErrStock">0 errores</strong></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
         <!-- SECCIÓN DE MÓDULOS EJECUTIVOS ROBUSTOS -->
         <div style="margin-bottom: 24px;">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
@@ -2546,17 +2623,20 @@
                         <div>
                             <div style="display:flex; align-items:center; gap:8px;">
                                 <h3 style="font-size:16px; font-weight:800; color:#0f172a; margin:0;">4. Módulo de Stock e Inventario en Línea por Almacén</h3>
-                                <span id="hubRow4Status" class="status-pill completed"><span class="dot"></span>En Línea</span>
+                                <span id="hubRowStockStatus" class="status-pill completed"><span class="dot"></span>En Línea</span>
                             </div>
-                            <div id="hubRow4Sub" style="font-size:12.5px; color:#64748b; margin-top:3px; font-weight:500;">
+                            <div id="hubRowStockSub" style="font-size:12.5px; color:#64748b; margin-top:3px; font-weight:500;">
                                 Sincronización diferencial de existencias: Stock Físico, Reservado y Stock Disponible
                             </div>
                         </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:14px;">
                         <div style="text-align:right;">
-                            <span style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase;">Último Lote</span>
-                            <div id="hubMod4LastBatch" style="font-size:15px; font-weight:800; color:#0f172a;">0 reg</div>
+                            <div id="hubRowStockPct" style="font-size:18px; font-weight:800; color:#0f172a; line-height:1;">100%</div>
+                            <div style="font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase;">Salud Módulo</div>
+                        </div>
+                        <div class="proc-bar-track" style="width:140px;">
+                            <div id="hubRowStockBar" class="proc-bar-fill green" style="width: 100%;"></div>
                         </div>
                     </div>
                 </div>
@@ -4893,6 +4973,8 @@
     let statusCliCache = null;
     let statusProdCache = null;
     let statusVendCache = null;
+    let statusStockCache = null;
+    let resumenStockCache = null;
 
     // Alternar modo automático / manual en 1 solo clic desde el Hub
     async function toggleModoAutomaticoRapido() {
@@ -4930,17 +5012,21 @@
         const diffCli = (resumenClientesCache || []).reduce((acc, r) => acc + (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0), 0);
         const diffProd = (resumenProductosCache || []).reduce((acc, r) => acc + (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0), 0);
         const diffVend = (resumenVendedoresCache || []).reduce((acc, r) => acc + (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0), 0);
+        const diffStock = (resumenStockCache || []).reduce((acc, r) => acc + (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0), 0);
 
-        const totalModulos = 3;
+        const totalModulos = 4;
         let alDia = 0;
-        if (resumenClientesCache.length > 0 && diffCli === 0) alDia++;
-        else if (resumenClientesCache.length === 0) alDia++;
+        if (resumenClientesCache && resumenClientesCache.length > 0 && diffCli === 0) alDia++;
+        else if (!resumenClientesCache || resumenClientesCache.length === 0) alDia++;
 
-        if (resumenProductosCache.length > 0 && diffProd === 0) alDia++;
-        else if (resumenProductosCache.length === 0) alDia++;
+        if (resumenProductosCache && resumenProductosCache.length > 0 && diffProd === 0) alDia++;
+        else if (!resumenProductosCache || resumenProductosCache.length === 0) alDia++;
 
-        if (resumenVendedoresCache.length > 0 && diffVend === 0) alDia++;
-        else if (resumenVendedoresCache.length === 0) alDia++;
+        if (resumenVendedoresCache && resumenVendedoresCache.length > 0 && diffVend === 0) alDia++;
+        else if (!resumenVendedoresCache || resumenVendedoresCache.length === 0) alDia++;
+
+        if (resumenStockCache && resumenStockCache.length > 0 && diffStock === 0) alDia++;
+        else if (!resumenStockCache || resumenStockCache.length === 0) alDia++;
 
         const conCambios = totalModulos - alDia;
         const pctAlDia = Math.round((alDia / totalModulos) * 1000) / 10;
@@ -5002,6 +5088,25 @@
             }
             const elProc = document.getElementById('hubMod1Procesados');
             if (elProc) elProc.textContent = `${procs.toLocaleString()} registros aplicados`;
+
+            // Card Resumen Ejecutivo Clientes
+            const ecFec = document.getElementById('execCardFechaCli');
+            if (ecFec) ecFec.textContent = statusCliCache.ultimaEjecucion ? formatearSoloHoraPeru(statusCliCache.ultimaEjecucion) : '--:--:--';
+            const ecDur = document.getElementById('execCardDurCli');
+            if (ecDur) ecDur.textContent = `${Math.round(statusCliCache.ultimaDuracionSegundos || 0)}s`;
+            const ecReg = document.getElementById('execCardRegsCli');
+            if (ecReg) ecReg.textContent = `${procs.toLocaleString()} aplicados`;
+            const ecErr = document.getElementById('execCardErrCli');
+            if (ecErr) {
+                ecErr.textContent = `${errs} errores`;
+                ecErr.style.color = errs === 0 ? '#059669' : '#dc2626';
+            }
+            const ecSt = document.getElementById('execCardStatusCli');
+            if (ecSt) {
+                ecSt.textContent = errs > 0 ? 'Error' : (statusCliCache.isRunning ? 'Ejecutando' : 'Al Día');
+                ecSt.style.background = errs > 0 ? '#fee2e2' : (statusCliCache.isRunning ? '#fef3c7' : '#dbeafe');
+                ecSt.style.color = errs > 0 ? '#b91c1c' : (statusCliCache.isRunning ? '#b45309' : '#1e40af');
+            }
         }
 
         if (resumenClientesCache && resumenClientesCache.length > 0) {
@@ -5059,6 +5164,25 @@
             }
             const elProcP = document.getElementById('hubMod2Procesados');
             if (elProcP) elProcP.textContent = `${procsProd.toLocaleString()} registros aplicados`;
+
+            // Card Resumen Ejecutivo Productos
+            const epFec = document.getElementById('execCardFechaProd');
+            if (epFec) epFec.textContent = statusProdCache.ultimaEjecucion ? formatearSoloHoraPeru(statusProdCache.ultimaEjecucion) : '--:--:--';
+            const epDur = document.getElementById('execCardDurProd');
+            if (epDur) epDur.textContent = `${Math.round(statusProdCache.ultimaDuracionSegundos || 0)}s`;
+            const epReg = document.getElementById('execCardRegsProd');
+            if (epReg) epReg.textContent = `${procsProd.toLocaleString()} aplicados`;
+            const epErr = document.getElementById('execCardErrProd');
+            if (epErr) {
+                epErr.textContent = `${errsProd} errores`;
+                epErr.style.color = errsProd === 0 ? '#059669' : '#dc2626';
+            }
+            const epSt = document.getElementById('execCardStatusProd');
+            if (epSt) {
+                epSt.textContent = errsProd > 0 ? 'Error' : (statusProdCache.isRunning ? 'Ejecutando' : 'Al Día');
+                epSt.style.background = errsProd > 0 ? '#fee2e2' : (statusProdCache.isRunning ? '#fef3c7' : '#ffedd5');
+                epSt.style.color = errsProd > 0 ? '#b91c1c' : (statusProdCache.isRunning ? '#b45309' : '#9a3412');
+            }
         }
 
         if (resumenProductosCache && resumenProductosCache.length > 0) {
@@ -5116,6 +5240,25 @@
             }
             const elProcV = document.getElementById('hubMod3Procesados');
             if (elProcV) elProcV.textContent = `${procsVend.toLocaleString()} registros aplicados`;
+
+            // Card Resumen Ejecutivo Vendedores
+            const evFec = document.getElementById('execCardFechaVend');
+            if (evFec) evFec.textContent = statusVendCache.ultimaEjecucion ? formatearSoloHoraPeru(statusVendCache.ultimaEjecucion) : '--:--:--';
+            const evDur = document.getElementById('execCardDurVend');
+            if (evDur) evDur.textContent = `${Math.round(statusVendCache.ultimaDuracionSegundos || 0)}s`;
+            const evReg = document.getElementById('execCardRegsVend');
+            if (evReg) evReg.textContent = `${procsVend.toLocaleString()} aplicados`;
+            const evErr = document.getElementById('execCardErrVend');
+            if (evErr) {
+                evErr.textContent = `${errsVend} errores`;
+                evErr.style.color = errsVend === 0 ? '#059669' : '#dc2626';
+            }
+            const evSt = document.getElementById('execCardStatusVend');
+            if (evSt) {
+                evSt.textContent = errsVend > 0 ? 'Error' : (statusVendCache.isRunning ? 'Ejecutando' : 'Al Día');
+                evSt.style.background = errsVend > 0 ? '#fee2e2' : (statusVendCache.isRunning ? '#fef3c7' : '#f3e8ff');
+                evSt.style.color = errsVend > 0 ? '#b91c1c' : (statusVendCache.isRunning ? '#b45309' : '#6b21a8');
+            }
         }
 
         if (resumenVendedoresCache && resumenVendedoresCache.length > 0) {
@@ -5168,6 +5311,69 @@
                 elSub3.textContent = `Sucursales, Canales, Jefes, Supervisores, Fuerzas, Grupos y Vendedores — ${totalDiffV === 0 ? 'Al día (0 diferencias)' : totalDiffV.toLocaleString() + ' diferencias detectadas'}`;
             }
         }
+
+        // 5. MÓDULO 4: STOCK E INVENTARIO EN LÍNEA POR ALMACÉN
+        if (statusStockCache) {
+            const fecStrStock = statusStockCache.ultimaEjecucion ? formatearHoraPeru(statusStockCache.ultimaEjecucion) : 'Sin ejecución previa';
+            const durStrStock = segundosAHms(statusStockCache.ultimaDuracionSegundos);
+            const errsStock = statusStockCache.ultimoLoteErrores || 0;
+            const procsStock = statusStockCache.ultimoLoteProcesados || 0;
+
+            const elFecS = document.getElementById('hubMod4UltimaEjecucion');
+            if (elFecS) elFecS.textContent = fecStrStock;
+            const elDurS = document.getElementById('hubMod4Duracion');
+            if (elDurS) elDurS.textContent = `${durStrStock} (${Math.round(statusStockCache.ultimaDuracionSegundos || 0)}s)`;
+            const elErrS = document.getElementById('hubMod4Errores');
+            if (elErrS) {
+                elErrS.className = 'hub-diag-value ' + (errsStock === 0 ? 'ok' : 'warn');
+                elErrS.textContent = errsStock === 0 ? '0 Errores · 100% Conforme' : `${errsStock} Error(es) detectados`;
+            }
+            const elProcS = document.getElementById('hubMod4Procesados');
+            if (elProcS) elProcS.textContent = `${procsStock.toLocaleString()} registros aplicados`;
+            const elBatchS = document.getElementById('hubMod4LastBatch');
+            if (elBatchS && procsStock > 0) elBatchS.textContent = `${procsStock.toLocaleString()} reg`;
+
+            // Card Resumen Ejecutivo Stock
+            const esFec = document.getElementById('execCardFechaStock');
+            if (esFec) esFec.textContent = statusStockCache.ultimaEjecucion ? formatearSoloHoraPeru(statusStockCache.ultimaEjecucion) : '--:--:--';
+            const esDur = document.getElementById('execCardDurStock');
+            if (esDur) esDur.textContent = `${Math.round(statusStockCache.ultimaDuracionSegundos || 0)}s`;
+            const esReg = document.getElementById('execCardRegsStock');
+            if (esReg) esReg.textContent = `${procsStock.toLocaleString()} aplicados`;
+            const esErr = document.getElementById('execCardErrStock');
+            if (esErr) {
+                esErr.textContent = `${errsStock} errores`;
+                esErr.style.color = errsStock === 0 ? '#059669' : '#dc2626';
+            }
+            const esSt = document.getElementById('execCardStatusStock');
+            if (esSt) {
+                esSt.textContent = errsStock > 0 ? 'Error' : (statusStockCache.isRunning ? 'Ejecutando' : 'Al Día');
+                esSt.style.background = errsStock > 0 ? '#fee2e2' : (statusStockCache.isRunning ? '#fef3c7' : '#dcfce7');
+                esSt.style.color = errsStock > 0 ? '#b91c1c' : (statusStockCache.isRunning ? '#b45309' : '#15803d');
+            }
+        }
+
+        if (resumenStockCache && resumenStockCache.length > 0) {
+            const rStock = resumenStockCache[0];
+            const dIns = rStock.insertsDetectados || 0;
+            const dUpd = rStock.updatesDetectados || 0;
+            const totalDiffStock = dIns + dUpd;
+
+            const elStatStock = document.getElementById('hubRowStockStatus');
+            if (elStatStock) {
+                elStatStock.className = 'status-pill ' + (totalDiffStock === 0 ? 'completed' : 'running');
+                elStatStock.innerHTML = `<span class="dot"></span>${totalDiffStock === 0 ? 'Al Día' : totalDiffStock.toLocaleString() + ' Cambios'}`;
+            }
+            const elSubStock = document.getElementById('hubRowStockSub');
+            if (elSubStock) {
+                elSubStock.textContent = `Sincronización diferencial de existencias · ${totalDiffStock === 0 ? 'Al día (0 diferencias)' : totalDiffStock.toLocaleString() + ' diferencias detectadas'}`;
+            }
+            const elCountPA = document.getElementById('hubCountStockPA');
+            if (elCountPA && rStock.totalOrigen) {
+                elCountPA.textContent = `${rStock.totalOrigen.toLocaleString()} reg.`;
+            }
+        }
+    }
     }
 
     // 1. Auditoría y Pre-Visualización Clientes
@@ -7336,6 +7542,9 @@ async function ejecutarSincronizacion(modo) {
             cambiosStockFiltrados = [...listaCambiosStockGlobal];
             filtrarCambiosStock();
 
+            resumenStockCache = data.resumenPorTabla || [];
+            actualizarResumenGlobalDashboard();
+
             const totalDiff = (data.resumenPorTabla || []).reduce((acc, r) => acc + (r.totalDiferencias || 0), 0);
             mostrarToast(totalDiff === 0 
                 ? 'Stock 100% Sincronizado. Cero discrepancias detectadas.' 
@@ -7559,13 +7768,8 @@ async function ejecutarSincronizacion(modo) {
                     : `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> 2. Sincronizar Stock en Línea`;
             }
 
-            // Actualizar Hub Card 4
-            const hubBatch4 = document.getElementById('hubMod4LastBatch');
-            if (hubBatch4 && s.ultimoLoteProcesados > 0) hubBatch4.textContent = `${s.ultimoLoteProcesados} reg`;
-            const hubDur4 = document.getElementById('hubMod4Duracion');
-            if (hubDur4 && s.ultimaDuracionSegundos > 0) hubDur4.textContent = segundosAHms(s.ultimaDuracionSegundos);
-            const hubEjec4 = document.getElementById('hubMod4UltimaEjecucion');
-            if (hubEjec4 && s.ultimaEjecucion) hubEjec4.textContent = formatearHoraPeru(s.ultimaEjecucion);
+            statusStockCache = s;
+            actualizarResumenGlobalDashboard();
 
             if (syncStockEstabaCorriendo && !s.isRunning) {
                 syncStockEstabaCorriendo = false;

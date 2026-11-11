@@ -996,6 +996,27 @@ END;";
                 transaccion.TotalModificados = preview.ResumenPorTabla.Sum(x => x.UpdatesDetectados);
 
                 int totalDifs = transaccion.TotalNuevos + transaccion.TotalModificados;
+
+                // SALTO INTELIGENTE: Si no hay diferencias (0 cambios en equipos/vendedores), pasar de inmediato
+                if (totalDifs == 0)
+                {
+                    swTotal.Stop();
+                    transaccion.TotalErrores = 0;
+                    transaccion.DuracionSegundos = (decimal)swTotal.Elapsed.TotalSeconds;
+                    transaccion.Estado = "EXITOSO";
+                    await RegistrarFinLoteAsync(transaccion, ct);
+
+                    _currentStatus.UltimaEjecucion = DateTime.Now;
+                    _currentStatus.UltimoLoteProcesados = 0;
+                    _currentStatus.UltimoLoteNuevos = 0;
+                    _currentStatus.UltimoLoteModificados = 0;
+                    _currentStatus.UltimoLoteErrores = 0;
+                    _currentStatus.UltimaDuracionSegundos = Math.Round(swTotal.Elapsed.TotalSeconds, 2);
+                    _currentStatus.EstadoActual = "COMPLETADO";
+                    _currentStatus.FaseDetalle = $"Módulo Vendedores al día (0 diferencias detectadas). Finalizado en {_currentStatus.UltimaDuracionSegundos}s.";
+                    return transaccion;
+                }
+
                 _currentStatus.ProgresoTotal = totalDifs > 0 ? totalDifs : 1;
                 _currentStatus.ProgresoActual = 0;
 

@@ -357,7 +357,9 @@ namespace IntegradorFlexForce.Services
                 _currentStatus.UltimoLoteErrores = 0;
                 _currentStatus.UltimaDuracionSegundos = Math.Round(swTotal.Elapsed.TotalSeconds, 2);
                 _currentStatus.EstadoActual = "COMPLETADO";
-                _currentStatus.FaseDetalle = $"Stock sincronizado: {actualizados} actualizados, {insertados} nuevos en {_currentStatus.UltimaDuracionSegundos}s.";
+                _currentStatus.FaseDetalle = (actualizados + insertados == 0)
+                    ? $"Stock 100% al día (0 diferencias detectadas). Finalizado en {_currentStatus.UltimaDuracionSegundos}s."
+                    : $"Stock sincronizado: {actualizados} actualizados, {insertados} nuevos en {_currentStatus.UltimaDuracionSegundos}s.";
                 _currentStatus.ProgresoActual = 100;
 
                 _logger.LogInformation("Sincronización de Stock completada exitosamente. Actualizados: {Act}, Nuevos: {Nuev}, Duración: {Dur}s",

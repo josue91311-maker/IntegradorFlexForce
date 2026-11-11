@@ -1096,6 +1096,29 @@ namespace IntegradorFlexForce.Services
                              + (syncCat  ? _idsItemsPortafolioConCambios.Count + _idsCatalogoProductoInactivarForce.Count : 0)
                              + (syncPrc  ? _idsEscalasConCambios.Count + _idsEscalasInactivarForce.Count : 0);
 
+                // SALTO INTELIGENTE: Si no hay diferencias (0 cambios en productos/precios), pasar de inmediato
+                if (totalOps == 0)
+                {
+                    swTotal.Stop();
+                    transaccion.TotalEscaneados = preview.ResumenPorTabla.Sum(x => x.TotalOrigen);
+                    transaccion.TotalNuevos = 0;
+                    transaccion.TotalModificados = 0;
+                    transaccion.TotalErrores = 0;
+                    transaccion.DuracionSegundos = (decimal)swTotal.Elapsed.TotalSeconds;
+                    transaccion.Estado = "EXITOSO";
+                    await RegistrarFinLoteAsync(transaccion, ct);
+
+                    _currentStatus.UltimaEjecucion = DateTime.Now;
+                    _currentStatus.UltimoLoteProcesados = 0;
+                    _currentStatus.UltimoLoteNuevos = 0;
+                    _currentStatus.UltimoLoteModificados = 0;
+                    _currentStatus.UltimoLoteErrores = 0;
+                    _currentStatus.UltimaDuracionSegundos = Math.Round(swTotal.Elapsed.TotalSeconds, 2);
+                    _currentStatus.EstadoActual = "COMPLETADO";
+                    _currentStatus.FaseDetalle = $"Módulo Productos al día (0 diferencias detectadas). Finalizado en {_currentStatus.UltimaDuracionSegundos}s.";
+                    return transaccion;
+                }
+
                 _currentStatus.ProgresoTotal = Math.Max(1, totalOps);
                 int procesados = 0, errores = 0;
                 const int batchSize = 500;
