@@ -11,21 +11,30 @@ namespace IntegradorFlexForce.Services
         private readonly SyncEngine _syncEngine;
         private readonly SyncProductosEngine _syncProductosEngine;
         private readonly SyncVendedoresEngine _syncVendedoresEngine;
+        private readonly SyncStockEngine _syncStockEngine;
         private readonly ILogger<SyncBackgroundWorker> _logger;
         private static readonly SemaphoreSlim _cycleLock = new(1, 1);
 
         private DateTime? _ultimaEjecucionClientes;
         private DateTime? _ultimaEjecucionProductos;
         private DateTime? _ultimaEjecucionVendedores;
+        private DateTime? _ultimaEjecucionStock;
         private DateTime? _ultimoDiaMadrugadaClientes;
         private DateTime? _ultimoDiaMadrugadaProductos;
         private DateTime? _ultimoDiaMadrugadaVendedores;
+        private DateTime? _ultimoDiaMadrugadaStock;
 
-        public SyncBackgroundWorker(SyncEngine syncEngine, SyncProductosEngine syncProductosEngine, SyncVendedoresEngine syncVendedoresEngine, ILogger<SyncBackgroundWorker> logger)
+        public SyncBackgroundWorker(
+            SyncEngine syncEngine, 
+            SyncProductosEngine syncProductosEngine, 
+            SyncVendedoresEngine syncVendedoresEngine,
+            SyncStockEngine syncStockEngine,
+            ILogger<SyncBackgroundWorker> logger)
         {
             _syncEngine = syncEngine;
             _syncProductosEngine = syncProductosEngine;
             _syncVendedoresEngine = syncVendedoresEngine;
+            _syncStockEngine = syncStockEngine;
             _logger = logger;
         }
 
@@ -65,6 +74,12 @@ namespace IntegradorFlexForce.Services
                     if (config.AutoVendedoresActivo && DebeEjecutarseVendedores(config))
                     {
                         await EjecutarVendedoresConReintentosAsync(config, stoppingToken);
+                    }
+
+                    // 4. EVALUAR EJECUCIÓN MODULAR: STOCK EN LÍNEA POR ALMACÉN
+                    if (config.AutoStockActivo && DebeEjecutarseStock(config))
+                    {
+                        await EjecutarStockConReintentosAsync(config, stoppingToken);
                     }
                 }
                 catch (OperationCanceledException)
@@ -182,6 +197,40 @@ namespace IntegradorFlexForce.Services
                 }
 
                 return (ahora - _ultimaEjecucionVendedores.Value).TotalMinutes >= intervaloMin;
+            }
+        }
+
+        private bool DebeEjecutarseStock(Models.SyncConfigDto config)
+        {
+            var ahora = DateTime.Now;
+
+            if (config.ModoStock == "MADRUGADA")
+            {
+                // Modo Madrugada: 1 vez al día en la hora configurada (ej: 04:30)
+                if (_ultimoDiaMadrugadaStock.HasValue && _ultimoDiaMadrugadaStock.Value.Date == ahora.Date)
+                {
+                    return false;
+                }
+                return EsHoraObjetivo(config.HoraMadrugadaStock, ahora);
+            }
+            else
+            {
+                // Modo Intervalo periódico dentro de ventana horaria
+                string horaInicio = string.IsNullOrWhiteSpace(config.HoraInicioStock) ? config.HoraInicioVentana : config.HoraInicioStock;
+                string horaFin = string.IsNullOrWhiteSpace(config.HoraFinStock) ? config.HoraFinVentana : config.HoraFinStock;
+
+                if (!EstaEnVentanaHoraria(horaInicio, horaFin))
+                {
+                    return false;
+                }
+
+                int intervaloMin = config.IntervaloStockMinutos > 0 ? config.IntervaloStockMinutos : 2;
+                if (_ultimaEjecucionStock == null)
+                {
+                    return true;
+                }
+
+                return (ahora - _ultimaEjecucionStock.Value).TotalMinutes >= intervaloMin;
             }
         }
 
@@ -350,6 +399,64 @@ namespace IntegradorFlexForce.Services
                     {
                         _logger.LogError("Se agotaron los {Max} reintentos de Módulo Vendedores tras caída o error de conexión.", maxIntentos);
                         _ultimaEjecucionVendedores = DateTime.Now;
+                    }
+                }
+                finally
+                {
+                    if (lockTomado) _cycleLock.Release();
+                }
+            }
+        }
+
+        private async Task EjecutarStockConReintentosAsync(Models.SyncConfigDto config, CancellationToken ct)
+        {
+            int maxIntentos = config.HabilitarReintentos ? Math.Max(1, config.ReintentosMaximos) : 1;
+            int esperaSegundos = config.EsperaReintentoSegundos > 0 ? config.EsperaReintentoSegundos : 30;
+
+            for (int intento = 1; intento <= maxIntentos; intento++)
+            {
+                if (ct.IsCancellationRequested) break;
+
+                bool lockTomado = false;
+                try
+                {
+                    if (_syncStockEngine.GetCurrentStatus().IsRunning)
+                    {
+                        _logger.LogInformation("Módulo Stock ya se encuentra en ejecución manual o previa. Omitiendo ciclo automático.");
+                        return;
+                    }
+
+                    if (await _cycleLock.WaitAsync(0, ct))
+                    {
+                        lockTomado = true;
+                        _logger.LogInformation("Ejecutando ciclo automático Módulo Stock (Intento {Intento}/{Max})...", intento, maxIntentos);
+                        await _syncStockEngine.EjecutarSincronizacionStockAsync("AUTOMATICO", "WORKER_SERVICE", ct);
+
+                        _ultimaEjecucionStock = DateTime.Now;
+                        if (config.ModoStock == "MADRUGADA")
+                        {
+                            _ultimoDiaMadrugadaStock = DateTime.Today;
+                        }
+                        return; // Éxito total
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Ciclo Stock omitido: semáforo de sincronización ocupado por otro módulo.");
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Fallo en ejecución automática de Stock (Intento {Intento}/{Max}).", intento, maxIntentos);
+                    if (intento < maxIntentos)
+                    {
+                        _logger.LogInformation("Esperando {Seg}s antes de reintentar Módulo Stock...", esperaSegundos);
+                        await Task.Delay(TimeSpan.FromSeconds(esperaSegundos), ct);
+                    }
+                    else
+                    {
+                        _logger.LogError("Se agotaron los {Max} reintentos de Módulo Stock tras caída o error de conexión.", maxIntentos);
+                        _ultimaEjecucionStock = DateTime.Now;
                     }
                 }
                 finally

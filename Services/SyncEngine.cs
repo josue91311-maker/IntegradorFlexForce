@@ -2236,6 +2236,42 @@ namespace IntegradorFlexForce.Services
                         case "HORA_MADRUGADA_PRODUCTOS":
                             config.HoraMadrugadaProductos = valor;
                             break;
+                        case "AUTO_VENDEDORES_ACTIVO":
+                            config.AutoVendedoresActivo = valor == "1";
+                            break;
+                        case "MODO_VENDEDORES":
+                            config.ModoVendedores = string.IsNullOrWhiteSpace(valor) ? "INTERVALO" : valor;
+                            break;
+                        case "INTERVALO_VENDEDORES_MINUTOS":
+                            if (int.TryParse(valor, out int minVnd)) config.IntervaloVendedoresMinutos = minVnd;
+                            break;
+                        case "HORA_INICIO_VENDEDORES":
+                            config.HoraInicioVendedores = valor;
+                            break;
+                        case "HORA_FIN_VENDEDORES":
+                            config.HoraFinVendedores = valor;
+                            break;
+                        case "HORA_MADRUGADA_VENDEDORES":
+                            config.HoraMadrugadaVendedores = valor;
+                            break;
+                        case "AUTO_STOCK_ACTIVO":
+                            config.AutoStockActivo = valor == "1";
+                            break;
+                        case "MODO_STOCK":
+                            config.ModoStock = string.IsNullOrWhiteSpace(valor) ? "INTERVALO" : valor;
+                            break;
+                        case "INTERVALO_STOCK_MINUTOS":
+                            if (int.TryParse(valor, out int minStk)) config.IntervaloStockMinutos = minStk;
+                            break;
+                        case "HORA_INICIO_STOCK":
+                            config.HoraInicioStock = valor;
+                            break;
+                        case "HORA_FIN_STOCK":
+                            config.HoraFinStock = valor;
+                            break;
+                        case "HORA_MADRUGADA_STOCK":
+                            config.HoraMadrugadaStock = valor;
+                            break;
                         case "HABILITAR_REINTENTOS":
                             config.HabilitarReintentos = valor == "1";
                             break;
@@ -2279,6 +2315,20 @@ namespace IntegradorFlexForce.Services
                 ("HORA_INICIO_PRODUCTOS", config.HoraInicioProductos ?? "05:00"),
                 ("HORA_FIN_PRODUCTOS", config.HoraFinProductos ?? "23:30"),
                 ("HORA_MADRUGADA_PRODUCTOS", config.HoraMadrugadaProductos ?? "03:30"),
+
+                ("AUTO_VENDEDORES_ACTIVO", config.AutoVendedoresActivo ? "1" : "0"),
+                ("MODO_VENDEDORES", config.ModoVendedores ?? "INTERVALO"),
+                ("INTERVALO_VENDEDORES_MINUTOS", config.IntervaloVendedoresMinutos.ToString()),
+                ("HORA_INICIO_VENDEDORES", config.HoraInicioVendedores ?? "05:00"),
+                ("HORA_FIN_VENDEDORES", config.HoraFinVendedores ?? "23:30"),
+                ("HORA_MADRUGADA_VENDEDORES", config.HoraMadrugadaVendedores ?? "04:00"),
+
+                ("AUTO_STOCK_ACTIVO", config.AutoStockActivo ? "1" : "0"),
+                ("MODO_STOCK", config.ModoStock ?? "INTERVALO"),
+                ("INTERVALO_STOCK_MINUTOS", config.IntervaloStockMinutos.ToString()),
+                ("HORA_INICIO_STOCK", config.HoraInicioStock ?? "05:00"),
+                ("HORA_FIN_STOCK", config.HoraFinStock ?? "23:30"),
+                ("HORA_MADRUGADA_STOCK", config.HoraMadrugadaStock ?? "04:30"),
 
                 ("HABILITAR_REINTENTOS", config.HabilitarReintentos ? "1" : "0"),
                 ("ESPERA_REINTENTO_SEGUNDOS", config.EsperaReintentoSegundos.ToString())

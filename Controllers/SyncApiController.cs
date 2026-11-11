@@ -13,12 +13,18 @@ namespace IntegradorFlexForce.Controllers
         private readonly SyncEngine _syncEngine;
         private readonly SyncProductosEngine _syncProductosEngine;
         private readonly SyncVendedoresEngine _syncVendedoresEngine;
+        private readonly SyncStockEngine _syncStockEngine;
 
-        public SyncApiController(SyncEngine syncEngine, SyncProductosEngine syncProductosEngine, SyncVendedoresEngine syncVendedoresEngine)
+        public SyncApiController(
+            SyncEngine syncEngine, 
+            SyncProductosEngine syncProductosEngine, 
+            SyncVendedoresEngine syncVendedoresEngine,
+            SyncStockEngine syncStockEngine)
         {
             _syncEngine = syncEngine;
             _syncProductosEngine = syncProductosEngine;
             _syncVendedoresEngine = syncVendedoresEngine;
+            _syncStockEngine = syncStockEngine;
         }
 
         [HttpGet("status")]
@@ -222,6 +228,45 @@ namespace IntegradorFlexForce.Controllers
 
             _ = Task.Run(() => _syncVendedoresEngine.EjecutarSincronizacionVendedoresAsync("MANUAL", "PORTAL_WEB", CancellationToken.None));
             return Accepted(new { message = "Sincronización del Módulo de Vendedores iniciada." });
+        }
+
+        // =========================================================================
+        // ENDPOINTS DEL MÓDULO DE STOCK EN LÍNEA POR ALMACÉN
+        // =========================================================================
+
+        [HttpGet("stock/status")]
+        public IActionResult GetStockStatus()
+        {
+            return Ok(_syncStockEngine.GetCurrentStatus());
+        }
+
+        [HttpGet("stock/preview")]
+        public async Task<IActionResult> PreviewCambiosStock(CancellationToken ct)
+        {
+            var preview = await _syncStockEngine.AnalizarCambiosPendientesAsync(ct);
+            return Ok(preview);
+        }
+
+        [HttpPost("stock/trigger")]
+        public async Task<IActionResult> TriggerStock(CancellationToken ct = default)
+        {
+            var current = _syncStockEngine.GetCurrentStatus();
+            if (current.IsRunning)
+            {
+                var swWait = System.Diagnostics.Stopwatch.StartNew();
+                while (_syncStockEngine.GetCurrentStatus().IsRunning && swWait.ElapsedMilliseconds < 15000)
+                {
+                    await Task.Delay(400, ct);
+                }
+
+                if (_syncStockEngine.GetCurrentStatus().IsRunning)
+                {
+                    return Conflict(new { message = "El servicio automático en segundo plano está sincronizando Stock. Espere unos segundos a que termine para iniciar el proceso manual." });
+                }
+            }
+
+            _ = Task.Run(() => _syncStockEngine.EjecutarSincronizacionStockAsync("MANUAL", "PORTAL_WEB", CancellationToken.None));
+            return Accepted(new { message = "Sincronización del Módulo de Stock iniciada." });
         }
     }
 }
