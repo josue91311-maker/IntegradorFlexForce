@@ -303,11 +303,16 @@ BEGIN
         -- -------------------------------------------------------------
         -- PASO 3: INSERT O UPDATE EN dir_Direccion (POR IDExtra)
         -- -------------------------------------------------------------
-        -- Si el cliente no tiene dirección física real ('SIN DIRECCION') y la vista le asignó su mismo ID_Cliente_Origen,
+        -- Si el cliente no tiene dirección física real ('SIN DIRECCION', 'S/D', etc.) y la vista le asignó su mismo ID_Cliente_Origen,
         -- usar el valor en negativo (-@ID_Cliente_Origen) para jamás colisionar con el PKID de la dirección real de otro cliente.
-        IF @Direccion = 'SIN DIRECCION' AND @ID_Direccion_Origen = @ID_Cliente_Origen AND @ID_Direccion_Origen > 0
+        IF (@Direccion IN ('SIN DIRECCION', 'Sin Dirección', 'Sin Direccion', 'S/D', 'S / D', 'SD', 'S.D.', 'S/DIR', 'NO TIENE', 'S/N', 'S N') 
+            OR @Direccion IS NULL 
+            OR LTRIM(RTRIM(@Direccion)) = '')
+           AND @ID_Direccion_Origen = @ID_Cliente_Origen 
+           AND @ID_Direccion_Origen > 0
         BEGIN
             SET @ID_Direccion_Origen = -@ID_Cliente_Origen;
+            SET @Direccion = 'SIN DIRECCION';
         END
 
         DECLARE @IDDireccion int;
@@ -343,7 +348,7 @@ BEGIN
             UPDATE dir_Direccion
             SET 
                 IDTipoDireccion   = @IDTipoDireccion,
-                Direccion         = CASE WHEN @Direccion = 'SIN DIRECCION' AND ISNULL(Direccion, '') NOT IN ('', 'SIN DIRECCION') THEN Direccion ELSE @Direccion END,
+                Direccion         = CASE WHEN @Direccion IN ('SIN DIRECCION', 'S/D', 'Sin Dirección') AND ISNULL(Direccion, '') NOT IN ('', 'SIN DIRECCION', 'S/D') THEN Direccion ELSE @Direccion END,
                 Referencia        = @Referencia,
                 Ubigeo            = @Ubigeo,
                 IDDepartamento    = ISNULL(@IDDpto, IDDepartamento),

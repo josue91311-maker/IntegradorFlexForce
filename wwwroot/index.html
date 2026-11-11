@@ -1595,6 +1595,48 @@
             box-shadow: 0 6px 20px rgba(126, 34, 206, 0.4);
         }
 
+        /* Botones específicos Módulo 4: Stock e Inventario en Línea (Tema Esmeralda / Mint) */
+        .btn-pill-consultar.stock {
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+            border: 2px solid #059669;
+            color: #047857 !important;
+            box-shadow: 0 4px 14px rgba(5, 150, 105, 0.25);
+            font-weight: 700;
+        }
+        .btn-pill-consultar.stock svg {
+            stroke: #047857 !important;
+        }
+        .btn-pill-consultar.stock:hover:not(:disabled) {
+            background: #059669 !important;
+            color: #ffffff !important;
+            border-color: #047857 !important;
+            box-shadow: 0 6px 20px rgba(5, 150, 105, 0.4);
+        }
+        .btn-pill-consultar.stock:hover:not(:disabled) svg {
+            stroke: #ffffff !important;
+        }
+        .btn-pill-primary.stock {
+            background: #059669;
+            border-color: #047857;
+            color: #ffffff !important;
+        }
+        .btn-pill-primary.stock:hover:not(:disabled) {
+            background: #047857;
+            box-shadow: 0 6px 20px rgba(5, 150, 105, 0.4);
+        }
+        .btn-auditoria-lg.stock {
+            border-color: #059669;
+            color: #047857;
+            background: #ecfdf5;
+            box-shadow: 0 2px 8px rgba(5, 150, 105, 0.15);
+        }
+        .btn-auditoria-lg.stock:hover {
+            background: #d1fae5;
+            border-color: #047857;
+            color: #065f46;
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+        }
+
         /* Botón Ejecutivo Grande para Auditoría y Detalles */
         .btn-auditoria-lg {
             padding: 8px 18px;
@@ -3237,6 +3279,9 @@
     <!-- ==============================================================
          VISTA 4: MÓDULO DE STOCK E INVENTARIO EN LÍNEA POR ALMACÉN
          ============================================================== -->
+    <!-- ==============================================================
+         VISTA 4: MÓDULO DE STOCK E INVENTARIO EN LÍNEA POR ALMACÉN
+         ============================================================== -->
     <section id="vistaStock" class="view-section">
 
         <!-- CABECERA DEL MÓDULO STOCK -->
@@ -3279,7 +3324,7 @@
                         <a href="javascript:void(0)" onclick="navegarVista('clientes'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">👥 1. Clientes y Rutas</a>
                         <a href="javascript:void(0)" onclick="navegarVista('productos'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">📦 2. Productos y Precios</a>
                         <a href="javascript:void(0)" onclick="navegarVista('vendedores'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">👔 3. Vendedores y Equipos</a>
-                        <a href="javascript:void(0)" onclick="navegarVista('stock'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:700; color:#2563eb; text-decoration:none; background:#eff6ff;">📦 4. Stock en Línea</a>
+                        <a href="javascript:void(0)" onclick="navegarVista('stock'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:700; color:#059669; text-decoration:none; background:#ecfdf5;">📦 4. Stock en Línea</a>
                         <a href="javascript:void(0)" onclick="navegarVista('historial'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">⏱ Historial de Lotes</a>
                         <a href="javascript:void(0)" onclick="navegarVista('config'); cerrarMenusModulos()" style="display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:13px; font-weight:600; color:#1e293b; text-decoration:none;">⚙️ Configuración</a>
                     </div>
@@ -3287,99 +3332,172 @@
             </div>
         </div>
 
-        <!-- FILA DE BOTONES DE ACCIÓN DE STOCK -->
+        <!-- FILA DE BOTONES DE ACCIÓN (PILLS ESTILO REFERENCIA) -->
         <div class="module-actions-row">
             <button class="btn-pill-outline" onclick="navegarVista('hub')">
                 ← Volver al Hub
             </button>
-            <button id="btnValidarStock" class="btn-pill-consultar" style="background:#2563eb; border-color:#1d4ed8; color:#fff;" onclick="validarDiferenciasStock()">
+            <button id="btnValidarStock" class="btn-pill-consultar stock" onclick="validarDiferenciasStock()">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 1. Consultar Diferencias de Stock
             </button>
-            <button id="btnSyncStock" class="btn-pill-sincronizar" style="background:#059669; border-color:#047857; color:#fff;" onclick="ejecutarSincronizacionStock()">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <button id="btnSyncStock" class="btn-pill-primary stock" onclick="ejecutarSincronizacionStock()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                 2. Sincronizar Stock en Línea
             </button>
-            <span id="badgeEstadoStock" class="status-pill completed" style="margin-left:auto;">
-                <span class="dot"></span>EN ESPERA
-            </span>
         </div>
 
-        <!-- MONITOR DE ESTADO EN VIVO Y BARRA DE PROGRESO (STOCK) -->
-        <div class="white-card" style="margin-bottom:16px; border-left:4px solid #2563eb;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <div id="lblFaseDetalleStock" style="font-size:14px; font-weight:700; color:#0f172a;">
-                    Consola de Stock en Línea: inv_ProductoAlmacen (BDForceGVD)
+        <!-- BANNER DE ESTADO Y PROGRESO -->
+        <div class="status-banner-card">
+            <div class="status-banner-top">
+                <div class="status-banner-left">
+                    <div class="cylinder-icon-box" style="background:linear-gradient(135deg, #ecfdf5, #d1fae5); border-color:#6ee7b7;">
+                        <svg width="44" height="44" viewBox="0 0 48 48" fill="none">
+                            <ellipse cx="24" cy="11" rx="19" ry="6" fill="#10b981" stroke="#059669" stroke-width="1.2"/>
+                            <path d="M5 11v9c0 3.31 8.5 6 19 6s19-2.69 19-6v-9" fill="#059669" stroke="#047857" stroke-width="1.2"/>
+                            <path d="M5 20v9c0 3.31 8.5 6 19 6s19-2.69 19-6v-9" fill="#047857" stroke="#065f46" stroke-width="1.2"/>
+                            <path d="M5 29v9c0 3.31 8.5 6 19 6s19-2.69 19-6v-9" fill="#065f46" stroke="#047857" stroke-width="1.2"/>
+                            <ellipse cx="24" cy="10" rx="16" ry="4.5" fill="#a7f3d0" opacity="0.6"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                            <span id="badgeEstadoStock" class="status-pill completed"><span class="dot"></span>EN ESPERA</span>
+                            <span id="lblFaseDetalleStock" style="font-weight:700; color:#0f172a; font-size:14.5px;">Consola de Stock e Inventario en Línea por Almacén</span>
+                        </div>
+                        <div id="lblUltimaEjecucionStock" style="font-size:12px; color:#64748b; font-weight:500; margin-top:4px;">
+                            ⏱ Sin ejecución previa
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
+                            <button id="btnAuditDetalleStock" class="btn-auditoria-lg stock" onclick="abrirModalAuditoriaUltimaEjecucion('stock')">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                Ver Detalles y Errores de Auditoría
+                            </button>
+                            <button class="btn-historial-lg" onclick="navegarVista('historial')">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                Ver Historial de Ejecuciones
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div id="lblProgresoTextoStock" style="font-size:12.5px; font-weight:700; color:#64748b;" class="mono">
-                    0 / 0 (0%)
+
+                <div>
+                    <span id="lblProgresoTextoStock" class="status-pct-bold">0 / 0 (0%)</span>
                 </div>
             </div>
-            <div class="progress-bar-container" style="height:10px; border-radius:999px; background:#e2e8f0; overflow:hidden;">
-                <div id="barraProgresoStock" class="progress-bar-fill" style="width:0%; height:100%; transition:width 0.4s ease; background:linear-gradient(90deg, #3b82f6, #1d4ed8);"></div>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:11.5px; color:#64748b;">
-                <span id="lblUltimaEjecucionStock">Última sincronización: Sin datos</span>
-                <span>Motor: Comparación atómica BINARY_CHECKSUM · Actualización con ROWLOCK</span>
+
+            <div class="proc-bar-track" style="margin-top:14px; height:12px;">
+                <div id="barraProgresoStock" class="proc-bar-fill" style="width:0%; background:linear-gradient(90deg, #10b981, #059669);"></div>
             </div>
         </div>
 
-        <!-- TARJETAS DE DIAGNÓSTICO DE STOCK -->
-        <div class="metrics-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom:16px;">
-            <div class="metric-card">
-                <div class="metric-label">📦 Registros en ERP Antiguo</div>
-                <div id="cardStockTotalRemoto" class="metric-value">--</div>
-                <div class="metric-sub">digalimenta41.dbo.ProductoAlmacen</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">🏢 Registros Locales Force</div>
-                <div id="cardStockTotalLocal" class="metric-value">--</div>
-                <div class="metric-sub">BDForceGVD.dbo.inv_ProductoAlmacen</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">🔄 Diferencias Detectadas</div>
-                <div id="cardStockDiferencias" class="metric-value ok">0</div>
-                <div class="metric-sub">Requieren actualización en caliente</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">✨ Productos Nuevos</div>
-                <div id="cardStockNuevos" class="metric-value">0</div>
-                <div class="metric-sub">Combinaciones a insertar en Force</div>
-            </div>
-        </div>
-
-        <!-- GRILLA DE VISTA PREVIA DE DIFERENCIAS DETECTADAS -->
+        <!-- 1. MATRIZ DE VALIDACIÓN DE STOCK -->
         <div class="white-card">
             <div class="card-header-clean">
-                <div>
-                    <h2>Detalle de Diferencias de Stock Detectadas</h2>
-                    <div style="font-size:12.5px; color:var(--text-muted);">Productos cuyo Stock Físico o Comprometido difiere entre ambos sistemas</div>
+                <div class="card-title-row">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.4"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    <h2>1. Matriz de Validación de Existencias de Stock (digalimenta41 vs BDForceGVD)</h2>
                 </div>
-                <div>
-                    <input type="text" id="txtBuscarCambiosStock" class="form-control" placeholder="Buscar por código o producto..." style="max-width:260px; font-size:12px; padding:6px 12px;" oninput="filtrarCambiosStock()">
-                </div>
+                <span id="lblTiempoAnalisisStock" style="font-size:12.5px; color:var(--text-muted); font-weight:600;">Pendiente de consulta</span>
             </div>
-
-            <div class="table-responsive" style="max-height:450px; overflow-y:auto;">
-                <table class="data-table">
+            <div class="table-container">
+                <table class="table-matrix">
                     <thead>
                         <tr>
-                            <th>Código</th>
-                            <th>Producto / Almacén</th>
-                            <th>Operación</th>
-                            <th>Stock Actual en Force</th>
-                            <th>Stock Remoto (ERP Viejo)</th>
-                            <th>Estado</th>
+                            <th>Sub-Módulo / Entidad</th>
+                            <th>Tablas Destino en BDForceGVD</th>
+                            <th class="num">ERP Antiguo</th>
+                            <th class="num">Force ERP</th>
+                            <th class="num">Nuevos (INSERT)</th>
+                            <th class="num">Modificados (UPDATE)</th>
+                            <th class="num">Bajas / Inactivos</th>
+                            <th class="num">Coletes</th>
+                            <th class="num">Total Diferencias</th>
+                            <th>Diagnóstico</th>
                         </tr>
                     </thead>
-                    <tbody id="tbodyCambiosStock">
+                    <tbody id="tblResumenTablasStock">
                         <tr>
-                            <td colspan="6" style="text-align:center; padding:32px; color:#64748b;">
-                                Haga clic en <strong>"1. Consultar Diferencias de Stock"</strong> para analizar variaciones en tiempo real sin alterar la base de datos.
+                            <td colspan="10" style="text-align:center; padding:36px 20px; color:#475569; background:#ecfdf5;">
+                                <div style="display:inline-flex; flex-direction:column; align-items:center; gap:10px;">
+                                    <div style="width:48px; height:48px; border-radius:50%; background:#d1fae5; color:#059669; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(5,150,105,0.15);">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                    </div>
+                                    <div style="font-weight:800; font-size:15px; color:#065f46;">Debe ejecutar el botón «1. Consultar Diferencias de Stock»</div>
+                                    <div style="font-size:13px; color:#047857; max-width:540px;">
+                                        Presione el botón verde superior para escanear en tiempo real existencias de Stock Físico, Reservado y Stock Disponible con lectura limpia (NOLOCK) y BINARY_CHECKSUM atómico.
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- 2. DETALLE DE REGISTROS CON CAMBIOS DETECTADOS -->
+        <div class="white-card">
+            <div class="card-header-clean">
+                <div class="card-title-row">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.4"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                    <h2>2. Detalle de Registros con Cambio Detectados (Pre-Visualización de Stock)</h2>
+                </div>
+
+                <!-- FILTROS DE BÚSQUEDA -->
+                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                    <div style="position:relative; width:280px;">
+                        <input type="text" id="txtFiltroCambiosStock" class="search-input" placeholder="Buscar por código, producto o almacén..." oninput="filtrarCambiosStock()">
+                    </div>
+                    <select id="selFiltroOpStock" class="select-control" onchange="filtrarCambiosStock()">
+                        <option value="">Todas las operaciones</option>
+                        <option value="INSERT">Nuevos (INSERT)</option>
+                        <option value="UPDATE">Modificados (UPDATE)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="table-changes">
+                    <thead>
+                        <tr>
+                            <th>Sub - Módulo</th>
+                            <th>Operación</th>
+                            <th>ID Origen</th>
+                            <th>Código Producto</th>
+                            <th>Producto / Almacén</th>
+                            <th>Campo Detectado</th>
+                            <th>Stock Actual en Force</th>
+                            <th>Stock Nuevo en ERP Antiguo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblCambiosStock">
+                        <tr>
+                            <td colspan="8" style="text-align:center; color:var(--text-muted); padding:36px 20px; background:#ecfdf5;">
+                                <div style="display:inline-flex; flex-direction:column; align-items:center; gap:8px;">
+                                    <div style="font-weight:700; font-size:14px; color:#065f46;">No hay cambios de existencias cargados</div>
+                                    <div style="font-size:12.5px; color:#047857;">Presione «1. Consultar Diferencias de Stock» para pre-visualizar las modificaciones antes de sincronizar.</div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PAGINACIÓN DETALLE -->
+            <div class="pagination-bar">
+                <div>
+                    <span id="lblPaginacionCambiosStock">Mostrando 0 de 0 registros</span>
+                    <label style="margin-left:12px;">
+                        Por página:
+                        <select id="selPageSizeCambiosStock" class="select-control" style="padding:3px 8px; font-size:12px;" onchange="irPaginaCambiosStock(1)">
+                            <option value="15">15</option>
+                            <option value="30">30</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </label>
+                </div>
+                <div id="pagControlsCambiosStock" class="pagination-controls"></div>
             </div>
         </div>
 
@@ -5560,6 +5678,12 @@ async function ejecutarSincronizacion(modo) {
                 btnVend.style.display = 'inline-block';
                 btnVend.classList.add('active');
             }
+        } else if (modulo === 'stock') {
+            filtroModuloBatchModal = 'STOCK';
+            if (btnTodos) btnTodos.style.display = 'none';
+            if (btnCli) btnCli.style.display = 'none';
+            if (btnProd) btnProd.style.display = 'none';
+            if (btnVend) btnVend.style.display = 'none';
         } else {
             filtroModuloBatchModal = 'TODOS';
             if (btnTodos) { btnTodos.style.display = 'inline-block'; btnTodos.classList.add('active'); }
@@ -5574,7 +5698,9 @@ async function ejecutarSincronizacion(modo) {
                 ? 'Centro de Auditoría y Trazabilidad - Módulo de Productos y Precios' 
                 : (modulo === 'vendedores'
                     ? 'Centro de Auditoría y Trazabilidad - Módulo de Vendedores y Estructura Comercial'
-                    : 'Centro de Auditoría y Trazabilidad'));
+                    : (modulo === 'stock'
+                        ? 'Centro de Auditoría y Trazabilidad - Módulo de Stock e Inventario en Línea'
+                        : 'Centro de Auditoría y Trazabilidad')));
 
         document.getElementById('auditModalBadgeEstado').textContent = 'CONSULTANDO...';
         document.getElementById('auditModalBadgeEstado').className = 'status-pill running';
@@ -6843,77 +6969,149 @@ async function ejecutarSincronizacion(modo) {
     // FUNCIONES JS: MÓDULO 4 - STOCK E INVENTARIO EN LÍNEA
     // ==============================================================
     let listaCambiosStockGlobal = [];
+    let cambiosStockFiltrados = [];
+    let pagActualCambiosStock = 1;
+    let pageSizeCambiosStock = 15;
     let syncStockEstabaCorriendo = false;
 
     async function validarDiferenciasStock() {
-        mostrarLoading('Analizando Stock en Línea...', 'Comparando hashes de digalimenta41 vs BDForceGVD sin alterar datos...');
+        const btn = document.getElementById('btnValidarStock');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<svg class="spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Consultando...`;
+        }
+
+        mostrarLoading('Analizando Stock en Línea...', 'Comparando hashes de existencias digalimenta41 vs BDForceGVD sin alterar datos...');
+        const t0 = performance.now();
         try {
             const res = await fetch('/api/sync/stock/preview');
             const data = await res.json();
+            const elapsed = Math.round(performance.now() - t0);
 
-            const resumen = data.resumenPorTabla && data.resumenPorTabla[0] ? data.resumenPorTabla[0] : null;
-            if (resumen) {
-                document.getElementById('cardStockTotalRemoto').textContent = (resumen.totalOrigen || 0).toLocaleString();
-                document.getElementById('cardStockTotalLocal').textContent = (resumen.totalDestino || 0).toLocaleString();
-                document.getElementById('cardStockDiferencias').textContent = (resumen.updatesDetectados || 0).toLocaleString();
-                document.getElementById('cardStockNuevos').textContent = (resumen.insertsDetectados || 0).toLocaleString();
-
-                const cardDiff = document.getElementById('cardStockDiferencias');
-                if (resumen.updatesDetectados > 0) {
-                    cardDiff.className = 'metric-value warn';
-                } else {
-                    cardDiff.className = 'metric-value ok';
-                }
-            }
+            renderMatrizStock(data.resumenPorTabla, elapsed);
 
             listaCambiosStockGlobal = data.detalleCambios || [];
-            renderizarTablaCambiosStock(listaCambiosStockGlobal);
+            cambiosStockFiltrados = [...listaCambiosStockGlobal];
+            filtrarCambiosStock();
 
-            const totalDiff = (resumen?.updatesDetectados || 0) + (resumen?.insertsDetectados || 0);
-            mostrarNotificacion(totalDiff === 0 
+            const totalDiff = (data.resumenPorTabla || []).reduce((acc, r) => acc + (r.totalDiferencias || 0), 0);
+            mostrarToast(totalDiff === 0 
                 ? 'Stock 100% Sincronizado. Cero discrepancias detectadas.' 
-                : `Se detectaron ${totalDiff} productos con variaciones de stock.`, 
+                : `Se detectaron ${totalDiff} productos con variaciones de existencias.`, 
                 totalDiff === 0 ? 'success' : 'warning');
         } catch (e) {
             console.error(e);
-            mostrarNotificacion('Error al consultar diferencias de stock: ' + e.message, 'error');
+            mostrarToast('Error al consultar diferencias de stock: ' + e.message, 'error');
         } finally {
             ocultarLoading();
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 1. Consultar Diferencias de Stock`;
+            }
         }
     }
 
-    function renderizarTablaCambiosStock(items) {
-        const tbody = document.getElementById('tbodyCambiosStock');
+    function renderMatrizStock(resumen, tiempoMs) {
+        const tbody = document.getElementById('tblResumenTablasStock');
         if (!tbody) return;
 
-        if (!items || items.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:28px; color:#10b981; font-weight:700;">✓ No se encontraron diferencias de stock pendientes. Todo se encuentra al día.</td></tr>`;
+        const lblTiempo = document.getElementById('lblTiempoAnalisisStock');
+        if (lblTiempo && tiempoMs) {
+            lblTiempo.textContent = `Analizado en ${(tiempoMs / 1000).toFixed(2)}s`;
+        }
+
+        if (!resumen || resumen.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:24px;">No se obtuvieron datos de la matriz de stock.</td></tr>';
             return;
         }
 
-        tbody.innerHTML = items.slice(0, 100).map(c => `
-            <tr>
-                <td class="mono" style="font-weight:700; color:#1e293b;">${c.codigoCliente || '--'}</td>
-                <td><strong>${c.nombreCliente || '--'}</strong></td>
-                <td><span class="badge-op ${c.tipoOperacion === 'INSERT' ? 'insert' : 'update'}">${c.tipoOperacion}</span></td>
-                <td style="color:#0f172a; font-weight:600;">${c.valorActualForce || '--'}</td>
-                <td style="color:#2563eb; font-weight:700;">${c.valorNuevoERP || '--'}</td>
-                <td><span class="status-pill warn" style="font-size:11px;">Pendiente</span></td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = resumen.map(r => {
+            const totalDif = (r.insertsDetectados || 0) + (r.updatesDetectados || 0) + (r.deletesBajasDetectados || 0);
+            const diagPill = totalDif === 0
+                ? `<span class="pill-diag-ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Al día</span>`
+                : `<span class="pill-diag-warn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ${r.mensajeDiagnostico || 'Variaciones detectadas'}</span>`;
+
+            return `<tr>
+                <td style="font-weight:700; color:#0f172a;"><span style="color:#059669; font-weight:800; margin-right:6px;">&gt;</span>${r.nombreSubModulo || r.codigoTabla || 'Stock por Almacén'}</td>
+                <td class="mono" style="color:#64748b; font-size:12px;">${r.tablasDestino || 'dbo.inv_ProductoAlmacen'}</td>
+                <td class="num" style="font-weight:700; color:#0f172a;">${(r.totalOrigen || 0).toLocaleString()}</td>
+                <td class="num" style="font-weight:700; color:#0f172a;">${(r.totalDestino || 0).toLocaleString()}</td>
+                <td class="num ${r.insertsDetectados > 0 ? 'val-ins' : ''}">${(r.insertsDetectados || 0).toLocaleString()}</td>
+                <td class="num ${r.updatesDetectados > 0 ? 'val-upd' : ''}">${(r.updatesDetectados || 0).toLocaleString()}</td>
+                <td class="num ${r.deletesBajasDetectados > 0 ? 'val-del' : ''}">${(r.deletesBajasDetectados || 0).toLocaleString()}</td>
+                <td class="num" style="color:#64748b;">-</td>
+                <td class="num" style="color:#0f172a; font-weight:800;">${totalDif > 0 ? totalDif.toLocaleString() : '-'}</td>
+                <td>${diagPill}</td>
+            </tr>`;
+        }).join('');
     }
 
     function filtrarCambiosStock() {
-        const q = (document.getElementById('txtBuscarCambiosStock')?.value || '').toLowerCase().trim();
-        if (!q) {
-            renderizarTablaCambiosStock(listaCambiosStockGlobal);
-            return;
+        const txt = (document.getElementById('txtFiltroCambiosStock')?.value || '').toLowerCase().trim();
+        const op = document.getElementById('selFiltroOpStock')?.value || '';
+
+        cambiosStockFiltrados = listaCambiosStockGlobal.filter(item => {
+            if (op && item.tipoOperacion !== op) return false;
+            if (txt) {
+                const matchCod = (item.codigoCliente || '').toLowerCase().includes(txt);
+                const matchNom = (item.nombreCliente || '').toLowerCase().includes(txt);
+                const matchCampo = (item.campoModificado || '').toLowerCase().includes(txt);
+                const matchId = String(item.idOrigen || '').includes(txt);
+                if (!matchCod && !matchNom && !matchCampo && !matchId) return false;
+            }
+            return true;
+        });
+
+        irPaginaCambiosStock(1);
+    }
+
+    function irPaginaCambiosStock(pag) {
+        pageSizeCambiosStock = parseInt(document.getElementById('selPageSizeCambiosStock')?.value || '15');
+        pagActualCambiosStock = pag;
+        const total = cambiosStockFiltrados.length;
+        const totalPags = Math.ceil(total / pageSizeCambiosStock) || 1;
+        if (pagActualCambiosStock > totalPags) pagActualCambiosStock = totalPags;
+        if (pagActualCambiosStock < 1) pagActualCambiosStock = 1;
+
+        const start = (pagActualCambiosStock - 1) * pageSizeCambiosStock;
+        const end = Math.min(start + pageSizeCambiosStock, total);
+        const items = cambiosStockFiltrados.slice(start, end);
+
+        const tbody = document.getElementById('tblCambiosStock');
+        if (tbody) {
+            if (items.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:24px; color:var(--text-muted); background:#ecfdf5;">
+                    ${listaCambiosStockGlobal.length === 0 ? 'No hay cambios pendientes cargados. Presione «1. Consultar Diferencias de Stock».' : 'No se encontraron registros con los filtros seleccionados.'}
+                </td></tr>`;
+            } else {
+                tbody.innerHTML = items.map(c => `<tr>
+                    <td style="font-weight:700; color:#065f46;">${c.tabla}</td>
+                    <td><span class="badge ${c.tipoOperacion === 'INSERT' ? 'badge-insert' : 'badge-update'}">${c.tipoOperacion}</span></td>
+                    <td class="mono">${c.idOrigen}</td>
+                    <td class="mono font-bold" style="color:#059669;">${c.codigoCliente || '-'}</td>
+                    <td style="font-weight:600; color:#0f172a;">${c.nombreCliente || '-'}</td>
+                    <td style="color:#64748b;">${c.campoModificado || '-'}</td>
+                    <td style="color:#dc2626; font-size:12px; font-weight:600;">${c.valorActualForce || '-'}</td>
+                    <td style="color:#059669; font-size:12px; font-weight:700;">${c.valorNuevoERP || '-'}</td>
+                </tr>`).join('');
+            }
         }
-        const filtrados = listaCambiosStockGlobal.filter(x => 
-            (x.codigoCliente || '').toLowerCase().includes(q) || 
-            (x.nombreCliente || '').toLowerCase().includes(q)
-        );
-        renderizarTablaCambiosStock(filtrados);
+
+        const lblPaginacion = document.getElementById('lblPaginacionCambiosStock');
+        if (lblPaginacion) {
+            lblPaginacion.textContent = total > 0 
+                ? `Mostrando ${start + 1} a ${end} de ${total.toLocaleString()} registros con variación`
+                : 'Mostrando 0 de 0 registros';
+        }
+
+        const pagControls = document.getElementById('pagControlsCambiosStock');
+        if (pagControls) {
+            pagControls.innerHTML = `
+                <button class="btn btn-outline btn-sm" onclick="irPaginaCambiosStock(${pagActualCambiosStock - 1})" ${pagActualCambiosStock <= 1 ? 'disabled' : ''}>Anterior</button>
+                <span style="font-size:12.5px; font-weight:700; padding:0 8px;">Pág. ${pagActualCambiosStock} de ${totalPags}</span>
+                <button class="btn btn-outline btn-sm" onclick="irPaginaCambiosStock(${pagActualCambiosStock + 1})" ${pagActualCambiosStock >= totalPags ? 'disabled' : ''}>Siguiente</button>
+            `;
+        }
     }
 
     async function ejecutarSincronizacionStock() {
@@ -7016,7 +7214,7 @@ async function ejecutarSincronizacion(modo) {
                 btnSync.disabled = s.isRunning;
                 btnSync.innerHTML = s.isRunning 
                     ? `<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Sincronizando...`
-                    : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> 2. Sincronizar Stock en Línea`;
+                    : `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> 2. Sincronizar Stock en Línea`;
             }
 
             // Actualizar Hub Card 4

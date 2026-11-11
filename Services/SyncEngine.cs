@@ -372,7 +372,15 @@ namespace IntegradorFlexForce.Services
                            LTRIM(RTRIM(ISNULL(c.Campo4, ''))) AS Campo4
                     FROM dbo.Cliente c WITH (NOLOCK)
                     INNER JOIN dbo.Persona pp WITH (NOLOCK) ON pp.PKID = c.PKID
-                    LEFT JOIN dbo.Direccion d WITH (NOLOCK) ON d.PKID = c.PKID AND ISNULL(d.DireccionPrincipal, 1) = 1;";
+                    OUTER APPLY (
+                        SELECT TOP 1 
+                            d.PKID,
+                            d.Descripcion,
+                            d.Activo
+                        FROM dbo.Direccion d WITH (NOLOCK)
+                        WHERE d.IDPersona = c.PKID
+                        ORDER BY ISNULL(d.DireccionPrincipal, 0) DESC, d.PKID DESC
+                    ) d;";
                 using var cmd = new SqlCommand(sqlAntiguo, connAntiguo) { CommandTimeout = 180 };
                 using var r = await cmd.ExecuteReaderAsync(ct);
 
@@ -396,7 +404,23 @@ namespace IntegradorFlexForce.Services
                     string campo3 = r.GetString(12);
                     string campo4 = r.GetString(13);
 
-                    if (!string.Equals(direccion, "SIN DIRECCION", StringComparison.OrdinalIgnoreCase))
+                    static bool EsDireccionFicticia(string? dir)
+                    {
+                        if (string.IsNullOrWhiteSpace(dir)) return true;
+                        var d = dir.Trim().ToUpperInvariant();
+                        return d == "SIN DIRECCION" 
+                            || d == "SIN DIRECCIÓN" 
+                            || d == "S/D" 
+                            || d == "S / D" 
+                            || d == "SD" 
+                            || d == "S.D." 
+                            || d == "S/DIR" 
+                            || d == "NO TIENE"
+                            || d == "S N"
+                            || d == "S/N";
+                    }
+
+                    if (!EsDireccionFicticia(direccion))
                         totalDirOrigen++;
 
                     bool existeCli = clientesForcePorIdExtra.TryGetValue(idCliente, out var cliForce);
@@ -535,9 +559,18 @@ namespace IntegradorFlexForce.Services
                     if (existeCli || activoCli)
                     {
                         bool existeDir = direccionesForcePorIdExtra.TryGetValue(idDireccion, out var dirForce);
+                        if (!existeDir && (idDireccion == idCliente || EsDireccionFicticia(direccion)))
+                        {
+                            if (direccionesForcePorIdExtra.TryGetValue(-idCliente, out var dirNegForce))
+                            {
+                                existeDir = true;
+                                dirForce = dirNegForce;
+                            }
+                        }
+
                         if (!existeDir)
                         {
-                            if (activoCli && activoDir && !string.Equals(direccion, "SIN DIRECCION", StringComparison.OrdinalIgnoreCase))
+                            if (activoCli && activoDir && !EsDireccionFicticia(direccion))
                             {
                                 dirInserts++;
                                 nuevosIdsClientes.Add(idCliente);
