@@ -200,51 +200,27 @@ BEGIN
 
         -- -------------------------------------------------------------
         -- D.1 SINCRONIZAR per_Persona (TipoEntidad = 'PROVEEDOR')
+        -- Solo se crea si es un proveedor nuevo y no existe aún en per_Persona
+        -- para evitar bloqueos concurrentes con la sincronización de clientes
         -- -------------------------------------------------------------
-        IF @IDProveedor IS NOT NULL AND (@ID_Proveedor_Origen > 0 OR LTRIM(RTRIM(@CodigoProveedor)) <> '')
+        IF @IDProveedor IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.per_Persona WHERE IDProveedor = @IDProveedor AND TipoEntidad = 'PROVEEDOR')
         BEGIN
-            IF EXISTS (SELECT 1 FROM dbo.per_Persona WHERE IDProveedor = @IDProveedor AND TipoEntidad = 'PROVEEDOR')
-            BEGIN
-                UPDATE dbo.per_Persona
-                SET 
-                    NombreCompleto    = LEFT(LTRIM(RTRIM(ISNULL(@RazonSocialProveedor, @CodigoProveedor))), 200),
-                    NombreComercial   = LEFT(LTRIM(RTRIM(ISNULL(@RazonSocialProveedor, @CodigoProveedor))), 200),
-                    DocIdentidad      = CASE WHEN @RUCProveedor IS NOT NULL AND LTRIM(RTRIM(@RUCProveedor)) <> '' 
-                                             THEN LEFT(LTRIM(RTRIM(@RUCProveedor)), 20) 
-                                             ELSE DocIdentidad END,
-                    Estado            = @EstadoProveedor,
-                    Eliminado         = 0,
-                    FechaModificacion = GETDATE()
-                WHERE IDProveedor = @IDProveedor AND TipoEntidad = 'PROVEEDOR'
-                  AND (
-                      NombreCompleto <> LEFT(LTRIM(RTRIM(ISNULL(@RazonSocialProveedor, @CodigoProveedor))), 200)
-                      OR NombreComercial <> LEFT(LTRIM(RTRIM(ISNULL(@RazonSocialProveedor, @CodigoProveedor))), 200)
-                      OR ISNULL(DocIdentidad, '') <> CASE WHEN @RUCProveedor IS NOT NULL AND LTRIM(RTRIM(@RUCProveedor)) <> '' 
-                                                          THEN LEFT(LTRIM(RTRIM(@RUCProveedor)), 20) 
-                                                          ELSE ISNULL(DocIdentidad, '') END
-                      OR ISNULL(Estado, 1) <> @EstadoProveedor
-                      OR ISNULL(Eliminado, 0) <> 0
-                  );
-            END
-            ELSE
-            BEGIN
-                INSERT INTO dbo.per_Persona (
-                    TipoEntidad, IDCliente, IDProveedor, IDVendedor,
-                    NombreCompleto, NombreComercial,
-                    DocIdentidad, IDTipoDocIdentidad,
-                    Telefono, Email, Observacion,
-                    Estado, FechaCreacion, FechaModificacion, Eliminado
-                )
-                VALUES (
-                    'PROVEEDOR', NULL, @IDProveedor, NULL,
-                    LEFT(LTRIM(RTRIM(ISNULL(@RazonSocialProveedor, @CodigoProveedor))), 200),
-                    LEFT(LTRIM(RTRIM(ISNULL(@RazonSocialProveedor, @CodigoProveedor))), 200),
-                    LEFT(LTRIM(RTRIM(ISNULL(@RUCProveedor, '0'))), 20),
-                    NULL,
-                    NULL, NULL, NULL,
-                    @EstadoProveedor, GETDATE(), GETDATE(), 0
-                );
-            END
+            INSERT INTO dbo.per_Persona (
+                TipoEntidad, IDCliente, IDProveedor, IDVendedor,
+                NombreCompleto, NombreComercial,
+                DocIdentidad, IDTipoDocIdentidad,
+                Telefono, Email, Observacion,
+                Estado, FechaCreacion, FechaModificacion, Eliminado
+            )
+            VALUES (
+                'PROVEEDOR', NULL, @IDProveedor, NULL,
+                LEFT(LTRIM(RTRIM(ISNULL(@RazonSocialProveedor, @CodigoProveedor))), 200),
+                LEFT(LTRIM(RTRIM(ISNULL(@RazonSocialProveedor, @CodigoProveedor))), 200),
+                LEFT(LTRIM(RTRIM(ISNULL(@RUCProveedor, '0'))), 20),
+                NULL,
+                NULL, NULL, NULL,
+                @EstadoProveedor, GETDATE(), GETDATE(), 0
+            );
         END
 
         IF @IDProveedor IS NULL
