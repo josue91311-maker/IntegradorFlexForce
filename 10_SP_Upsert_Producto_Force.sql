@@ -48,6 +48,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
+    SET DEADLOCK_PRIORITY LOW;
 
     BEGIN TRY
         BEGIN TRANSACTION;
@@ -79,7 +80,8 @@ BEGIN
                 BEGIN
                     UPDATE dbo.prd_Marca
                     SET IDExtra = @ID_Marca_Origen, Nombre = LEFT(LTRIM(RTRIM(@NombreMarca)), 100), Estado = @EstadoMarca, FechaModificacion = GETDATE()
-                    WHERE ID = @IDMarca;
+                    WHERE ID = @IDMarca
+                      AND (ISNULL(IDExtra, 0) <> @ID_Marca_Origen OR Nombre <> LEFT(LTRIM(RTRIM(@NombreMarca)), 100) OR ISNULL(Estado, 1) <> @EstadoMarca);
                 END
             END
             ELSE IF @IDMarca IS NOT NULL AND LTRIM(RTRIM(@NombreMarca)) <> ''
@@ -90,7 +92,7 @@ BEGIN
                     Eliminado = 0,
                     FechaModificacion = GETDATE()
                 WHERE ID = @IDMarca
-                  AND (Nombre <> LEFT(LTRIM(RTRIM(@NombreMarca)), 100) OR ISNULL(Estado, 1) <> @EstadoMarca);
+                  AND (Nombre <> LEFT(LTRIM(RTRIM(@NombreMarca)), 100) OR ISNULL(Estado, 1) <> @EstadoMarca OR ISNULL(Eliminado, 0) <> 0);
             END
         END
 
@@ -119,7 +121,8 @@ BEGIN
                 BEGIN
                     UPDATE dbo.prd_LineaProducto
                     SET IDExtra = @ID_Linea_Origen, Nombre = LEFT(LTRIM(RTRIM(ISNULL(@NombreLinea, @CodigoLinea))), 100), Estado = @EstadoLinea, FechaModificacion = GETDATE()
-                    WHERE ID = @IDLinea;
+                    WHERE ID = @IDLinea
+                      AND (ISNULL(IDExtra, 0) <> @ID_Linea_Origen OR Nombre <> LEFT(LTRIM(RTRIM(ISNULL(@NombreLinea, @CodigoLinea))), 100) OR ISNULL(Estado, 1) <> @EstadoLinea);
                 END
             END
             ELSE IF @IDLinea IS NOT NULL AND LTRIM(RTRIM(@NombreLinea)) <> ''
@@ -179,7 +182,8 @@ BEGIN
                         RazonSocial = LEFT(LTRIM(RTRIM(ISNULL(@RazonSocialProveedor, RazonSocial))), 200),
                         Estado = @EstadoProveedor,
                         FechaModificacion = GETDATE()
-                    WHERE ID = @IDProveedor;
+                    WHERE ID = @IDProveedor
+                      AND (ISNULL(IDExtra, 0) <> @ID_Proveedor_Origen OR RazonSocial <> LEFT(LTRIM(RTRIM(ISNULL(@RazonSocialProveedor, RazonSocial))), 200) OR ISNULL(Estado, 1) <> @EstadoProveedor);
                 END
             END
             ELSE IF @IDProveedor IS NOT NULL AND LTRIM(RTRIM(@RazonSocialProveedor)) <> ''
@@ -190,7 +194,7 @@ BEGIN
                     Eliminado = 0,
                     FechaModificacion = GETDATE()
                 WHERE ID = @IDProveedor
-                  AND (RazonSocial <> LEFT(LTRIM(RTRIM(@RazonSocialProveedor)), 200) OR ISNULL(Estado, 1) <> @EstadoProveedor);
+                  AND (RazonSocial <> LEFT(LTRIM(RTRIM(@RazonSocialProveedor)), 200) OR ISNULL(Estado, 1) <> @EstadoProveedor OR ISNULL(Eliminado, 0) <> 0);
             END
         END
 
@@ -211,7 +215,16 @@ BEGIN
                     Estado            = @EstadoProveedor,
                     Eliminado         = 0,
                     FechaModificacion = GETDATE()
-                WHERE IDProveedor = @IDProveedor AND TipoEntidad = 'PROVEEDOR';
+                WHERE IDProveedor = @IDProveedor AND TipoEntidad = 'PROVEEDOR'
+                  AND (
+                      NombreCompleto <> LEFT(LTRIM(RTRIM(ISNULL(@RazonSocialProveedor, @CodigoProveedor))), 200)
+                      OR NombreComercial <> LEFT(LTRIM(RTRIM(ISNULL(@RazonSocialProveedor, @CodigoProveedor))), 200)
+                      OR ISNULL(DocIdentidad, '') <> CASE WHEN @RUCProveedor IS NOT NULL AND LTRIM(RTRIM(@RUCProveedor)) <> '' 
+                                                          THEN LEFT(LTRIM(RTRIM(@RUCProveedor)), 20) 
+                                                          ELSE ISNULL(DocIdentidad, '') END
+                      OR ISNULL(Estado, 1) <> @EstadoProveedor
+                      OR ISNULL(Eliminado, 0) <> 0
+                  );
             END
             ELSE
             BEGIN
@@ -324,7 +337,19 @@ BEGIN
                 Codigo = LEFT(LTRIM(RTRIM(@CodigoProducto)), 50),
                 Eliminado = 0,
                 FechaModificacion = GETDATE()
-            WHERE ID = @IDProducto;
+            WHERE ID = @IDProducto
+              AND (
+                  Nombre <> @NomProdLimpio
+                  OR ISNULL(Descripcion, '') <> @DescProdLimpia
+                  OR IDMarca <> ISNULL(@IDMarca, IDMarca)
+                  OR IDLinea <> ISNULL(@IDLinea, IDLinea)
+                  OR IDProveedor <> ISNULL(@IDProveedor, IDProveedor)
+                  OR ISNULL(IDSubProveedor, 0) <> ISNULL(@IDSubProveedor, 0)
+                  OR ISNULL(Estado, 1) <> @EstadoProducto
+                  OR ISNULL(IDExtra, 0) <> @ID_Producto_Origen
+                  OR Codigo <> LEFT(LTRIM(RTRIM(@CodigoProducto)), 50)
+                  OR ISNULL(Eliminado, 0) <> 0
+              );
         END
 
         SET @IDProductoGenerado = @IDProducto;
@@ -387,6 +412,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
+    SET DEADLOCK_PRIORITY LOW;
 
     BEGIN TRY
         BEGIN TRANSACTION;
@@ -400,7 +426,7 @@ BEGIN
             SELECT TOP 1 @IDProducto = ID FROM dbo.prd_Producto WHERE Codigo = LTRIM(RTRIM(@CodigoProducto)) AND Eliminado = 0;
             IF @IDProducto IS NOT NULL
             BEGIN
-                UPDATE dbo.prd_Producto SET IDExtra = @ID_Producto_Origen WHERE ID = @IDProducto;
+                UPDATE dbo.prd_Producto SET IDExtra = @ID_Producto_Origen WHERE ID = @IDProducto AND ISNULL(IDExtra, 0) <> @ID_Producto_Origen;
             END
         END
 
@@ -476,7 +502,23 @@ BEGIN
                 IDExtra = @ID_Unidad_Origen,
                 Eliminado = 0,
                 FechaModificacion = GETDATE()
-            WHERE ID = @IDProductoUnidad;
+            WHERE ID = @IDProductoUnidad
+              AND (
+                  IDProducto <> @IDProducto
+                  OR IDUnidadMedida <> @IDUnidadMedida
+                  OR EsUnidadBase <> @EsUnidadBase
+                  OR Factor <> @Factor
+                  OR Abrev <> @AbrevLimpia
+                  OR ISNULL(Alto, 0) <> @Alto
+                  OR ISNULL(Ancho, 0) <> @Ancho
+                  OR ISNULL(Largo, 0) <> @Largo
+                  OR ISNULL(Volumen, 0) <> @Volumen
+                  OR ISNULL(PesoNeto, 0) <> @Peso
+                  OR ISNULL(PesoBruto, 0) <> @Peso
+                  OR ISNULL(Estado, 1) <> @Estado
+                  OR ISNULL(IDExtra, 0) <> @ID_Unidad_Origen
+                  OR ISNULL(Eliminado, 0) <> 0
+              );
         END
 
         COMMIT TRANSACTION;
@@ -505,6 +547,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
+    SET DEADLOCK_PRIORITY LOW;
 
     BEGIN TRY
         BEGIN TRANSACTION;
@@ -564,7 +607,8 @@ BEGIN
                     UPDATE dbo.ctg_CatalogoProducto
                     SET Estado = @EstadoAsignacion,
                         FechaModificacion = GETDATE()
-                    WHERE IDCatalogo = @IDCatalogo AND IDProducto = @IDProducto;
+                    WHERE IDCatalogo = @IDCatalogo AND IDProducto = @IDProducto
+                      AND ISNULL(Estado, 1) <> @EstadoAsignacion;
                 END
             END
         END
@@ -606,6 +650,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
+    SET DEADLOCK_PRIORITY LOW;
 
     BEGIN TRY
         BEGIN TRANSACTION;
@@ -631,7 +676,17 @@ BEGIN
                 Eliminado = 0,
                 FechaUltimaModificacion = GETDATE(),
                 FechaModificacion = GETDATE()
-            WHERE ID = @IDEscalaDirecta;
+            WHERE ID = @IDEscalaDirecta
+              AND (
+                  Precio <> @Precio
+                  OR PrecioIncImpto <> @PrecioIncImpto
+                  OR ISNULL(UtilidadMonto, 0) <> @UtilidadMonto
+                  OR ISNULL(UtilidadPorcentual, 0) <> @UtilidadPorcentual
+                  OR Desde <> @Desde
+                  OR Hasta <> @Hasta
+                  OR ISNULL(Esvigente, 1) <> @EsVigente
+                  OR ISNULL(Eliminado, 0) <> 0
+              );
 
             COMMIT TRANSACTION;
             RETURN;
@@ -793,7 +848,19 @@ BEGIN
                 Eliminado = 0,
                 FechaUltimaModificacion = GETDATE(),
                 FechaModificacion = GETDATE()
-            WHERE ID = @IDEscala;
+            WHERE ID = @IDEscala
+              AND (
+                  IDUnidadItemListaPrecios <> @IDPrecioUnidad
+                  OR Desde <> @Desde
+                  OR Hasta <> @Hasta
+                  OR Precio <> @Precio
+                  OR PrecioIncImpto <> @PrecioIncImpto
+                  OR ISNULL(UtilidadMonto, 0) <> @UtilidadMonto
+                  OR ISNULL(UtilidadPorcentual, 0) <> @UtilidadPorcentual
+                  OR ISNULL(Esvigente, 1) <> @EsVigente
+                  OR ISNULL(IDExtra, 0) <> @ID_Escala_Origen
+                  OR ISNULL(Eliminado, 0) <> 0
+              );
         END
 
         COMMIT TRANSACTION;

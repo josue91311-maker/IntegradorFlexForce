@@ -19,7 +19,7 @@ namespace IntegradorFlexForce.Services
         private readonly string _connectionStringForce;
         private readonly string _connectionStringAntiguo;
         private readonly ILogger<SyncProductosEngine> _logger;
-        private readonly SemaphoreSlim _syncLock = new(1, 1);
+        private static readonly SemaphoreSlim _syncLock = new(1, 1);
 
         private readonly SyncStatusDto _currentStatus = new();
         private SyncPreviewDto? _lastPreview;
@@ -1345,8 +1345,23 @@ namespace IntegradorFlexForce.Services
                     var pOut = new SqlParameter("@IDProductoGenerado", SqlDbType.Int) { Direction = ParameterDirection.Output };
                     cmd.Parameters.Add(pOut);
 
-                    await cmd.ExecuteNonQueryAsync(ct);
-                    procesados++;
+                    int reintentos = 0;
+                    bool exito = false;
+                    while (!exito && reintentos < 4)
+                    {
+                        try
+                        {
+                            await cmd.ExecuteNonQueryAsync(ct);
+                            exito = true;
+                            procesados++;
+                        }
+                        catch (SqlException sqlEx) when (sqlEx.Number == 1205 && reintentos < 3)
+                        {
+                            reintentos++;
+                            _logger.LogInformation("Deadlock 1205 en producto ID {Id}. Reintentando ({Intento}/3)...", idProdOrigen, reintentos);
+                            await Task.Delay(Random.Shared.Next(60, 200) * reintentos, ct);
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -1418,8 +1433,23 @@ namespace IntegradorFlexForce.Services
                     cmd.Parameters.AddWithValue("@Estado", r.GetBoolean(12));
                     cmd.Parameters.AddWithValue("@CodigoProducto", r.GetString(13));
 
-                    await cmd.ExecuteNonQueryAsync(ct);
-                    procesados++;
+                    int reintentos = 0;
+                    bool exito = false;
+                    while (!exito && reintentos < 4)
+                    {
+                        try
+                        {
+                            await cmd.ExecuteNonQueryAsync(ct);
+                            exito = true;
+                            procesados++;
+                        }
+                        catch (SqlException sqlEx) when (sqlEx.Number == 1205 && reintentos < 3)
+                        {
+                            reintentos++;
+                            _logger.LogInformation("Deadlock 1205 en unidad ID {Id}. Reintentando ({Intento}/3)...", idUnidadOrigen, reintentos);
+                            await Task.Delay(Random.Shared.Next(60, 200) * reintentos, ct);
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -1521,8 +1551,22 @@ namespace IntegradorFlexForce.Services
                     cmd.Parameters.AddWithValue("@NomProd", r.IsDBNull(7) ? "" : r.GetString(7));
                     cmd.Parameters.AddWithValue("@EstadoProd", r.GetBoolean(8));
 
-                    await cmd.ExecuteNonQueryAsync(ct);
-                    procesados++;
+                    int reintentos = 0;
+                    bool exito = false;
+                    while (!exito && reintentos < 4)
+                    {
+                        try
+                        {
+                            await cmd.ExecuteNonQueryAsync(ct);
+                            exito = true;
+                            procesados++;
+                        }
+                        catch (SqlException sqlEx) when (sqlEx.Number == 1205 && reintentos < 3)
+                        {
+                            reintentos++;
+                            await Task.Delay(Random.Shared.Next(60, 200) * reintentos, ct);
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -1669,7 +1713,22 @@ namespace IntegradorFlexForce.Services
                     cmdUpd.Parameters["@Hasta"].Value = it.Hasta;
                     cmdUpd.Parameters["@EsVigente"].Value = it.EsVigente;
 
-                    int rowsUpdated = await cmdUpd.ExecuteNonQueryAsync(ct);
+                    int reintentosUpd = 0;
+                    int rowsUpdated = 0;
+                    while (reintentosUpd < 4)
+                    {
+                        try
+                        {
+                            rowsUpdated = await cmdUpd.ExecuteNonQueryAsync(ct);
+                            break;
+                        }
+                        catch (SqlException sqlEx) when (sqlEx.Number == 1205 && reintentosUpd < 3)
+                        {
+                            reintentosUpd++;
+                            await Task.Delay(Random.Shared.Next(60, 200) * reintentosUpd, ct);
+                        }
+                    }
+
                     if (rowsUpdated > 0)
                     {
                         procesados++;
@@ -1701,8 +1760,22 @@ namespace IntegradorFlexForce.Services
                         cmd.Parameters.AddWithValue("@UtilidadPorcentual", it.UtilidadPorcentual);
                         cmd.Parameters.AddWithValue("@EsVigente", it.EsVigente);
 
-                        await cmd.ExecuteNonQueryAsync(ct);
-                        procesados++;
+                        int reintentos = 0;
+                        bool exito = false;
+                        while (!exito && reintentos < 4)
+                        {
+                            try
+                            {
+                                await cmd.ExecuteNonQueryAsync(ct);
+                                exito = true;
+                                procesados++;
+                            }
+                            catch (SqlException sqlEx) when (sqlEx.Number == 1205 && reintentos < 3)
+                            {
+                                reintentos++;
+                                await Task.Delay(Random.Shared.Next(60, 200) * reintentos, ct);
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)
