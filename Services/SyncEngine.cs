@@ -26,6 +26,7 @@ namespace IntegradorFlexForce.Services
         private static HashSet<int> _idsClientesConCambios = new();
         private static HashSet<int> _idsDireccionesZonaConCambios = new();
         private static HashSet<int> _idsDireccionesZonaQuitadas = new();
+        private static HashSet<int> _idsRutaZonaDiaObsoletas = new();
         private static HashSet<int> _idsCreditosConCambios = new();
 
         public SyncEngine(IConfiguration config, ILogger<SyncEngine> logger)
@@ -243,7 +244,7 @@ namespace IntegradorFlexForce.Services
             await Task.WhenAll(taskClientes, taskZonas, taskCreditos);
 
             var (resCli, resDir, detallesCli, nuevosIdsCli) = await taskClientes;
-            var (resZonas, detallesZonas, nuevosIdsZonas, zonasQuitadasIds) = await taskZonas;
+            var (resZonas, detallesZonas, nuevosIdsZonas, zonasQuitadasIds, rutaZonaDiaObsoletasIds) = await taskZonas;
             var (resCred, detallesCred, credIds) = await taskCreditos;
 
             // Ensamblar resumen en orden canónico (1. Clientes, 2. Direcciones, 3. Zonas, 4. Créditos)
@@ -265,6 +266,7 @@ namespace IntegradorFlexForce.Services
             _idsClientesConCambios = nuevosIdsCli;
             _idsDireccionesZonaConCambios = nuevosIdsZonas;
             _idsDireccionesZonaQuitadas = zonasQuitadasIds;
+            _idsRutaZonaDiaObsoletas = rutaZonaDiaObsoletasIds;
             _idsCreditosConCambios = credIds;
 
             sw.Stop();
@@ -686,7 +688,7 @@ namespace IntegradorFlexForce.Services
         // -------------------------------------------------------------------------
         // SUB-PROCESO 2: CARTERA DE ZONAS, RUTAS Y VENDEDOR (Lectura concurrente)
         // -------------------------------------------------------------------------
-        private async Task<(TablaComparacionResumenDto ResumenZonas, List<CambioDetectadoItemDto> Detalles, HashSet<int> NuevosIdsZonas, HashSet<int> ZonasQuitadasIds)> AnalizarZonasYRutasAsync(CancellationToken ct)
+        private async Task<(TablaComparacionResumenDto ResumenZonas, List<CambioDetectadoItemDto> Detalles, HashSet<int> NuevosIdsZonas, HashSet<int> ZonasQuitadasIds, HashSet<int> RutaZonaDiaObsoletasIds)> AnalizarZonasYRutasAsync(CancellationToken ct)
         {
             int totalZonasOrigen = 0, totalZonasDestino = 0;
             int zonasInserts = 0, zonasUpdates = 0, zonasDeletes = 0;
@@ -695,11 +697,13 @@ namespace IntegradorFlexForce.Services
             var detalles = new List<CambioDetectadoItemDto>();
             var nuevosIdsZonas = new HashSet<int>();
             var zonasQuitadasIds = new HashSet<int>();
+            var rutaZonaDiaObsoletasIds = new HashSet<int>();
 
             try
             {
                 var vendedoresForcePorCliDia = new Dictionary<string, HashSet<string>>(250000, StringComparer.OrdinalIgnoreCase);
                 var listaCarteraForce = new List<(int IDCliente, int? IDClienteExtra, string CodigoCliente, string CodigoZona, string CodigoVendedor, int DiaDeSemana, int? IDDireccionExtra, int IDEntidadDireccion, int IDDireccionZona)>(120000);
+                var listaRutaZonaDiaForce = new List<(int IDRutaZonaDia, string CodigoZona, string CodigoRuta, string CodigoVendedor, int DiaDeSemana)>(10000);
 
                 static void AgregarVendedorAlIndice(Dictionary<string, HashSet<string>> dict, string key, string vendedor)
                 {
@@ -789,6 +793,36 @@ namespace IntegradorFlexForce.Services
                                 AgregarVendedorAlIndice(vendedoresForcePorCliDia, $"DIR_{idDirExtra.Value}_{codZonaRaw}_{dia}", codVend);
                         }
                     }
+
+                    const string sqlRzdForce = @"
+                        SELECT 
+                            rzd.ID AS IDRutaZonaDia,
+                            LTRIM(RTRIM(z.Codigo)) AS CodigoZona,
+                            LTRIM(RTRIM(rr.Codigo)) AS CodigoRuta,
+                            LTRIM(RTRIM(v.Codigo)) AS CodigoVendedor,
+                            rzd.IDDia AS DiaDeSemana
+                        FROM dbo.rut_RutaZonaDia rzd WITH (NOLOCK)
+                        INNER JOIN dbo.cat_Zona z WITH (NOLOCK) ON z.ID = rzd.IDZona
+                        INNER JOIN dbo.rut_Ruta rr WITH (NOLOCK) ON rr.ID = rzd.IDRuta
+                        INNER JOIN dbo.vnd_Vendedor v WITH (NOLOCK) ON v.ID = rr.IDVendedor
+                        WHERE rzd.Estado = 1
+                          AND z.Estado = 1
+                          AND rr.Estado = 1
+                          AND rr.Eliminado = 0
+                          AND v.Eliminado = 0;";
+
+                    using var cmdRzd = new SqlCommand(sqlRzdForce, conn) { CommandTimeout = 120 };
+                    using var rRzd = await cmdRzd.ExecuteReaderAsync(ct);
+                    while (await rRzd.ReadAsync(ct))
+                    {
+                        listaRutaZonaDiaForce.Add((
+                            rRzd.GetInt32(0),
+                            rRzd.GetString(1),
+                            rRzd.GetString(2),
+                            rRzd.GetString(3),
+                            rRzd.GetInt32(4)
+                        ));
+                    }
                 }, ct);
 
                 var filasAntiguo = new List<(int IDDir, int IDCli, string CodCli, string NomCli, string CodZona, string CodRuta, string CodVend, int DiaSemana)>(120000);
@@ -861,6 +895,8 @@ namespace IntegradorFlexForce.Services
                 var asignacionesVistasEnOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var asignacionesExactasEnOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var zonasVistasPorClienteOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var zonasGestionadasEnOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var combinacionesRutaZonaDiaOrigen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var diasConUpdate = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var direccionesActivasPorClienteOrigen = new Dictionary<int, HashSet<int>>();
                 var duenoRealPorIdDirExtra = new Dictionary<int, int>();
@@ -876,6 +912,9 @@ namespace IntegradorFlexForce.Services
                     string codRuta = fila.CodRuta;
                     string codVend = fila.CodVend;
                     int diaSemana = fila.DiaSemana;
+
+                    zonasGestionadasEnOrigen.Add(codZona);
+                    combinacionesRutaZonaDiaOrigen.Add($"{codZona}|{codRuta}|{codVend}|{diaSemana}");
 
                     if (!direccionesActivasPorClienteOrigen.TryGetValue(idCli, out var setDirs))
                     {
@@ -992,6 +1031,45 @@ namespace IntegradorFlexForce.Services
                     }
                 }
 
+                // Detectar vínculos Ruta-Zona-Día zombie/obsoletos en rut_RutaZonaDia que ya no existen en ERP Antiguo
+                // (ej: zona 0126LUB vinculada erróneamente al Jueves 01B265 cuando en el ERP Antiguo solo existe en Lunes 01B262)
+                foreach (var rzdForce in listaRutaZonaDiaForce)
+                {
+                    string codZonaBase = rzdForce.CodigoZona.Contains('-')
+                        ? rzdForce.CodigoZona.Substring(0, rzdForce.CodigoZona.IndexOf('-')).Trim()
+                        : rzdForce.CodigoZona;
+                    string codRutaBase = (!string.IsNullOrEmpty(rzdForce.CodigoVendedor)
+                        && rzdForce.CodigoRuta.EndsWith("-" + rzdForce.CodigoVendedor, StringComparison.OrdinalIgnoreCase))
+                        ? rzdForce.CodigoRuta.Substring(0, rzdForce.CodigoRuta.Length - rzdForce.CodigoVendedor.Length - 1).Trim()
+                        : rzdForce.CodigoRuta;
+
+                    if (!zonasGestionadasEnOrigen.Contains(codZonaBase))
+                        continue;
+
+                    bool esZonaConSufijoObsoleto = !string.Equals(rzdForce.CodigoZona, codZonaBase, StringComparison.OrdinalIgnoreCase);
+                    string keyComb = $"{codZonaBase}|{codRutaBase}|{rzdForce.CodigoVendedor}|{rzdForce.DiaDeSemana}";
+
+                    if (esZonaConSufijoObsoleto || !combinacionesRutaZonaDiaOrigen.Contains(keyComb))
+                    {
+                        rutaZonaDiaObsoletasIds.Add(rzdForce.IDRutaZonaDia);
+                        zonasDeletes++;
+                        if (detalles.Count < 2500)
+                        {
+                            detalles.Add(new CambioDetectadoItemDto
+                            {
+                                Tabla = "ZONAS Y RUTAS",
+                                TipoOperacion = "BAJA / DELETE",
+                                IDOrigen = rzdForce.IDRutaZonaDia,
+                                CodigoCliente = rzdForce.CodigoZona,
+                                NombreCliente = $"Ruta {rzdForce.CodigoRuta} (Vend: {rzdForce.CodigoVendedor}, Día: {rzdForce.DiaDeSemana})",
+                                CampoModificado = "Vínculo Ruta-Zona-Día Zombie / Obsoleto",
+                                ValorActualForce = $"Zona {rzdForce.CodigoZona} vinculada a Ruta {rzdForce.CodigoRuta} (Día {rzdForce.DiaDeSemana})",
+                                ValorNuevoERP = "Combinación no existe en ERP Antiguo (se desactivará en rut_RutaZonaDia)"
+                            });
+                        }
+                    }
+                }
+
                 if (idsEdColisionados.Count > 0)
                 {
                     using var connForceClean = CrearConexionForce();
@@ -1024,7 +1102,7 @@ namespace IntegradorFlexForce.Services
                 Observacion = obsZonas
             };
 
-            return (resZonas, detalles, nuevosIdsZonas, zonasQuitadasIds);
+            return (resZonas, detalles, nuevosIdsZonas, zonasQuitadasIds, rutaZonaDiaObsoletasIds);
         }
 
         // -------------------------------------------------------------------------
@@ -1256,9 +1334,10 @@ namespace IntegradorFlexForce.Services
                 var idsPendientes = _idsClientesConCambios.ToList();
                 var idsZonas = _idsDireccionesZonaConCambios.ToList();
                 var idsQuitados = _idsDireccionesZonaQuitadas.ToList();
+                var idsRzdObsoletas = _idsRutaZonaDiaObsoletas.ToList();
                 var idsCreditos = _idsCreditosConCambios.ToList();
 
-                int totalOpsModulo = idsPendientes.Count + (incluirZonas ? (idsZonas.Count + idsQuitados.Count + idsCreditos.Count) : 0);
+                int totalOpsModulo = idsPendientes.Count + (incluirZonas ? (idsZonas.Count + idsQuitados.Count + idsRzdObsoletas.Count + idsCreditos.Count) : 0);
                 
                 // SALTO INTELIGENTE: Si no hay diferencias (0 pendientes), no perder tiempo ni hacer escrituras
                 if (totalOpsModulo == 0)
@@ -1340,7 +1419,7 @@ namespace IntegradorFlexForce.Services
                 int zonasActualizadas = 0;
                 if (incluirZonas)
                 {
-                    if (idsZonas.Count > 0 || idsQuitados.Count > 0)
+                    if (idsZonas.Count > 0 || idsQuitados.Count > 0 || idsRzdObsoletas.Count > 0)
                     {
                         _currentStatus.EstadoActual = "APLICANDO_CAMBIOS_ZONAS";
                         var (zCambios, zErrores) = await ProcesarZonasDiferenciasAsync(loteId, config.TamanoLote, ct);
@@ -1578,8 +1657,9 @@ namespace IntegradorFlexForce.Services
         {
             var idsCambiados = _idsDireccionesZonaConCambios.ToList();
             var idsQuitados = _idsDireccionesZonaQuitadas.ToList();
+            var idsRzdObsoletas = _idsRutaZonaDiaObsoletas.ToList();
 
-            int totalOperaciones = idsCambiados.Count + idsQuitados.Count;
+            int totalOperaciones = idsCambiados.Count + idsQuitados.Count + idsRzdObsoletas.Count;
             if (totalOperaciones == 0) return (0, 0);
 
             _currentStatus.ProgresoActual = 0;
@@ -1588,11 +1668,44 @@ namespace IntegradorFlexForce.Services
             int procesados = 0;
             if (batchSize <= 0) batchSize = 500;
 
-            // 1. PRIMERO: Inactivar en bloque las zonas retiradas o antiguas en Force
+            // 1. PRIMERO: Inactivar en bloque las zonas retiradas y vínculos Ruta-Zona-Día zombie en Force
             //    (Debe ejecutarse ANTES de insertar/reactivar las zonas vigentes para no pisar las nuevas asignaciones)
             using (var connForce = new SqlConnection(_connectionStringForce))
             {
                 await connForce.OpenAsync(ct);
+
+                if (idsRzdObsoletas.Count > 0)
+                {
+                    for (int i = 0; i < idsRzdObsoletas.Count; i += batchSize)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var loteRzd = idsRzdObsoletas.Skip(i).Take(batchSize).ToList();
+                        _currentStatus.FaseDetalle = $"Depurando vínculos Ruta-Zona-Día obsoletos: {Math.Min(i + batchSize, idsRzdObsoletas.Count):N0} de {idsRzdObsoletas.Count:N0}";
+
+                        try
+                        {
+                            var inClause = string.Join(",", loteRzd);
+                            var sqlDesactivarRzd = $@"
+                                UPDATE dbo.rut_RutaZonaDia
+                                SET Estado = 0, FechaModificacion = GETDATE()
+                                WHERE ID IN ({inClause}) AND Estado = 1;";
+
+                            using var cmd = new SqlCommand(sqlDesactivarRzd, connForce) { CommandTimeout = 120 };
+                            await cmd.ExecuteNonQueryAsync(ct);
+                            procesados += loteRzd.Count;
+                        }
+                        catch (Exception ex)
+                        {
+                            errores++;
+                            await RegistrarLogAsync(loteId, "ZONAS_RUTAS", "ERROR", loteRzd.FirstOrDefault(), null,
+                                $"Error al inactivar vínculos rut_RutaZonaDia obsoletos: {ex.Message}", ex.ToString(), ct);
+                        }
+                        finally
+                        {
+                            _currentStatus.ProgresoActual = Math.Min(_currentStatus.ProgresoTotal, _currentStatus.ProgresoActual + loteRzd.Count);
+                        }
+                    }
+                }
 
                 if (idsQuitados.Count > 0)
                 {
