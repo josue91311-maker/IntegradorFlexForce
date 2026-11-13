@@ -185,8 +185,27 @@ namespace IntegradorFlexForce.Services
                             ) <> rem.HashRemoto
                         ) AS TotalModificados;
 
-                    -- Muestra de los primeros 100 con cambios para la grilla
+                    -- Muestra de los primeros con cambios (Nuevos INSERT + Modificados UPDATE) para la grilla
                     SELECT TOP 100
+                        'INSERT' AS TipoOperacion,
+                        p.IDExtra AS IDProductoOrigen,
+                        p.Codigo AS CodigoProducto,
+                        p.Nombre AS NombreProducto,
+                        a.Nombre AS NombreAlmacen,
+                        0 AS StockFisicoActual,
+                        rem.StockFisico AS StockFisicoNuevo,
+                        0 AS StockPorEntregarActual,
+                        rem.StockPorEntregar AS StockPorEntregarNuevo
+                    FROM #StageStockPreview rem
+                    INNER JOIN dbo.prd_Producto p ON p.IDExtra = rem.IDProducto
+                    INNER JOIN dbo.inv_Almacen a ON a.IDExtra = rem.IDAlmacen
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM dbo.inv_ProductoAlmacen loc 
+                        WHERE loc.IDProducto = p.ID AND loc.IDAlmacen = a.ID
+                    )
+                    UNION ALL
+                    SELECT TOP 100
+                        'UPDATE' AS TipoOperacion,
                         p.IDExtra AS IDProductoOrigen,
                         p.Codigo AS CodigoProducto,
                         p.Nombre AS NombreProducto,
@@ -233,24 +252,25 @@ namespace IntegradorFlexForce.Services
                 {
                     while (await reader.ReadAsync(ct) && detalleCount < maxDetalle)
                     {
-                        int idProd = reader.GetInt32(0);
-                        string codProd = reader.IsDBNull(1) ? "" : reader.GetString(1).Trim();
-                        string nomProd = reader.IsDBNull(2) ? "" : reader.GetString(2).Trim();
-                        string nomAlm = reader.IsDBNull(3) ? "" : reader.GetString(3).Trim();
-                        int stockFisAct = reader.GetInt32(4);
-                        int stockFisNue = reader.GetInt32(5);
-                        int stockEntAct = reader.GetInt32(6);
-                        int stockEntNue = reader.GetInt32(7);
+                        string tipoOp = reader.GetString(0);
+                        int idProd = reader.GetInt32(1);
+                        string codProd = reader.IsDBNull(2) ? "" : reader.GetString(2).Trim();
+                        string nomProd = reader.IsDBNull(3) ? "" : reader.GetString(3).Trim();
+                        string nomAlm = reader.IsDBNull(4) ? "" : reader.GetString(4).Trim();
+                        int stockFisAct = reader.GetInt32(5);
+                        int stockFisNue = reader.GetInt32(6);
+                        int stockEntAct = reader.GetInt32(7);
+                        int stockEntNue = reader.GetInt32(8);
 
                         preview.DetalleCambios.Add(new CambioDetectadoItemDto
                         {
                             Tabla = "STOCK_INVENTARIO",
-                            TipoOperacion = "UPDATE",
+                            TipoOperacion = tipoOp,
                             IDOrigen = idProd,
                             CodigoCliente = codProd,
                             NombreCliente = $"{nomProd} [{nomAlm}]",
-                            CampoModificado = "StockFisico / StockPorEntregar",
-                            ValorActualForce = $"Fis: {stockFisAct} | Entr: {stockEntAct}",
+                            CampoModificado = tipoOp == "INSERT" ? "Nuevo Producto en Almacén" : "StockFisico / StockPorEntregar",
+                            ValorActualForce = tipoOp == "INSERT" ? "Sin registro en Almacén" : $"Fis: {stockFisAct} | Entr: {stockEntAct}",
                             ValorNuevoERP = $"Fis: {stockFisNue} | Entr: {stockEntNue}"
                         });
                         detalleCount++;
