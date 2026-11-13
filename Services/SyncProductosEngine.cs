@@ -111,7 +111,7 @@ namespace IntegradorFlexForce.Services
                 // 3. Limpiar automáticamente cualquier escala de precios duplicada activa en BDForceGVD
                 const string sqlLimpiarDuplicados = @"
                     WITH CTE_Duplicados AS (
-                        SELECT ID, ROW_NUMBER() OVER (PARTITION BY IDExtra, IDUnidadItemListaPrecios ORDER BY ID ASC) AS FilaNumero
+                        SELECT ID, ROW_NUMBER() OVER (PARTITION BY IDExtra ORDER BY ID ASC) AS FilaNumero
                         FROM dbo.prc_PrecioEscala
                         WHERE IDExtra IS NOT NULL AND Eliminado = 0
                     )
