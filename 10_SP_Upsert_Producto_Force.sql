@@ -634,7 +634,9 @@ BEGIN
         -- 0. Si la Escala ya existe por IDExtra en prc_PrecioEscala (caso UPDATE de precio vigente),
         -- actualizar de inmediato precio neto, con IGV y vigencia sin riesgo de descarte
         DECLARE @IDEscalaDirecta int;
-        SELECT TOP 1 @IDEscalaDirecta = ID FROM dbo.prc_PrecioEscala WHERE IDExtra = @ID_Escala_Origen;
+        SELECT TOP 1 @IDEscalaDirecta = ID FROM dbo.prc_PrecioEscala WHERE IDExtra = @ID_Escala_Origen AND Eliminado = 0 ORDER BY ID ASC;
+        IF @IDEscalaDirecta IS NULL
+            SELECT TOP 1 @IDEscalaDirecta = ID FROM dbo.prc_PrecioEscala WHERE IDExtra = @ID_Escala_Origen ORDER BY ID ASC;
 
         IF @IDEscalaDirecta IS NOT NULL
         BEGIN
@@ -663,6 +665,11 @@ BEGIN
                   OR ISNULL(Esvigente, 1) <> @EsVigente
                   OR ISNULL(Eliminado, 0) <> 0
               );
+
+            -- Desactivar inmediatamente cualquier gemelo / duplicado con el mismo IDExtra
+            UPDATE dbo.prc_PrecioEscala
+            SET Eliminado = 1, Esvigente = 0, FechaModificacion = GETDATE()
+            WHERE IDExtra = @ID_Escala_Origen AND ID <> @IDEscalaDirecta AND Eliminado = 0;
 
             COMMIT TRANSACTION;
             RETURN;
@@ -798,6 +805,11 @@ BEGIN
 
         IF @IDEscala IS NULL
         BEGIN
+            -- Desactivar cualquier escala previa activa para la misma unidad antes de crear la nueva
+            UPDATE dbo.prc_PrecioEscala
+            SET Eliminado = 1, Esvigente = 0, FechaModificacion = GETDATE()
+            WHERE IDUnidadItemListaPrecios = @IDPrecioUnidad AND Eliminado = 0;
+
             INSERT INTO dbo.prc_PrecioEscala (
                 IDUnidadItemListaPrecios, Desde, Hasta, Precio, PrecioIncImpto,
                 UtilidadMonto, UtilidadPorcentual, FechaUltimaModificacion,
@@ -837,6 +849,13 @@ BEGIN
                   OR ISNULL(IDExtra, 0) <> @ID_Escala_Origen
                   OR ISNULL(Eliminado, 0) <> 0
               );
+
+            -- Desactivar gemelos o duplicados que hayan quedado activos en la misma unidad
+            UPDATE dbo.prc_PrecioEscala
+            SET Eliminado = 1, Esvigente = 0, FechaModificacion = GETDATE()
+            WHERE (IDExtra = @ID_Escala_Origen OR IDUnidadItemListaPrecios = @IDPrecioUnidad)
+              AND ID <> @IDEscala
+              AND Eliminado = 0;
         END
 
         COMMIT TRANSACTION;

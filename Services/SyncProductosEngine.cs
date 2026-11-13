@@ -108,6 +108,29 @@ namespace IntegradorFlexForce.Services
                 using var cmdAlinear = new SqlCommand(sqlAlinearProveedores, conn) { CommandTimeout = 60 };
                 await cmdAlinear.ExecuteNonQueryAsync(ct);
 
+                // 3. Limpiar automáticamente cualquier escala de precios duplicada activa en BDForceGVD
+                const string sqlLimpiarDuplicados = @"
+                    WITH CTE_Duplicados AS (
+                        SELECT ID, ROW_NUMBER() OVER (PARTITION BY IDExtra, IDUnidadItemListaPrecios ORDER BY ID ASC) AS FilaNumero
+                        FROM dbo.prc_PrecioEscala
+                        WHERE IDExtra IS NOT NULL AND Eliminado = 0
+                    )
+                    UPDATE pe
+                    SET pe.Eliminado = 1, pe.Esvigente = 0, pe.FechaModificacion = GETDATE()
+                    FROM dbo.prc_PrecioEscala pe
+                    INNER JOIN CTE_Duplicados d ON d.ID = pe.ID
+                    WHERE d.FilaNumero > 1;
+
+                    -- Blindar con índice único filtrado para evitar que cualquier proceso vuelva a duplicar
+                    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ_prc_PrecioEscala_IDExtra_Activo')
+                    BEGIN
+                        CREATE UNIQUE NONCLUSTERED INDEX UQ_prc_PrecioEscala_IDExtra_Activo
+                        ON dbo.prc_PrecioEscala (IDExtra)
+                        WHERE Eliminado = 0 AND IDExtra IS NOT NULL;
+                    END;";
+                using var cmdLimpiarPrc = new SqlCommand(sqlLimpiarDuplicados, conn) { CommandTimeout = 60 };
+                await cmdLimpiarPrc.ExecuteNonQueryAsync(ct);
+
                 _esquemaVerificado = true;
             }
             catch (Exception ex)
@@ -1691,18 +1714,31 @@ namespace IntegradorFlexForce.Services
             }
 
             const string sqlDirectUpdate = @"
-                UPDATE dbo.prc_PrecioEscala
-                SET Precio = @Precio,
-                    PrecioIncImpto = @PrecioIncImpto,
-                    UtilidadMonto = @UtilidadMonto,
-                    UtilidadPorcentual = @UtilidadPorcentual,
-                    Desde = @Desde,
-                    Hasta = @Hasta,
-                    Esvigente = @EsVigente,
-                    Eliminado = 0,
-                    FechaUltimaModificacion = GETDATE(),
-                    FechaModificacion = GETDATE()
-                WHERE IDExtra = @ID_Escala_Origen;";
+                DECLARE @IDTarget int;
+                SELECT TOP 1 @IDTarget = ID FROM dbo.prc_PrecioEscala WHERE IDExtra = @ID_Escala_Origen AND Eliminado = 0 ORDER BY ID ASC;
+                IF @IDTarget IS NULL
+                    SELECT TOP 1 @IDTarget = ID FROM dbo.prc_PrecioEscala WHERE IDExtra = @ID_Escala_Origen ORDER BY ID ASC;
+
+                IF @IDTarget IS NOT NULL
+                BEGIN
+                    UPDATE dbo.prc_PrecioEscala
+                    SET Precio = @Precio,
+                        PrecioIncImpto = @PrecioIncImpto,
+                        UtilidadMonto = @UtilidadMonto,
+                        UtilidadPorcentual = @UtilidadPorcentual,
+                        Desde = @Desde,
+                        Hasta = @Hasta,
+                        Esvigente = @EsVigente,
+                        Eliminado = 0,
+                        FechaUltimaModificacion = GETDATE(),
+                        FechaModificacion = GETDATE()
+                    WHERE ID = @IDTarget;
+
+                    -- Desactivar cualquier gemelo duplicado con el mismo IDExtra
+                    UPDATE dbo.prc_PrecioEscala
+                    SET Eliminado = 1, Esvigente = 0, FechaModificacion = GETDATE()
+                    WHERE IDExtra = @ID_Escala_Origen AND ID <> @IDTarget AND Eliminado = 0;
+                END;";
 
             using var connForce = new SqlConnection(_connectionStringForce);
             await connForce.OpenAsync(ct);
