@@ -252,15 +252,19 @@ namespace IntegradorFlexForce.Services
                 {
                     while (await reader.ReadAsync(ct) && detalleCount < maxDetalle)
                     {
-                        string tipoOp = reader.GetString(0);
-                        int idProd = reader.GetInt32(1);
-                        string codProd = reader.IsDBNull(2) ? "" : reader.GetString(2).Trim();
-                        string nomProd = reader.IsDBNull(3) ? "" : reader.GetString(3).Trim();
-                        string nomAlm = reader.IsDBNull(4) ? "" : reader.GetString(4).Trim();
-                        int stockFisAct = reader.GetInt32(5);
-                        int stockFisNue = reader.GetInt32(6);
-                        int stockEntAct = reader.GetInt32(7);
-                        int stockEntNue = reader.GetInt32(8);
+                        bool tieneTipoOp = reader.GetFieldType(0) == typeof(string) || reader.GetName(0).Equals("TipoOperacion", StringComparison.OrdinalIgnoreCase);
+
+                        string tipoOp = tieneTipoOp ? (reader.IsDBNull(0) ? "UPDATE" : reader.GetString(0)) : "UPDATE";
+                        int colOffset = tieneTipoOp ? 1 : 0;
+
+                        int idProd = reader.GetInt32(colOffset + 0);
+                        string codProd = reader.IsDBNull(colOffset + 1) ? "" : reader.GetString(colOffset + 1).Trim();
+                        string nomProd = reader.IsDBNull(colOffset + 2) ? "" : reader.GetString(colOffset + 2).Trim();
+                        string nomAlm = reader.IsDBNull(colOffset + 3) ? "" : reader.GetString(colOffset + 3).Trim();
+                        int stockFisAct = reader.GetInt32(colOffset + 4);
+                        int stockFisNue = reader.GetInt32(colOffset + 5);
+                        int stockEntAct = reader.GetInt32(colOffset + 6);
+                        int stockEntNue = reader.GetInt32(colOffset + 7);
 
                         preview.DetalleCambios.Add(new CambioDetectadoItemDto
                         {

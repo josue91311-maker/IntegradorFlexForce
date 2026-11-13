@@ -377,8 +377,27 @@ BEGIN
             ) <> rem.HashRemoto
         ) AS TotalModificados;
 
-    -- Muestra de los primeros con cambios para la grilla
+    -- Muestra de los primeros con cambios (Nuevos INSERT + Modificados UPDATE) para la grilla
     SELECT TOP (@Top)
+        'INSERT' AS TipoOperacion,
+        p.IDExtra AS IDProductoOrigen,
+        p.Codigo AS CodigoProducto,
+        p.Nombre AS NombreProducto,
+        a.Nombre AS NombreAlmacen,
+        0 AS StockFisicoActual,
+        rem.StockFisico AS StockFisicoNuevo,
+        0 AS StockPorEntregarActual,
+        rem.StockPorEntregar AS StockPorEntregarNuevo
+    FROM #StageStockPreview rem
+    INNER JOIN dbo.prd_Producto p ON p.IDExtra = rem.IDProducto
+    INNER JOIN dbo.inv_Almacen a ON a.IDExtra = rem.IDAlmacen
+    WHERE NOT EXISTS (
+        SELECT 1 FROM dbo.inv_ProductoAlmacen loc 
+        WHERE loc.IDProducto = p.ID AND loc.IDAlmacen = a.ID
+    )
+    UNION ALL
+    SELECT TOP (@Top)
+        'UPDATE' AS TipoOperacion,
         p.IDExtra AS IDProductoOrigen,
         p.Codigo AS CodigoProducto,
         p.Nombre AS NombreProducto,
