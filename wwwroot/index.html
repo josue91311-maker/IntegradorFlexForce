@@ -2971,6 +2971,15 @@
                         Sincroniza en bloque las características completas (con descripciones JSON) y campos libres hacia <code>dbo.cli_CamposCliente</code> para todos los clientes (~123,711 registros).
                     </div>
                 </button>
+                <button type="button" class="bulk-card-btn" onclick="ejecutarSincronizacionMasivaZonas()" style="border-color:#10b981; background:linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);">
+                    <div class="bulk-btn-title">
+                        <span style="color:#047857;">⚡ Carga Masiva de Rutas y Zonas</span>
+                        <span class="bulk-btn-badge fast" style="background:#059669; color:white;">Set-Based (~1-2 min)</span>
+                    </div>
+                    <div class="bulk-btn-desc">
+                        Sincroniza en bloque la cartera comercial completa de Rutas, Zonas y Vendedores (<code>dir_DireccionZona</code> y <code>rut_RutaZonaDia</code>) directamente en SQL Server.
+                    </div>
+                </button>
                 <button type="button" class="bulk-card-btn" onclick="ejecutarSincronizacion('todo')">
                     <div class="bulk-btn-title">
                         <span>⚡ Sincronización Masiva Total de Clientes</span>
@@ -5770,6 +5779,42 @@ async function ejecutarSincronizacion(modo) {
                     cargarEstado();
                 } catch (e) {
                     mostrarToast('Error al iniciar carga masiva: ' + e.message, 'error');
+                }
+            }
+        });
+    }
+
+    async function ejecutarSincronizacionMasivaZonas(codigoCliente) {
+        const esPuntual = !!codigoCliente;
+        const titulo = esPuntual 
+            ? `¿Sincronizar Cartera de Zonas/Rutas del Cliente ${codigoCliente}?` 
+            : '¿Ejecutar Carga Masiva de Rutas y Zonas (Set-Based Fast Engine)?';
+        const desc = esPuntual
+            ? `Se actualizará inmediatamente la cartera de rutas, zonas y días para el cliente ${codigoCliente} en BDForceGVD.`
+            : 'Se ejecutará el procedimiento masivo Set-Based de alta velocidad (dbo.usp_Sync_SincronizarCarteraRutasMasivo) para sincronizar toda la cartera de rutas, zonas, días de visita y vendedores hacia BDForceGVD directamente en el motor SQL Server en ~1 a 2 minutos, eliminando llamadas 1 a 1.';
+
+        mostrarConfirmacionModerna({
+            modulo: 'clientes',
+            titulo: titulo,
+            descripcion: desc,
+            detalleExtra: '<strong>Motor:</strong> Set-Based Stored Procedure (dbo.usp_Sync_SincronizarCarteraRutasMasivo) · Ultrarrápido sin bloqueos',
+            textoBoton: 'Sí, Iniciar Carga Masiva',
+            onAceptar: async () => {
+                try {
+                    mostrarToast('Disparando carga masiva de Rutas y Zonas (Set-Based Fast Engine)...', 'info');
+                    const url = esPuntual 
+                        ? `/api/sync/zonas/masivo?codigo=${encodeURIComponent(codigoCliente)}`
+                        : '/api/sync/zonas/masivo';
+                    const res = await fetch(url, { method: 'POST' });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        mostrarToast(data.message || 'No se pudo iniciar el proceso masivo.', 'error');
+                        return;
+                    }
+                    mostrarToast(data.message || 'Proceso masivo iniciado correctamente.', 'success');
+                    cargarEstado();
+                } catch (e) {
+                    mostrarToast('Error al iniciar carga masiva de zonas: ' + e.message, 'error');
                 }
             }
         });
