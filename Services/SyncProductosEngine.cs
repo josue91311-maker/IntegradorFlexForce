@@ -110,18 +110,31 @@ namespace IntegradorFlexForce.Services
 
                 // 3. Limpiar automáticamente cualquier escala de precios duplicada activa en BDForceGVD
                 const string sqlLimpiarDuplicados = @"
-                    WITH CTE_Duplicados AS (
-                        SELECT ID, ROW_NUMBER() OVER (PARTITION BY IDExtra ORDER BY ID ASC) AS FilaNumero
+                    -- A. Desactivar duplicados por IDExtra (misma escala de origen)
+                    WITH CTE_Duplicados_IDExtra AS (
+                        SELECT ID, ROW_NUMBER() OVER (PARTITION BY IDExtra ORDER BY FechaModificacion DESC, ID DESC) AS FilaNumero
                         FROM dbo.prc_PrecioEscala
                         WHERE IDExtra IS NOT NULL AND Eliminado = 0
                     )
                     UPDATE pe
                     SET pe.Eliminado = 1, pe.Esvigente = 0, pe.FechaModificacion = GETDATE()
                     FROM dbo.prc_PrecioEscala pe
-                    INNER JOIN CTE_Duplicados d ON d.ID = pe.ID
+                    INNER JOIN CTE_Duplicados_IDExtra d ON d.ID = pe.ID
                     WHERE d.FilaNumero > 1;
 
-                    -- Blindar con índice único filtrado para evitar que cualquier proceso vuelva a duplicar
+                    -- B. Desactivar duplicados por Unidad y Rango (evita renglones repetidos en la toma de pedidos móvil)
+                    WITH CTE_Duplicados_UnidadRango AS (
+                        SELECT ID, ROW_NUMBER() OVER (PARTITION BY IDUnidadItemListaPrecios, Desde, Hasta ORDER BY FechaModificacion DESC, ID DESC) AS FilaNumero
+                        FROM dbo.prc_PrecioEscala
+                        WHERE Eliminado = 0
+                    )
+                    UPDATE pe
+                    SET pe.Eliminado = 1, pe.Esvigente = 0, pe.FechaModificacion = GETDATE()
+                    FROM dbo.prc_PrecioEscala pe
+                    INNER JOIN CTE_Duplicados_UnidadRango d ON d.ID = pe.ID
+                    WHERE d.FilaNumero > 1;
+
+                    -- C. Blindar con índice único filtrado para evitar que cualquier proceso vuelva a duplicar
                     IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ_prc_PrecioEscala_IDExtra_Activo')
                     BEGIN
                         CREATE UNIQUE NONCLUSTERED INDEX UQ_prc_PrecioEscala_IDExtra_Activo
