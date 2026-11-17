@@ -118,7 +118,7 @@ namespace IntegradorFlexForce.Services
                         ISNULL(cp.IDPersona, 0)                          AS IDClienteOrigen,
                         LTRIM(RTRIM(ISNULL(pCli.Codigo, '')))            AS CodigoCliente,
                         LTRIM(RTRIM(ISNULL(pCli.Nombre, '')))            AS NombreCliente,
-                        LTRIM(RTRIM(ISNULL(pCli.Ruc, '')))               AS DocIdentidadCliente,
+                        LTRIM(RTRIM(ISNULL(cpv.DocIdentidad, '')))       AS DocIdentidadCliente,
                         ISNULL(cp.IDResponsable, 0)                      AS IDVendedorOrigen,
                         LTRIM(RTRIM(ISNULL(pVend.Codigo, '')))           AS CodigoVendedor,
                         LTRIM(RTRIM(ISNULL(pVend.Nombre, '')))           AS NombreVendedor,
@@ -644,7 +644,7 @@ namespace IntegradorFlexForce.Services
                                             TieneImpuesto, PreciosIncluyenImpuesto
                                         ) VALUES (
                                             @Codigo, @Descripcion, @Abreviacion, @Numero, @Serie, 8, 4,
-                                            1, 500, 7, 0, 1,
+                                            0, 500, 7, 0, 1,
                                             1, 1, 0, 0, 1, 1,
                                             0.00, 2, GETDATE(), @IDComprobanteTipo, 1,
                                             1, 1
