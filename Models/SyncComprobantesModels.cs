@@ -80,16 +80,22 @@ namespace IntegradorFlexForce.Models
         public int? IDPedidoForce { get; set; }
         public string NumPedidoForce { get; set; } = string.Empty;
         public string EstadoPedidoForce { get; set; } = string.Empty;
+        public int? IDCatalogoForce { get; set; }
+        public int? IDModalidadCreditoForce { get; set; }
         public int ComprobanteNumeroOrden { get; set; } = 1;
         public int TotalComprobantesDelPedido { get; set; } = 1;
         public bool EsMulticomprobante => TotalComprobantesDelPedido > 1;
         public bool PedidoFacturadoEnForce => string.Equals(EstadoPedidoForce, "FACTURADO", StringComparison.OrdinalIgnoreCase);
 
-        // Direcciones y datos de venta
+        // Direcciones, crédito y cobranzas
         public string DireccionFiscal { get; set; } = string.Empty;
         public string DireccionEntrega { get; set; } = string.Empty;
         public string EstadoEntrega { get; set; } = "PENDIENTE";
         public bool EsCredito { get; set; }
+        public decimal SaldoPendiente { get; set; }
+        public DateTime? FechaVencimiento { get; set; }
+        public DateTime? FechaProgramacionPago { get; set; }
+        public bool DebeGenerarDeuda => !AnuladoOrigen && EsCredito && SaldoPendiente > 0;
 
         // Totales monetarios
         public decimal SubTotal { get; set; }
@@ -127,6 +133,8 @@ namespace IntegradorFlexForce.Models
         public int Anulados { get; set; }
         public int FacturasTotal { get; set; }
         public int BoletasTotal { get; set; }
+        public int ConDeudaPorCobrar { get; set; }
+        public decimal TotalDeudaPendiente { get; set; }
         public List<ComprobanteAlineadoDto> Comprobantes { get; set; } = new();
     }
 
@@ -152,6 +160,7 @@ namespace IntegradorFlexForce.Models
         public int ProgresoActual { get; set; }
         public int ProgresoTotal { get; set; }
         public int TotalSubidos { get; set; }
+        public int TotalDeudasGeneradas { get; set; }
         public int TotalOmitidos { get; set; }
         public int TotalErrores { get; set; }
         public List<ComprobanteLogEventoDto> EventosRecientes { get; set; } = new();

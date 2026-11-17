@@ -43,6 +43,7 @@ namespace IntegradorFlexForce.Services
                     ProgresoActual = _status.ProgresoActual,
                     ProgresoTotal = _status.ProgresoTotal,
                     TotalSubidos = _status.TotalSubidos,
+                    TotalDeudasGeneradas = _status.TotalDeudasGeneradas,
                     TotalOmitidos = _status.TotalOmitidos,
                     TotalErrores = _status.TotalErrores,
                     EventosRecientes = _status.EventosRecientes.TakeLast(30).ToList()
@@ -140,7 +141,10 @@ namespace IntegradorFlexForce.Services
                         CAST(ISNULL(cp.TieneImpuesto, 1) AS bit)         AS TieneImpuesto,
                         CAST(ISNULL(cp.PreciosIncImpto, 1) AS bit)       AS PreciosIncImpto,
                         CAST(ISNULL(cp.Anulado, 0) AS bit)               AS AnuladoOrigen,
-                        CAST(CASE WHEN ISNULL(ccp.Credito, 0) = 1 OR ISNULL(cpv.OmitirPoliticasCredito, 0) = 1 THEN 1 ELSE 0 END AS bit) AS EsCredito
+                        CAST(CASE WHEN ISNULL(ccp.Credito, 0) = 1 OR ISNULL(cpv.OmitirPoliticasCredito, 0) = 1 THEN 1 ELSE 0 END AS bit) AS EsCredito,
+                        CAST(ISNULL(ccp.Saldo, 0) AS decimal(18,6))      AS SaldoPendiente,
+                        ccp.FechaVencimiento                             AS FechaVencimiento,
+                        ccp.FechaProgramacionPago                        AS FechaProgramacionPago
                     FROM dbo.Cp cp WITH (NOLOCK)
                     INNER JOIN dbo.CpVenta cpv WITH (NOLOCK) ON cpv.PKID = cp.PKID
                     INNER JOIN dbo.TipoCp tcp WITH (NOLOCK) ON tcp.PKID = cp.IDTipoCp
@@ -205,7 +209,10 @@ namespace IntegradorFlexForce.Services
                             TieneImpuesto = r.GetBoolean(33),
                             PreciosIncImpto = r.GetBoolean(34),
                             AnuladoOrigen = r.GetBoolean(35),
-                            EsCredito = r.GetBoolean(36)
+                            EsCredito = r.GetBoolean(36),
+                            SaldoPendiente = r.GetDecimal(37),
+                            FechaVencimiento = r.IsDBNull(38) ? null : r.GetDateTime(38),
+                            FechaProgramacionPago = r.IsDBNull(39) ? null : r.GetDateTime(39)
                         };
 
                         comprobantes.Add(dto);
@@ -290,8 +297,8 @@ namespace IntegradorFlexForce.Services
             var prodForceByExtra = new Dictionary<int, int>();
             var unidForceByExtra = new Dictionary<int, int>();
             var tipoCpVentasBySerie = new Dictionary<string, (int ID, int Correlativo, int IDComprobanteTipo)>(StringComparer.OrdinalIgnoreCase);
-            var pedidosForcePorOrigen = new Dictionary<int, (int IDForce, string NumeroForce, int? IDCpVenta, string EstadoForce)>();
-            var pedidosForcePorNumero = new Dictionary<string, (int IDForce, string NumeroForce, int? IDCpVenta, string EstadoForce)>(StringComparer.OrdinalIgnoreCase);
+            var pedidosForcePorOrigen = new Dictionary<int, (int IDForce, string NumeroForce, int? IDCpVenta, string EstadoForce, int? IDCatalogo, int? IDModalidadCredito)>();
+            var pedidosForcePorNumero = new Dictionary<string, (int IDForce, string NumeroForce, int? IDCpVenta, string EstadoForce, int? IDCatalogo, int? IDModalidadCredito)>(StringComparer.OrdinalIgnoreCase);
             var comprobantesForcePorNum = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
             using (var connForce = new SqlConnection(_connectionStringForce))
@@ -349,7 +356,7 @@ namespace IntegradorFlexForce.Services
                 }
 
                 // Pedidos existentes en Force para enlace bidireccional y validación de estado FACTURADO
-                using (var cmd = new SqlCommand("SELECT ID, PedidoMovilID, Numero, IDCpVenta, UPPER(LTRIM(RTRIM(ISNULL(Estado, '')))) AS Estado FROM dbo.ped_Pedido WITH (NOLOCK) WHERE Eliminado = 0;", connForce))
+                using (var cmd = new SqlCommand("SELECT ID, PedidoMovilID, Numero, IDCpVenta, UPPER(LTRIM(RTRIM(ISNULL(Estado, '')))) AS Estado, IDCatalogo, IDModalidadCredito FROM dbo.ped_Pedido WITH (NOLOCK) WHERE Eliminado = 0;", connForce))
                 using (var r = await cmd.ExecuteReaderAsync(ct))
                 {
                     while (await r.ReadAsync(ct))
@@ -359,15 +366,17 @@ namespace IntegradorFlexForce.Services
                         string num = r.IsDBNull(2) ? "" : r.GetString(2).Trim();
                         int? idCpVenta = r.IsDBNull(3) ? null : r.GetInt32(3);
                         string estado = r.IsDBNull(4) ? "" : r.GetString(4);
+                        int? idCat = r.IsDBNull(5) ? null : r.GetInt32(5);
+                        int? idModCred = r.IsDBNull(6) ? null : r.GetInt32(6);
 
                         if (!string.IsNullOrEmpty(movilId) && movilId.StartsWith("MIG-ERP-", StringComparison.OrdinalIgnoreCase))
                         {
                             if (int.TryParse(movilId.Substring(8), out int idOrig))
-                                pedidosForcePorOrigen[idOrig] = (idForce, num, idCpVenta, estado);
+                                pedidosForcePorOrigen[idOrig] = (idForce, num, idCpVenta, estado, idCat, idModCred);
                         }
 
                         if (!string.IsNullOrEmpty(num) && !pedidosForcePorNumero.ContainsKey(num))
-                            pedidosForcePorNumero[num] = (idForce, num, idCpVenta, estado);
+                            pedidosForcePorNumero[num] = (idForce, num, idCpVenta, estado, idCat, idModCred);
                     }
                 }
 
@@ -454,12 +463,16 @@ namespace IntegradorFlexForce.Services
                     c.IDPedidoForce = pedF.IDForce;
                     c.NumPedidoForce = pedF.NumeroForce;
                     c.EstadoPedidoForce = pedF.EstadoForce;
+                    c.IDCatalogoForce = pedF.IDCatalogo;
+                    c.IDModalidadCreditoForce = pedF.IDModalidadCredito;
                 }
                 else if (!string.IsNullOrEmpty(c.NumPedidoOrigen) && pedidosForcePorNumero.TryGetValue(c.NumPedidoOrigen, out var pedFNum))
                 {
                     c.IDPedidoForce = pedFNum.IDForce;
                     c.NumPedidoForce = pedFNum.NumeroForce;
                     c.EstadoPedidoForce = pedFNum.EstadoForce;
+                    c.IDCatalogoForce = pedFNum.IDCatalogo;
+                    c.IDModalidadCreditoForce = pedFNum.IDModalidadCredito;
                 }
                 else
                 {
@@ -537,6 +550,8 @@ namespace IntegradorFlexForce.Services
             response.Anulados = comprobantes.Count(x => x.AnuladoOrigen);
             response.FacturasTotal = comprobantes.Count(x => x.IDTipoComprobantePagoOrigen == 1);
             response.BoletasTotal = comprobantes.Count(x => x.IDTipoComprobantePagoOrigen == 4);
+            response.ConDeudaPorCobrar = comprobantes.Count(x => x.DebeGenerarDeuda);
+            response.TotalDeudaPendiente = comprobantes.Where(x => x.DebeGenerarDeuda).Sum(x => x.SaldoPendiente);
             response.Comprobantes = comprobantes;
 
             return response;
@@ -564,6 +579,7 @@ namespace IntegradorFlexForce.Services
                 _status.ProgresoActual = 0;
                 _status.ProgresoTotal = comprobantesASubir.Count;
                 _status.TotalSubidos = 0;
+                _status.TotalDeudasGeneradas = 0;
                 _status.TotalOmitidos = 0;
                 _status.TotalErrores = 0;
                 _status.EventosRecientes.Clear();
@@ -794,16 +810,63 @@ namespace IntegradorFlexForce.Services
                                 await cmdCorr.ExecuteNonQueryAsync(ct);
                             }
 
+                            // 7. Generar Deuda en dbo.cob_DeudaCliente si es a Crédito y tiene Saldo > 0
+                            bool deudaCreada = false;
+                            if (c.DebeGenerarDeuda)
+                            {
+                                DateTime fechaVenc = c.FechaVencimiento ?? c.FechaEmision;
+                                DateTime fechaProg = c.FechaProgramacionPago ?? fechaVenc;
+                                decimal saldoInsertar = Math.Min(c.SaldoPendiente, c.Total);
+                                string estadoDeuda = (saldoInsertar < c.Total) ? "PARCIAL" : "PENDIENTE";
+
+                                const string sqlInsertDeuda = @"
+                                    IF NOT EXISTS (SELECT 1 FROM dbo.cob_DeudaCliente WHERE IDCpVenta = @IDCpVenta AND Eliminado = 0)
+                                    BEGIN
+                                        INSERT INTO dbo.cob_DeudaCliente (
+                                            IDCliente, IDCatalogo, IDPedido, IDCpVenta, IDMoneda, IDModalidadCredito,
+                                            IDMedioPago, IDVendedor, Total, Saldo, MontoDetraccion,
+                                            FechaEmision, FechaVencimiento, FechaProgramacionPago,
+                                            TipoCp, Credito, MovSaldo, SujetoADetraccion, SujetoAPercepcion,
+                                            Estado, UsuarioCreador, FechaCreacion, Eliminado
+                                        ) VALUES (
+                                            @IDCliente, @IDCatalogo, @IDPedido, @IDCpVenta, 1, @IDModalidadCredito,
+                                            NULL, @IDVendedor, @Total, @Saldo, 0,
+                                            @FechaEmision, @FechaVencimiento, @FechaProgramacionPago,
+                                            'Cobrar', 1, 1, 0, 0,
+                                            @EstadoDeuda, '0', GETDATE(), 0
+                                        );
+                                    END";
+
+                                using var cmdDeuda = new SqlCommand(sqlInsertDeuda, connForce, tx);
+                                cmdDeuda.Parameters.AddWithValue("@IDCliente", c.IDClienteForce!.Value);
+                                cmdDeuda.Parameters.AddWithValue("@IDCatalogo", (object?)c.IDCatalogoForce ?? DBNull.Value);
+                                cmdDeuda.Parameters.AddWithValue("@IDPedido", (object?)c.IDPedidoForce ?? DBNull.Value);
+                                cmdDeuda.Parameters.AddWithValue("@IDCpVenta", nuevoIdCp);
+                                cmdDeuda.Parameters.AddWithValue("@IDModalidadCredito", (object?)c.IDModalidadCreditoForce ?? DBNull.Value);
+                                cmdDeuda.Parameters.AddWithValue("@IDVendedor", c.IDVendedorForce!.Value);
+                                cmdDeuda.Parameters.AddWithValue("@Total", c.Total);
+                                cmdDeuda.Parameters.AddWithValue("@Saldo", saldoInsertar);
+                                cmdDeuda.Parameters.AddWithValue("@FechaEmision", c.FechaEmision);
+                                cmdDeuda.Parameters.AddWithValue("@FechaVencimiento", fechaVenc);
+                                cmdDeuda.Parameters.AddWithValue("@FechaProgramacionPago", fechaProg);
+                                cmdDeuda.Parameters.AddWithValue("@EstadoDeuda", estadoDeuda);
+
+                                await cmdDeuda.ExecuteNonQueryAsync(ct);
+                                deudaCreada = true;
+                            }
+
                             await tx.CommitAsync(ct);
 
                             c.YaExisteEnForce = true;
                             c.IDCpForceExistente = nuevoIdCp;
                             c.Semaforo = "AZUL";
                             _status.TotalSubidos++;
+                            if (deudaCreada) _status.TotalDeudasGeneradas++;
 
                             string multiBadge = c.EsMulticomprobante ? $" [Comp {c.ComprobanteNumeroOrden}/{c.TotalComprobantesDelPedido}]" : "";
                             string infoEnlace = c.IDPedidoForce.HasValue ? $" | Enlazado a Pedido #{c.IDPedidoForce}{multiBadge}" : " (Sin pedido)";
-                            AgregarEvento(c.IDCpOrigen, c.NumCp, "SUCCESS", $"✓ Subido como Cp #{nuevoIdCp} | Total S/ {c.Total:N2}{infoEnlace}");
+                            string infoDeuda = deudaCreada ? $" | Deuda: S/ {c.SaldoPendiente:N2}" : "";
+                            AgregarEvento(c.IDCpOrigen, c.NumCp, "SUCCESS", $"✓ Subido como Cp #{nuevoIdCp} | Total S/ {c.Total:N2}{infoEnlace}{infoDeuda}");
                         }
                         catch (Exception exCp)
                         {

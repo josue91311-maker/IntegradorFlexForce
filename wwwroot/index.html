@@ -8999,9 +8999,14 @@ async function ejecutarSincronizacion(modo) {
                 pedHtml = `<span style="color:#94a3b8; font-size:11px;">Directo</span>`;
             }
 
-            const condicion = c.esCredito
-                ? `<span style="color:#d97706; font-weight:700;">Crédito</span>`
-                : `<span style="color:#059669; font-weight:600;">Contado</span>`;
+            let condicion = `<span style="color:#059669; font-weight:600;">Contado</span>`;
+            if (c.esCredito) {
+                if (c.debeGenerarDeuda) {
+                    condicion = `<div style="color:#b45309; font-weight:800;">Crédito</div><div style="font-size:10.5px; color:#dc2626; font-weight:700;">Deuda: S/ ${Number(c.saldoPendiente).toFixed(2)}</div>`;
+                } else {
+                    condicion = `<div style="color:#d97706; font-weight:700;">Crédito</div><div style="font-size:10.5px; color:#059669;">Pagado (S/ 0.00)</div>`;
+                }
+            }
 
             return `
                 <tr style="${c.yaExisteEnForce ? 'background:#f8fafc; opacity:0.85;' : ''}">
