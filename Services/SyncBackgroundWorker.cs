@@ -126,138 +126,66 @@ namespace IntegradorFlexForce.Services
 
         private bool DebeEjecutarseClientes(Models.SyncConfigDto config)
         {
-            var ahora = DateTime.Now;
-
-            if (config.ModoClientes == "MADRUGADA")
-            {
-                // Modo Madrugada: 1 vez al día en la hora configurada (ej: 02:00)
-                if (_ultimoDiaMadrugadaClientes.HasValue && _ultimoDiaMadrugadaClientes.Value.Date == ahora.Date)
-                {
-                    return false; // Ya se ejecutó hoy en la madrugada
-                }
-                return EsHoraObjetivo(config.HoraMadrugadaClientes, ahora);
-            }
-            else
-            {
-                // Modo Intervalo periódico dentro de ventana horaria
-                string horaInicio = string.IsNullOrWhiteSpace(config.HoraInicioClientes) ? config.HoraInicioVentana : config.HoraInicioClientes;
-                string horaFin = string.IsNullOrWhiteSpace(config.HoraFinClientes) ? config.HoraFinVentana : config.HoraFinClientes;
-
-                if (!EstaEnVentanaHoraria(horaInicio, horaFin))
-                {
-                    return false;
-                }
-
-                int intervaloMin = config.IntervaloClientesMinutos > 0 ? config.IntervaloClientesMinutos : (config.IntervaloMinutos > 0 ? config.IntervaloMinutos : 3);
-                if (_ultimaEjecucionClientes == null)
-                {
-                    return true;
-                }
-
-                return (ahora - _ultimaEjecucionClientes.Value).TotalMinutes >= intervaloMin;
-            }
+            string horaInicio = string.IsNullOrWhiteSpace(config.HoraInicioClientes) ? config.HoraInicioVentana : config.HoraInicioClientes;
+            string horaFin = string.IsNullOrWhiteSpace(config.HoraFinClientes) ? config.HoraFinVentana : config.HoraFinClientes;
+            int intervaloMin = config.IntervaloClientesMinutos > 0 ? config.IntervaloClientesMinutos : (config.IntervaloMinutos > 0 ? config.IntervaloMinutos : 3);
+            return DebeEjecutarseModulo(config.ModoClientes, config.HoraMadrugadaClientes, horaInicio, horaFin, intervaloMin, _ultimaEjecucionClientes, _ultimoDiaMadrugadaClientes);
         }
 
         private bool DebeEjecutarseProductos(Models.SyncConfigDto config)
         {
-            var ahora = DateTime.Now;
-
-            if (config.ModoProductos == "MADRUGADA")
-            {
-                // Modo Madrugada: 1 vez al día en la hora configurada (ej: 03:30)
-                if (_ultimoDiaMadrugadaProductos.HasValue && _ultimoDiaMadrugadaProductos.Value.Date == ahora.Date)
-                {
-                    return false; // Ya se ejecutó hoy en la madrugada
-                }
-                return EsHoraObjetivo(config.HoraMadrugadaProductos, ahora);
-            }
-            else
-            {
-                // Modo Intervalo periódico dentro de ventana horaria
-                string horaInicio = string.IsNullOrWhiteSpace(config.HoraInicioProductos) ? config.HoraInicioVentana : config.HoraInicioProductos;
-                string horaFin = string.IsNullOrWhiteSpace(config.HoraFinProductos) ? config.HoraFinVentana : config.HoraFinProductos;
-
-                if (!EstaEnVentanaHoraria(horaInicio, horaFin))
-                {
-                    return false;
-                }
-
-                int intervaloMin = config.IntervaloProductosMinutos > 0 ? config.IntervaloProductosMinutos : (config.IntervaloMinutos > 0 ? config.IntervaloMinutos : 3);
-                if (_ultimaEjecucionProductos == null)
-                {
-                    return true;
-                }
-
-                return (ahora - _ultimaEjecucionProductos.Value).TotalMinutes >= intervaloMin;
-            }
+            string horaInicio = string.IsNullOrWhiteSpace(config.HoraInicioProductos) ? config.HoraInicioVentana : config.HoraInicioProductos;
+            string horaFin = string.IsNullOrWhiteSpace(config.HoraFinProductos) ? config.HoraFinVentana : config.HoraFinProductos;
+            int intervaloMin = config.IntervaloProductosMinutos > 0 ? config.IntervaloProductosMinutos : (config.IntervaloMinutos > 0 ? config.IntervaloMinutos : 3);
+            return DebeEjecutarseModulo(config.ModoProductos, config.HoraMadrugadaProductos, horaInicio, horaFin, intervaloMin, _ultimaEjecucionProductos, _ultimoDiaMadrugadaProductos);
         }
 
         private bool DebeEjecutarseVendedores(Models.SyncConfigDto config)
         {
-            var ahora = DateTime.Now;
-
-            if (config.ModoVendedores == "MADRUGADA")
-            {
-                // Modo Madrugada: 1 vez al día en la hora configurada (ej: 04:00)
-                if (_ultimoDiaMadrugadaVendedores.HasValue && _ultimoDiaMadrugadaVendedores.Value.Date == ahora.Date)
-                {
-                    return false;
-                }
-                return EsHoraObjetivo(config.HoraMadrugadaVendedores, ahora);
-            }
-            else
-            {
-                // Modo Intervalo periódico dentro de ventana horaria
-                string horaInicio = string.IsNullOrWhiteSpace(config.HoraInicioVendedores) ? config.HoraInicioVentana : config.HoraInicioVendedores;
-                string horaFin = string.IsNullOrWhiteSpace(config.HoraFinVendedores) ? config.HoraFinVentana : config.HoraFinVendedores;
-
-                if (!EstaEnVentanaHoraria(horaInicio, horaFin))
-                {
-                    return false;
-                }
-
-                int intervaloMin = config.IntervaloVendedoresMinutos > 0 ? config.IntervaloVendedoresMinutos : 5;
-                if (_ultimaEjecucionVendedores == null)
-                {
-                    return true;
-                }
-
-                return (ahora - _ultimaEjecucionVendedores.Value).TotalMinutes >= intervaloMin;
-            }
+            string horaInicio = string.IsNullOrWhiteSpace(config.HoraInicioVendedores) ? config.HoraInicioVentana : config.HoraInicioVendedores;
+            string horaFin = string.IsNullOrWhiteSpace(config.HoraFinVendedores) ? config.HoraFinVentana : config.HoraFinVendedores;
+            int intervaloMin = config.IntervaloVendedoresMinutos > 0 ? config.IntervaloVendedoresMinutos : 5;
+            return DebeEjecutarseModulo(config.ModoVendedores, config.HoraMadrugadaVendedores, horaInicio, horaFin, intervaloMin, _ultimaEjecucionVendedores, _ultimoDiaMadrugadaVendedores);
         }
 
         private bool DebeEjecutarseStock(Models.SyncConfigDto config)
         {
+            string horaInicio = string.IsNullOrWhiteSpace(config.HoraInicioStock) ? config.HoraInicioVentana : config.HoraInicioStock;
+            string horaFin = string.IsNullOrWhiteSpace(config.HoraFinStock) ? config.HoraFinVentana : config.HoraFinStock;
+            int intervaloMin = config.IntervaloStockMinutos > 0 ? config.IntervaloStockMinutos : 2;
+            return DebeEjecutarseModulo(config.ModoStock, config.HoraMadrugadaStock, horaInicio, horaFin, intervaloMin, _ultimaEjecucionStock, _ultimoDiaMadrugadaStock);
+        }
+
+        private static bool DebeEjecutarseModulo(
+            string? modo,
+            string horaMadrugada,
+            string horaInicio,
+            string horaFin,
+            int intervaloMin,
+            DateTime? ultimaEjecucion,
+            DateTime? ultimoDiaMadrugada)
+        {
             var ahora = DateTime.Now;
+            string m = (modo ?? "INTERVALO").ToUpperInvariant();
+            bool usaMadrugada = m == "MADRUGADA" || m == "AMBOS";
+            bool usaIntervalo = m == "INTERVALO" || m == "AMBOS";
 
-            if (config.ModoStock == "MADRUGADA")
+            if (usaMadrugada)
             {
-                // Modo Madrugada: 1 vez al día en la hora configurada (ej: 04:30)
-                if (_ultimoDiaMadrugadaStock.HasValue && _ultimoDiaMadrugadaStock.Value.Date == ahora.Date)
-                {
-                    return false;
-                }
-                return EsHoraObjetivo(config.HoraMadrugadaStock, ahora);
-            }
-            else
-            {
-                // Modo Intervalo periódico dentro de ventana horaria
-                string horaInicio = string.IsNullOrWhiteSpace(config.HoraInicioStock) ? config.HoraInicioVentana : config.HoraInicioStock;
-                string horaFin = string.IsNullOrWhiteSpace(config.HoraFinStock) ? config.HoraFinVentana : config.HoraFinStock;
-
-                if (!EstaEnVentanaHoraria(horaInicio, horaFin))
-                {
-                    return false;
-                }
-
-                int intervaloMin = config.IntervaloStockMinutos > 0 ? config.IntervaloStockMinutos : 2;
-                if (_ultimaEjecucionStock == null)
-                {
+                bool yaHoy = ultimoDiaMadrugada.HasValue && ultimoDiaMadrugada.Value.Date == ahora.Date;
+                if (!yaHoy && EsHoraObjetivo(horaMadrugada, ahora))
                     return true;
-                }
-
-                return (ahora - _ultimaEjecucionStock.Value).TotalMinutes >= intervaloMin;
             }
+
+            if (usaIntervalo && EstaEnVentanaHoraria(horaInicio, horaFin))
+            {
+                if (ultimaEjecucion == null)
+                    return true;
+                if ((ahora - ultimaEjecucion.Value).TotalMinutes >= intervaloMin)
+                    return true;
+            }
+
+            return false;
         }
 
         private async Task EjecutarClientesConReintentosAsync(Models.SyncConfigDto config, CancellationToken ct)
@@ -294,7 +222,7 @@ namespace IntegradorFlexForce.Services
                         tel.UltimoResultado = "COMPLETADO";
                         tel.UltimoError = null;
                         tel.Reintentando = false;
-                        if (config.ModoClientes == "MADRUGADA")
+                        if ((config.ModoClientes == "MADRUGADA" || config.ModoClientes == "AMBOS") && EsHoraObjetivo(config.HoraMadrugadaClientes, DateTime.Now))
                         {
                             _ultimoDiaMadrugadaClientes = DateTime.Today;
                         }
@@ -366,7 +294,7 @@ namespace IntegradorFlexForce.Services
                         tel.UltimoResultado = "COMPLETADO";
                         tel.UltimoError = null;
                         tel.Reintentando = false;
-                        if (config.ModoProductos == "MADRUGADA")
+                        if ((config.ModoProductos == "MADRUGADA" || config.ModoProductos == "AMBOS") && EsHoraObjetivo(config.HoraMadrugadaProductos, DateTime.Now))
                         {
                             _ultimoDiaMadrugadaProductos = DateTime.Today;
                         }
@@ -438,7 +366,7 @@ namespace IntegradorFlexForce.Services
                         tel.UltimoResultado = "COMPLETADO";
                         tel.UltimoError = null;
                         tel.Reintentando = false;
-                        if (config.ModoVendedores == "MADRUGADA")
+                        if ((config.ModoVendedores == "MADRUGADA" || config.ModoVendedores == "AMBOS") && EsHoraObjetivo(config.HoraMadrugadaVendedores, DateTime.Now))
                         {
                             _ultimoDiaMadrugadaVendedores = DateTime.Today;
                         }
@@ -510,7 +438,7 @@ namespace IntegradorFlexForce.Services
                         tel.UltimoResultado = "COMPLETADO";
                         tel.UltimoError = null;
                         tel.Reintentando = false;
-                        if (config.ModoStock == "MADRUGADA")
+                        if ((config.ModoStock == "MADRUGADA" || config.ModoStock == "AMBOS") && EsHoraObjetivo(config.HoraMadrugadaStock, DateTime.Now))
                         {
                             _ultimoDiaMadrugadaStock = DateTime.Today;
                         }
@@ -647,36 +575,50 @@ namespace IntegradorFlexForce.Services
             DateTime ahora)
         {
             var tel = _telemetria[modulo];
-            bool enVentana = modo == "MADRUGADA" || EstaEnVentanaHoraria(horaInicio, horaFin);
+            string m = (modo ?? "INTERVALO").ToUpperInvariant();
+            bool usaMadrugada = m == "MADRUGADA" || m == "AMBOS";
+            bool usaIntervalo = m == "INTERVALO" || m == "AMBOS";
+            bool enVentanaIntervalo = usaIntervalo && EstaEnVentanaHoraria(horaInicio, horaFin);
+            bool enVentana = usaMadrugada || enVentanaIntervalo;
 
-            string frecuenciaTexto = modo == "MADRUGADA"
-                ? $"Madrugada · {horaMadrugada} hrs"
-                : $"Cada {intervaloMin} min";
+            string frecuenciaTexto = m == "AMBOS"
+                ? $"Cada {intervaloMin} min + Madrugada {horaMadrugada}"
+                : (m == "MADRUGADA" ? $"Madrugada · {horaMadrugada} hrs" : $"Cada {intervaloMin} min");
 
-            string ventanaTexto = modo == "MADRUGADA"
-                ? $"Diario {horaMadrugada}"
-                : $"{horaInicio} - {horaFin}";
+            string ventanaTexto = m == "AMBOS"
+                ? $"{horaInicio}-{horaFin} y Nocturno {horaMadrugada}"
+                : (m == "MADRUGADA" ? $"Diario {horaMadrugada}" : $"{horaInicio} - {horaFin}");
 
             DateTime? proxima = null;
             int? segParaProxima = null;
 
             if (globalActivo && autoActivo && !engineRunning)
             {
-                if (modo == "MADRUGADA")
+                DateTime? proxMadrugada = null;
+                DateTime? proxIntervalo = null;
+
+                if (usaMadrugada)
                 {
                     if (!TimeSpan.TryParse(horaMadrugada, out var obj)) obj = new TimeSpan(2, 0, 0);
                     var candidato = ahora.Date.Add(obj);
                     if ((ultimoDiaMadrugada.HasValue && ultimoDiaMadrugada.Value.Date == ahora.Date) || ahora > candidato.AddMinutes(10))
                         candidato = candidato.AddDays(1);
-                    proxima = candidato;
+                    proxMadrugada = candidato;
                 }
-                else if (enVentana)
+
+                if (enVentanaIntervalo)
                 {
-                    proxima = ultimaEjecucion.HasValue
+                    var candInt = ultimaEjecucion.HasValue
                         ? ultimaEjecucion.Value.AddMinutes(intervaloMin)
                         : ahora.AddSeconds(15);
-                    if (proxima < ahora) proxima = ahora.AddSeconds(10);
+                    if (candInt < ahora) candInt = ahora.AddSeconds(10);
+                    proxIntervalo = candInt;
                 }
+
+                if (proxMadrugada.HasValue && proxIntervalo.HasValue)
+                    proxima = proxIntervalo.Value < proxMadrugada.Value ? proxIntervalo : proxMadrugada;
+                else
+                    proxima = proxIntervalo ?? proxMadrugada;
 
                 if (proxima.HasValue)
                 {

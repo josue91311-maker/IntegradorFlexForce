@@ -6776,61 +6776,58 @@ async function ejecutarSincronizacion(modo) {
         }
     }
 
-    function cambiarModoClientes(modo) {
-        const pInt = document.getElementById('panelClientesIntervalo');
-        const pMad = document.getElementById('panelClientesMadrugada');
-        const btnInt = document.getElementById('btnModoCliInt');
-        const btnMad = document.getElementById('btnModoCliMad');
+    function aplicarModoDual(btnIntId, btnMadId, pIntId, pMadId, modoOAccion, esCargaInicial = false) {
+        const pInt = document.getElementById(pIntId);
+        const pMad = document.getElementById(pMadId);
+        const btnInt = document.getElementById(btnIntId);
+        const btnMad = document.getElementById(btnMadId);
+        if (!btnInt || !btnMad) return;
 
-        if (modo === 'MADRUGADA') {
-            if (pInt) pInt.style.display = 'none';
-            if (pMad) pMad.style.display = 'block';
-            if (btnInt) btnInt.classList.remove('active');
-            if (btnMad) btnMad.classList.add('active');
-        } else {
-            if (pInt) pInt.style.display = 'block';
-            if (pMad) pMad.style.display = 'none';
-            if (btnInt) btnInt.classList.add('active');
-            if (btnMad) btnMad.classList.remove('active');
+        let intOn = btnInt.classList.contains('active');
+        let madOn = btnMad.classList.contains('active');
+
+        if (esCargaInicial) {
+            const m = (modoOAccion || 'INTERVALO').toUpperCase();
+            intOn = (m === 'INTERVALO' || m === 'AMBOS');
+            madOn = (m === 'MADRUGADA' || m === 'AMBOS');
+        } else if (modoOAccion === 'INTERVALO') {
+            if (intOn && !madOn) {
+                mostrarToast('Debe quedar al menos un modo de ejecución activo.', 'warning');
+                return;
+            }
+            intOn = !intOn;
+        } else if (modoOAccion === 'MADRUGADA') {
+            if (madOn && !intOn) {
+                mostrarToast('Debe quedar al menos un modo de ejecución activo.', 'warning');
+                return;
+            }
+            madOn = !madOn;
         }
+
+        btnInt.classList.toggle('active', intOn);
+        btnMad.classList.toggle('active', madOn);
+        if (pInt) pInt.style.display = intOn ? 'block' : 'none';
+        if (pMad) pMad.style.display = madOn ? 'block' : 'none';
     }
 
-    function cambiarModoProductos(modo) {
-        const pInt = document.getElementById('panelProductosIntervalo');
-        const pMad = document.getElementById('panelProductosMadrugada');
-        const btnInt = document.getElementById('btnModoPrdInt');
-        const btnMad = document.getElementById('btnModoPrdMad');
-
-        if (modo === 'MADRUGADA') {
-            if (pInt) pInt.style.display = 'none';
-            if (pMad) pMad.style.display = 'block';
-            if (btnInt) btnInt.classList.remove('active');
-            if (btnMad) btnMad.classList.add('active');
-        } else {
-            if (pInt) pInt.style.display = 'block';
-            if (pMad) pMad.style.display = 'none';
-            if (btnInt) btnInt.classList.add('active');
-            if (btnMad) btnMad.classList.remove('active');
-        }
+    function obtenerModoDual(btnIntId, btnMadId) {
+        const intOn = document.getElementById(btnIntId)?.classList.contains('active');
+        const madOn = document.getElementById(btnMadId)?.classList.contains('active');
+        if (intOn && madOn) return 'AMBOS';
+        if (madOn) return 'MADRUGADA';
+        return 'INTERVALO';
     }
 
-    function cambiarModoStock(modo) {
-        const pInt = document.getElementById('panelStockIntervalo');
-        const pMad = document.getElementById('panelStockMadrugada');
-        const btnInt = document.getElementById('btnModoStockInt');
-        const btnMad = document.getElementById('btnModoStockMad');
+    function cambiarModoClientes(modo, esCargaInicial = false) {
+        aplicarModoDual('btnModoCliInt', 'btnModoCliMad', 'panelClientesIntervalo', 'panelClientesMadrugada', modo, esCargaInicial);
+    }
 
-        if (modo === 'MADRUGADA') {
-            if (pInt) pInt.style.display = 'none';
-            if (pMad) pMad.style.display = 'block';
-            if (btnInt) btnInt.classList.remove('active');
-            if (btnMad) btnMad.classList.add('active');
-        } else {
-            if (pInt) pInt.style.display = 'block';
-            if (pMad) pMad.style.display = 'none';
-            if (btnInt) btnInt.classList.add('active');
-            if (btnMad) btnMad.classList.remove('active');
-        }
+    function cambiarModoProductos(modo, esCargaInicial = false) {
+        aplicarModoDual('btnModoPrdInt', 'btnModoPrdMad', 'panelProductosIntervalo', 'panelProductosMadrugada', modo, esCargaInicial);
+    }
+
+    function cambiarModoStock(modo, esCargaInicial = false) {
+        aplicarModoDual('btnModoStockInt', 'btnModoStockMad', 'panelStockIntervalo', 'panelStockMadrugada', modo, esCargaInicial);
     }
 
     async function toggleModoSincronizacion() {
@@ -6875,7 +6872,7 @@ async function ejecutarSincronizacion(modo) {
             // 2. Módulo Clientes
             const chkCli = document.getElementById('chkAutoClientes');
             if (chkCli) chkCli.checked = c.autoClientesActivo !== false;
-            cambiarModoClientes(c.modoClientes || 'INTERVALO');
+            cambiarModoClientes(c.modoClientes || 'INTERVALO', true);
             const tIniCli = document.getElementById('txtHoraInicioClientes');
             if (tIniCli) tIniCli.value = c.horaInicioClientes || c.horaInicioVentana || '05:00';
             const tFinCli = document.getElementById('txtHoraFinClientes');
@@ -6888,7 +6885,7 @@ async function ejecutarSincronizacion(modo) {
             // 3. Módulo Productos
             const chkPrd = document.getElementById('chkAutoProductos');
             if (chkPrd) chkPrd.checked = c.autoProductosActivo !== false;
-            cambiarModoProductos(c.modoProductos || 'INTERVALO');
+            cambiarModoProductos(c.modoProductos || 'INTERVALO', true);
             const tIniPrd = document.getElementById('txtHoraInicioProductos');
             if (tIniPrd) tIniPrd.value = c.horaInicioProductos || c.horaInicioVentana || '05:00';
             const tFinPrd = document.getElementById('txtHoraFinProductos');
@@ -6901,7 +6898,7 @@ async function ejecutarSincronizacion(modo) {
             // 4. Módulo Vendedores
             const chkVend = document.getElementById('chkAutoVendedores');
             if (chkVend) chkVend.checked = c.autoVendedoresActivo !== false;
-            if (typeof cambiarModoVendedores === 'function') cambiarModoVendedores(c.modoVendedores || 'INTERVALO');
+            if (typeof cambiarModoVendedores === 'function') cambiarModoVendedores(c.modoVendedores || 'INTERVALO', true);
             const tIniVend = document.getElementById('txtHoraInicioVendedores');
             if (tIniVend) tIniVend.value = c.horaInicioVendedores || '05:00';
             const tFinVend = document.getElementById('txtHoraFinVendedores');
@@ -6914,7 +6911,7 @@ async function ejecutarSincronizacion(modo) {
             // 5. Módulo Stock
             const chkStk = document.getElementById('chkAutoStock');
             if (chkStk) chkStk.checked = c.autoStockActivo !== false;
-            cambiarModoStock(c.modoStock || 'INTERVALO');
+            cambiarModoStock(c.modoStock || 'INTERVALO', true);
             const tIniStk = document.getElementById('txtHoraInicioStock');
             if (tIniStk) tIniStk.value = c.horaInicioStock || '05:00';
             const tFinStk = document.getElementById('txtHoraFinStock');
@@ -6940,10 +6937,10 @@ async function ejecutarSincronizacion(modo) {
     }
 
     async function guardarConfiguracion() {
-        const modoCli = document.getElementById('btnModoCliMad')?.classList.contains('active') ? 'MADRUGADA' : 'INTERVALO';
-        const modoPrd = document.getElementById('btnModoPrdMad')?.classList.contains('active') ? 'MADRUGADA' : 'INTERVALO';
-        const modoVend = document.getElementById('btnModoVendMad')?.classList.contains('active') ? 'MADRUGADA' : 'INTERVALO';
-        const modoStk = document.getElementById('btnModoStockMad')?.classList.contains('active') ? 'MADRUGADA' : 'INTERVALO';
+        const modoCli = obtenerModoDual('btnModoCliInt', 'btnModoCliMad');
+        const modoPrd = obtenerModoDual('btnModoPrdInt', 'btnModoPrdMad');
+        const modoVend = obtenerModoDual('btnModoVendInt', 'btnModoVendMad');
+        const modoStk = obtenerModoDual('btnModoStockInt', 'btnModoStockMad');
 
         const body = {
             sincronizacionActiva: document.getElementById('chkActiva')?.checked || false,
@@ -8210,23 +8207,9 @@ async function ejecutarSincronizacion(modo) {
         }
     }
 
-    function cambiarModoVendedores(modo) {
-        modoVendedoresActivo = modo;
-        const btnInt = document.getElementById('btnModoVendInt');
-        const btnMad = document.getElementById('btnModoVendMad');
-        const panelInt = document.getElementById('panelVendedoresIntervalo');
-        const panelMad = document.getElementById('panelVendedoresMadrugada');
-        if (modo === 'INTERVALO') {
-            if (btnInt) btnInt.classList.add('active');
-            if (btnMad) btnMad.classList.remove('active');
-            if (panelInt) panelInt.style.display = 'block';
-            if (panelMad) panelMad.style.display = 'none';
-        } else {
-            if (btnInt) btnInt.classList.remove('active');
-            if (btnMad) btnMad.classList.add('active');
-            if (panelInt) panelInt.style.display = 'none';
-            if (panelMad) panelMad.style.display = 'block';
-        }
+    function cambiarModoVendedores(modo, esCargaInicial = false) {
+        aplicarModoDual('btnModoVendInt', 'btnModoVendMad', 'panelVendedoresIntervalo', 'panelVendedoresMadrugada', modo, esCargaInicial);
+        modoVendedoresActivo = obtenerModoDual('btnModoVendInt', 'btnModoVendMad');
     }
 
     async function validarDiferenciasVendedores() {
