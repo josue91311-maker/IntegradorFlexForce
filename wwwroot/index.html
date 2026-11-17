@@ -4175,9 +4175,14 @@
                         <option value="FACTURAS">Solo Facturas Electrónicas</option>
                     </select>
 
-                    <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dark); margin-bottom:14px; cursor:pointer;">
+                    <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dark); margin-bottom:8px; cursor:pointer;">
                         <input type="checkbox" id="chkCpIncluirAnulados">
                         <span>Incluir Comprobantes Anulados</span>
+                    </label>
+
+                    <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dark); margin-bottom:14px; cursor:pointer;" title="Filtra y muestra solo aquellos comprobantes cuyos pedidos ya existen en Force en estado FACTURADO">
+                        <input type="checkbox" id="chkSoloPedidosFacturados" checked>
+                        <span style="font-weight:700; color:#065f46;">🔒 Solo con Pedido FACTURADO en Force</span>
                     </label>
 
                     <div style="display:flex; flex-direction:column; gap:8px;">
@@ -8889,7 +8894,8 @@ async function ejecutarSincronizacion(modo) {
             fechaDesde: document.getElementById('txtCpFechaDesde').value,
             fechaHasta: document.getElementById('txtCpFechaHasta').value,
             incluirAnulados: document.getElementById('chkCpIncluirAnulados').checked,
-            tipoDocumento: document.getElementById('cmbCpTipoDoc').value
+            tipoDocumento: document.getElementById('cmbCpTipoDoc').value,
+            soloPedidosFacturadosEnForce: document.getElementById('chkSoloPedidosFacturados').checked
         };
 
         try {
@@ -8977,9 +8983,18 @@ async function ejecutarSincronizacion(modo) {
 
             let pedHtml = '';
             if (c.idPedidoForce) {
-                pedHtml = `<span style="color:#059669; font-weight:700;">#${c.idPedidoForce} (${c.numPedidoForce || c.numPedidoOrigen})</span>`;
+                const multiTag = c.esMulticomprobante
+                    ? `<span style="background:#dbeafe; color:#1e40af; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:800;" title="Este pedido tiene ${c.totalComprobantesDelPedido} comprobantes asociados">Comp ${c.comprobanteNumeroOrden}/${c.totalComprobantesDelPedido}</span>`
+                    : '';
+                pedHtml = `
+                    <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                        <span style="color:#059669; font-weight:700;">#${c.idPedidoForce} (${c.numPedidoForce || c.numPedidoOrigen})</span>
+                        <span style="background:#dcfce7; color:#166534; padding:1px 5px; border-radius:3px; font-size:9.5px; font-weight:700;">${c.estadoPedidoForce || 'FACTURADO'}</span>
+                        ${multiTag}
+                    </div>
+                `;
             } else if (c.numPedidoOrigen) {
-                pedHtml = `<span style="color:#d97706; font-size:11px;">Orig: ${c.numPedidoOrigen} (Sin migrar)</span>`;
+                pedHtml = `<span style="color:#d97706; font-size:11px;">Orig: ${c.numPedidoOrigen} (No subido o no FACTURADO)</span>`;
             } else {
                 pedHtml = `<span style="color:#94a3b8; font-size:11px;">Directo</span>`;
             }

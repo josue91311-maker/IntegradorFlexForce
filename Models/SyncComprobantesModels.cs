@@ -10,6 +10,7 @@ namespace IntegradorFlexForce.Models
         public DateTime FechaHasta { get; set; }
         public bool IncluirAnulados { get; set; } = false;
         public string TipoDocumento { get; set; } = "TODOS"; // TODOS, FACTURAS, BOLETAS
+        public bool SoloPedidosFacturadosEnForce { get; set; } = true;
     }
 
     public class ComprobanteItemAlineadoDto
@@ -78,6 +79,11 @@ namespace IntegradorFlexForce.Models
         public string NumPedidoOrigen { get; set; } = string.Empty;
         public int? IDPedidoForce { get; set; }
         public string NumPedidoForce { get; set; } = string.Empty;
+        public string EstadoPedidoForce { get; set; } = string.Empty;
+        public int ComprobanteNumeroOrden { get; set; } = 1;
+        public int TotalComprobantesDelPedido { get; set; } = 1;
+        public bool EsMulticomprobante => TotalComprobantesDelPedido > 1;
+        public bool PedidoFacturadoEnForce => string.Equals(EstadoPedidoForce, "FACTURADO", StringComparison.OrdinalIgnoreCase);
 
         // Direcciones y datos de venta
         public string DireccionFiscal { get; set; } = string.Empty;
