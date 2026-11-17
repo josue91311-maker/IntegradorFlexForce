@@ -2060,6 +2060,11 @@
                 <span>Módulo Stock</span>
             </button>
 
+            <button id="navBtnPedidos" class="nav-item" onclick="navegarVista('pedidos')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6"/><path d="M9 16h6"/></svg>
+                <span>Módulo Pedidos</span>
+            </button>
+
             <button id="navBtnConfig" class="nav-item" onclick="navegarVista('config')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 <span>Configuración</span>
@@ -3899,6 +3904,208 @@
     </section>
 
     <!-- ==============================================================
+         VISTA 3.5: MÓDULO DE PEDIDOS (MIGRACIÓN CONTROLADA SIN TOCAR STOCK)
+         ============================================================== -->
+    <section id="vistaPedidos" class="view-section">
+        <div class="module-banner" style="background:linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); margin-bottom:20px; border-radius:16px; padding:22px 26px; color:#fff; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+            <div>
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+                    <span style="background:rgba(16,185,129,0.2); border:1px solid rgba(16,185,129,0.5); color:#6ee7b7; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:800; letter-spacing:0.5px;">🔒 STOCK BLINDADO (TRIGGERS OFF EN CARGA)</span>
+                    <span style="background:rgba(255,255,255,0.12); color:#e2e8f0; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:600;">ERP Antiguo ➔ Force Distribución</span>
+                </div>
+                <h2 style="font-size:22px; font-weight:800; margin:0; letter-spacing:-0.3px;">Módulo de Migración y Alineación de Pedidos</h2>
+                <p style="margin:4px 0 0; font-size:13px; color:#cbd5e1;">Filtra por vendedor y rango de fechas, valida equivalencias de maestros (IDExtra / TipoPedido) y sube pedidos sin alterar el inventario.</p>
+            </div>
+            <div style="text-align:right;">
+                <div class="relojLiveModule" style="font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:700; color:#93c5fd;">--:--:--</div>
+                <div style="font-size:11px; color:#94a3b8;">Hora Oficial Perú</div>
+            </div>
+        </div>
+
+        <!-- PANEL DE FILTROS Y BÚSQUEDA -->
+        <div class="white-card" style="margin-bottom:20px;">
+            <div class="card-header-clean" style="margin-bottom:14px;">
+                <div>
+                    <h2 style="font-size:16px;">1. Filtros de Extracción (digalimenta41)</h2>
+                    <div style="font-size:12px; color:var(--text-muted);">Selecciona uno o varios vendedores y define el rango de fechas de emisión</div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-outline btn-sm" onclick="cargarVendedoresPedidos(true)">🔄 Recargar Vendedores</button>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr; gap:18px; align-items:start;">
+                <!-- SELECTOR MULTI-VENDEDOR -->
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:var(--text-dark); margin-bottom:6px;">
+                        Vendedor(es) <span id="lblCountVendSel" style="color:var(--primary-blue); font-weight:800;">(Todos)</span>
+                    </label>
+                    <input type="text" id="txtBuscarVendPedido" class="input-control" placeholder="Filtrar vendedor por código o nombre..." oninput="renderListaVendedoresPedidos()" style="width:100%; margin-bottom:6px; font-size:12.5px;">
+                    <div id="boxListaVendedoresPedidos" style="max-height:165px; overflow-y:auto; border:1px solid var(--border-light); border-radius:10px; padding:6px; background:#f8fafc;">
+                        <div style="padding:14px; text-align:center; color:var(--text-muted); font-size:12px;">Cargando vendedores...</div>
+                    </div>
+                    <div style="margin-top:6px; display:flex; gap:10px; font-size:11.5px;">
+                        <a href="javascript:void(0)" onclick="seleccionarTodosVendedoresPedidos(true)" style="color:var(--primary-blue); font-weight:700;">Seleccionar visibles</a>
+                        <a href="javascript:void(0)" onclick="seleccionarTodosVendedoresPedidos(false)" style="color:var(--text-muted); font-weight:600;">Limpiar selección</a>
+                    </div>
+                </div>
+
+                <!-- FECHAS -->
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:var(--text-dark); margin-bottom:6px;">Fecha Emisión Desde</label>
+                    <input type="date" id="txtPedidoFechaDesde" class="input-control" style="width:100%; margin-bottom:12px;">
+
+                    <label style="display:block; font-size:12px; font-weight:700; color:var(--text-dark); margin-bottom:6px;">Fecha Emisión Hasta</label>
+                    <input type="date" id="txtPedidoFechaHasta" class="input-control" style="width:100%;">
+                </div>
+
+                <!-- OPCIONES DE ESTADO Y BOTÓN CONSULTAR -->
+                <div style="display:flex; flex-direction:column; justify-content:space-between; height:100%;">
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-dark); margin-bottom:8px;">Estados del ERP Antiguo a Incluir</label>
+                        <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; margin-bottom:6px; cursor:pointer;">
+                            <input type="checkbox" id="chkIncluirAnulados" checked>
+                            <span>Incluir pedidos <strong>ANULADOS</strong></span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; margin-bottom:12px; cursor:pointer;">
+                            <input type="checkbox" id="chkIncluirFacturados" checked>
+                            <span>Incluir facturados (<strong>TOTAL</strong> / <strong>PARCIAL</strong>)</span>
+                        </label>
+                    </div>
+
+                    <button id="btnConsultarPedidos" class="btn btn-primary" onclick="consultarPedidosAlineacion()" style="width:100%; padding:12px; font-size:13.5px; font-weight:800; justify-content:center; box-shadow:0 6px 16px rgba(24,119,242,0.28);">
+                        🔍 1. Consultar y Alinear Maestros
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TARJETAS KPI DE PRE-VISUALIZACIÓN -->
+        <div id="kpiGridPedidos" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:14px; margin-bottom:18px;">
+            <div class="white-card" style="padding:14px 16px; border-left:4px solid #3b82f6;">
+                <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Total Encontrados</div>
+                <div id="kpiPedTotal" style="font-size:24px; font-weight:800; color:var(--text-dark); margin-top:4px;">0</div>
+                <div id="kpiPedEstadosBreakdown" style="font-size:11px; color:var(--text-muted); margin-top:2px;">Pend: 0 | Tot: 0 | Anul: 0</div>
+            </div>
+            <div class="white-card" style="padding:14px 16px; border-left:4px solid #10b981;">
+                <div style="font-size:11px; font-weight:700; color:#059669; text-transform:uppercase;">✓ Listos para Subir</div>
+                <div id="kpiPedListos" style="font-size:24px; font-weight:800; color:#059669; margin-top:4px;">0</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Maestros 100% homologados</div>
+            </div>
+            <div class="white-card" style="padding:14px 16px; border-left:4px solid #6366f1;">
+                <div style="font-size:11px; font-weight:700; color:#4f46e5; text-transform:uppercase;">ℹ Ya en Force</div>
+                <div id="kpiPedExistentes" style="font-size:24px; font-weight:800; color:#4f46e5; margin-top:4px;">0</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Omitidos (Idempotencia)</div>
+            </div>
+            <div class="white-card" style="padding:14px 16px; border-left:4px solid #ef4444;">
+                <div style="font-size:11px; font-weight:700; color:#dc2626; text-transform:uppercase;">✕ Observados</div>
+                <div id="kpiPedErrores" style="font-size:24px; font-weight:800; color:#dc2626; margin-top:4px;">0</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Falta maestro en Force</div>
+            </div>
+            <div class="white-card" style="padding:14px 16px; border-left:4px solid #f59e0b;">
+                <div style="font-size:11px; font-weight:700; color:#d97706; text-transform:uppercase;">Subidos Hoy</div>
+                <div id="kpiPedSubidos" style="font-size:24px; font-weight:800; color:#d97706; margin-top:4px;">0</div>
+                <div id="kpiPedStockLock" style="font-size:11px; color:#059669; font-weight:700; margin-top:2px;">🔒 Stock Intacto</div>
+            </div>
+        </div>
+
+        <!-- MONITOR EN VIVO DE SUBIDA Y CONSOLA -->
+        <div id="panelMonitorPedidos" class="white-card" style="margin-bottom:20px; display:none; border-left:5px solid #10b981;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <div>
+                    <strong id="lblPedidoFaseDetalle" style="font-size:14px; color:var(--text-dark);">Listo</strong>
+                    <div id="lblPedidoProgresoTexto" style="font-size:12px; color:var(--text-muted); margin-top:2px;">0 / 0 procesados</div>
+                </div>
+                <span id="badgePedidoEstadoLive" style="padding:4px 12px; border-radius:99px; font-size:11.5px; font-weight:800; background:#dcfce7; color:#059669;">EN ESPERA</span>
+            </div>
+            <div style="width:100%; height:10px; background:#e2e8f0; border-radius:99px; overflow:hidden; margin-bottom:12px;">
+                <div id="barraProgresoPedidos" style="width:0%; height:100%; background:linear-gradient(90deg, #10b981, #059669); transition:width 0.3s ease;"></div>
+            </div>
+            <div id="consolaEventosPedidos" style="max-height:170px; overflow-y:auto; background:#0f172a; color:#e2e8f0; font-family:'JetBrains Mono',monospace; font-size:11.5px; padding:12px; border-radius:10px; line-height:1.55;">
+                Esperando ejecución...
+            </div>
+        </div>
+
+        <!-- TABLA DE PRE-VISUALIZACIÓN Y DIAGNÓSTICO DE MAESTROS -->
+        <div class="white-card">
+            <div class="card-header-clean" style="flex-wrap:wrap; gap:12px;">
+                <div>
+                    <h2 style="font-size:16px;">2. Alineación de Pedidos y Validación de Maestros</h2>
+                    <div style="font-size:12px; color:var(--text-muted);">Revisa fila por fila si el Cliente, Vendedor, TipoCpPedido, Almacén y Productos coinciden antes de subir</div>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <input type="text" id="txtBuscarTablaPedidos" class="input-control" placeholder="Buscar por Nº pedido o cliente..." oninput="renderTablaPedidos()" style="width:220px;">
+                    <select id="selFiltroSemaforoPedidos" class="select-control" onchange="renderTablaPedidos()">
+                        <option value="">Todos los semáforos</option>
+                        <option value="LISTOS">✓ Listos para subir (Verde/Ámbar)</option>
+                        <option value="ROJO">✕ Con error de maestros (Rojo)</option>
+                        <option value="AZUL">ℹ Ya existen en Force (Azul)</option>
+                    </select>
+                    <button id="btnSubirPedidosSeleccionados" class="btn btn-primary" onclick="subirPedidosSeleccionados()" disabled style="background:linear-gradient(90deg, #059669, #10b981); border:none; font-weight:800; padding:10px 18px; box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                        ⚡ 2. Subir Seleccionados (Stock Blindado)
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container" style="max-height:520px; overflow-y:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:36px; text-align:center;"><input type="checkbox" id="chkAllPedidosReady" onchange="toggleSelectAllPedidosReady(this.checked)" title="Seleccionar todos los listos"></th>
+                            <th>Nº Pedido Antiguo</th>
+                            <th>Fecha Emisión</th>
+                            <th>Cliente (PKID ➔ IDForce)</th>
+                            <th>Vendedor / TipoPedido Force</th>
+                            <th>Almacén / Catálogo</th>
+                            <th class="num">Ítems</th>
+                            <th class="num">Total S/</th>
+                            <th>Estado ERP Viejo</th>
+                            <th>Estado Force</th>
+                            <th>Diagnóstico / Observación de Maestros</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblPedidosAlineados">
+                        <tr>
+                            <td colspan="11" style="text-align:center; padding:36px; color:var(--text-muted);">
+                                Selecciona el vendedor y rango de fechas arriba y haz clic en <strong>«1. Consultar y Alinear Maestros»</strong>.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- MODAL DETALLE DE ÍTEMS DEL PEDIDO -->
+        <div id="modalDetallePedidoItems" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+            <div style="background:#fff; border-radius:16px; max-width:920px; width:100%; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);">
+                <div style="padding:18px 24px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h3 id="modalPedTitulo" style="margin:0; font-size:17px; color:#0f172a;">Detalle de Ítems del Pedido</h3>
+                        <div id="modalPedSubtitulo" style="font-size:12.5px; color:#64748b; margin-top:2px;">Verificación de Productos (prd_Producto.IDExtra) y Unidades (prd_ProductoUnidad.IDExtra)</div>
+                    </div>
+                    <button class="btn btn-outline btn-sm" onclick="document.getElementById('modalDetallePedidoItems').style.display='none'">Cerrar ✕</button>
+                </div>
+                <div style="padding:16px 24px; overflow-y:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Producto</th>
+                                <th>Unidad (Factor)</th>
+                                <th class="num">Cant.</th>
+                                <th class="num">Precio Unit.</th>
+                                <th class="num">Total S/</th>
+                                <th>Alineación en Force</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblModalPedidoItems"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==============================================================
          VISTA 4: HISTORIAL DE LOTES EJECUTADOS
          ============================================================== -->
     <section id="vistaHistorial" class="view-section">
@@ -4806,6 +5013,7 @@
             'productos': 'vistaProductos',
             'vendedores': 'vistaVendedores',
             'stock': 'vistaStock',
+            'pedidos': 'vistaPedidos',
             'historial': 'vistaHistorial',
             'logs': 'vistaLogs',
             'config': 'vistaConfig'
@@ -4816,6 +5024,7 @@
             'productos': 'navBtnProductos',
             'vendedores': 'navBtnVendedores',
             'stock': 'navBtnStock',
+            'pedidos': 'navBtnPedidos',
             'historial': 'navBtnHistorial',
             'logs': 'navBtnReportes',
             'config': 'navBtnConfig'
@@ -4835,6 +5044,8 @@
         // (Las consultas de diferencias solo se ejecutan cuando el usuario presiona el botón "1. Consultar Diferencias")
         if (vista === 'config') {
             cargarConfiguracion();
+        } else if (vista === 'pedidos') {
+            inicializarVistaPedidos();
         }
     }
 
@@ -7970,7 +8181,386 @@ async function ejecutarSincronizacion(modo) {
         }
     }
 
-    setInterval(() => { cargarEstado(); cargarEstadoProductos(); cargarEstadoVendedores(); cargarEstadoStock(); }, 2000);
+    // =========================================================================
+    // MÓDULO DE PEDIDOS (MIGRACIÓN CONTROLADA CON STOCK BLINDADO)
+    // =========================================================================
+    let vendedoresPedidosCache = [];
+    let vendedoresPedidosSeleccionados = new Set();
+    let pedidosAnalisisCache = [];
+    let pedidosIdsSeleccionados = new Set();
+    let pedidosEstabaCorriendo = false;
+    let pedidosInicializado = false;
+
+    function inicializarVistaPedidos() {
+        if (!pedidosInicializado) {
+            pedidosInicializado = true;
+            const hoy = new Date();
+            const yyyy = hoy.getFullYear();
+            const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+            const dd = String(hoy.getDate()).padStart(2, '0');
+            const fechaStr = `${yyyy}-${mm}-${dd}`;
+            document.getElementById('txtPedidoFechaDesde').value = fechaStr;
+            document.getElementById('txtPedidoFechaHasta').value = fechaStr;
+            cargarVendedoresPedidos(false);
+        }
+    }
+
+    async function cargarVendedoresPedidos(forzar = false) {
+        if (vendedoresPedidosCache.length > 0 && !forzar) return;
+        const box = document.getElementById('boxListaVendedoresPedidos');
+        box.innerHTML = `<div style="padding:14px; text-align:center; color:var(--text-muted); font-size:12px;">Cargando vendedores desde ERP...</div>`;
+        try {
+            const resp = await fetch('/api/sync/pedidos/vendedores');
+            if (!resp.ok) throw new Error('Error consultando vendedores');
+            vendedoresPedidosCache = await resp.json();
+            renderListaVendedoresPedidos();
+        } catch (err) {
+            box.innerHTML = `<div style="padding:12px; color:#dc2626; font-size:12px;">Error al cargar vendedores: ${err.message}</div>`;
+        }
+    }
+
+    function renderListaVendedoresPedidos() {
+        const q = (document.getElementById('txtBuscarVendPedido').value || '').toLowerCase().trim();
+        const box = document.getElementById('boxListaVendedoresPedidos');
+        const filtrados = vendedoresPedidosCache.filter(v =>
+            !q || v.codigo.toLowerCase().includes(q) || v.nombre.toLowerCase().includes(q) || (v.seriePedidoForce || '').toLowerCase().includes(q)
+        );
+
+        if (filtrados.length === 0) {
+            box.innerHTML = `<div style="padding:12px; text-align:center; color:var(--text-muted); font-size:12px;">Sin coincidencias</div>`;
+            return;
+        }
+
+        box.innerHTML = filtrados.map(v => {
+            const chk = vendedoresPedidosSeleccionados.has(v.idOrigen) ? 'checked' : '';
+            const badgeSerie = v.tieneTipoPedido
+                ? `<span style="background:#dcfce7; color:#059669; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:800;">Serie ${v.seriePedidoForce}</span>`
+                : `<span style="background:#fee2e2; color:#dc2626; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:700;">Sin TipoPedido</span>`;
+            return `
+                <label style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 8px; border-radius:6px; cursor:pointer; font-size:12px; border-bottom:1px solid #f1f5f9;">
+                    <span style="display:flex; align-items:center; gap:7px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                        <input type="checkbox" ${chk} onchange="toggleVendedorPedido(${v.idOrigen}, this.checked)">
+                        <strong>${v.codigo}</strong>
+                        <span style="color:#334155;">${v.nombre}</span>
+                    </span>
+                    ${badgeSerie}
+                </label>
+            `;
+        }).join('');
+
+        actualizarContadorVendedoresPedidos();
+    }
+
+    function toggleVendedorPedido(idOrigen, checked) {
+        if (checked) vendedoresPedidosSeleccionados.add(idOrigen);
+        else vendedoresPedidosSeleccionados.delete(idOrigen);
+        actualizarContadorVendedoresPedidos();
+    }
+
+    function seleccionarTodosVendedoresPedidos(marcar) {
+        const q = (document.getElementById('txtBuscarVendPedido').value || '').toLowerCase().trim();
+        const filtrados = vendedoresPedidosCache.filter(v =>
+            !q || v.codigo.toLowerCase().includes(q) || v.nombre.toLowerCase().includes(q)
+        );
+        filtrados.forEach(v => {
+            if (marcar) vendedoresPedidosSeleccionados.add(v.idOrigen);
+            else vendedoresPedidosSeleccionados.delete(v.idOrigen);
+        });
+        renderListaVendedoresPedidos();
+    }
+
+    function actualizarContadorVendedoresPedidos() {
+        const lbl = document.getElementById('lblCountVendSel');
+        if (!lbl) return;
+        lbl.textContent = vendedoresPedidosSeleccionados.size === 0
+            ? '(Todos los vendedores)'
+            : `(${vendedoresPedidosSeleccionados.size} seleccionado/s)`;
+    }
+
+    async function consultarPedidosAlineacion() {
+        const btn = document.getElementById('btnConsultarPedidos');
+        const fechaDesde = document.getElementById('txtPedidoFechaDesde').value;
+        const fechaHasta = document.getElementById('txtPedidoFechaHasta').value;
+        if (!fechaDesde || !fechaHasta) {
+            mostrarToast('Debe indicar Fecha Desde y Fecha Hasta.', 'error');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = `<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Consultando y validando maestros...`;
+
+        try {
+            const payload = {
+                vendedoresOrigenIds: Array.from(vendedoresPedidosSeleccionados),
+                fechaDesde: fechaDesde,
+                fechaHasta: fechaHasta,
+                incluirAnulados: document.getElementById('chkIncluirAnulados').checked,
+                incluirFacturados: document.getElementById('chkIncluirFacturados').checked
+            };
+
+            const resp = await fetch('/api/sync/pedidos/consultar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error(err.message || 'Error al consultar pedidos');
+            }
+
+            const data = await resp.json();
+            pedidosAnalisisCache = data.pedidos || [];
+            pedidosIdsSeleccionados.clear();
+
+            // Preseleccionar automáticamente los listos para subir
+            pedidosAnalisisCache.forEach(p => {
+                if (p.listoParaSubir) pedidosIdsSeleccionados.add(p.idPedidoOrigen);
+            });
+
+            document.getElementById('kpiPedTotal').textContent = data.totalEncontrados;
+            document.getElementById('kpiPedEstadosBreakdown').textContent = `Pend: ${data.pendientes} | Tot: ${data.facturadosTotal} | Parc: ${data.parciales} | Anul: ${data.anulados}`;
+            document.getElementById('kpiPedListos').textContent = data.listosParaSubir;
+            document.getElementById('kpiPedExistentes').textContent = data.yaExistenEnForce;
+            document.getElementById('kpiPedErrores').textContent = data.observadosConError;
+
+            renderTablaPedidos();
+            mostrarToast(`Consulta completada en ${data.tiempoSegundos}s: ${data.totalEncontrados} pedidos encontrados.`, 'success');
+        } catch (err) {
+            mostrarToast('Error consultando pedidos: ' + err.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `🔍 1. Consultar y Alinear Maestros`;
+        }
+    }
+
+    function renderTablaPedidos() {
+        const tbody = document.getElementById('tblPedidosAlineados');
+        const q = (document.getElementById('txtBuscarTablaPedidos').value || '').toLowerCase().trim();
+        const filtroSem = document.getElementById('selFiltroSemaforoPedidos').value;
+
+        const filtrados = pedidosAnalisisCache.filter(p => {
+            if (filtroSem === 'LISTOS' && !p.listoParaSubir) return false;
+            if (filtroSem === 'ROJO' && p.semaforo !== 'ROJO') return false;
+            if (filtroSem === 'AZUL' && p.semaforo !== 'AZUL') return false;
+            if (q) {
+                const hay = `${p.numPedidoOrigen} ${p.codigoCliente} ${p.nombreCliente} ${p.codigoVendedor} ${p.nombreVendedor}`.toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            return true;
+        });
+
+        if (filtrados.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:28px; color:var(--text-muted);">No hay pedidos para mostrar con los filtros actuales.</td></tr>`;
+            actualizarBotonSubirPedidos();
+            return;
+        }
+
+        tbody.innerHTML = filtrados.map(p => {
+            const puedeSel = p.listoParaSubir;
+            const checked = pedidosIdsSeleccionados.has(p.idPedidoOrigen) ? 'checked' : '';
+            const fEmision = new Date(p.fechaEmision).toLocaleDateString('es-PE', { day:'2-digit', month:'2-digit', year:'numeric' });
+
+            // Badges Cliente y Vendedor
+            const cliBadge = p.idClienteForce
+                ? `<span style="color:#059669; font-weight:700;">#${p.idClienteForce}</span>`
+                : `<span style="color:#dc2626; font-weight:700;">✕ Sin homologar</span>`;
+
+            const tipoBadge = p.idTipoCpPedidoForce
+                ? `<span style="background:#e0edff; color:#1d4ed8; padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:700;">${p.serieTipoPedidoForce} (${p.idTipoCpPedidoForce})</span>`
+                : `<span style="background:#fee2e2; color:#dc2626; padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:700;">Sin TipoPedido</span>`;
+
+            // Estado ERP Viejo
+            let estViejoColor = '#f59e0b'; let estViejoBg = '#fef3c7';
+            if (p.estadoFacturacionOrigen === 'TOTAL') { estViejoColor = '#059669'; estViejoBg = '#dcfce7'; }
+            else if (p.estadoFacturacionOrigen === 'PARCIAL') { estViejoColor = '#dc2626'; estViejoBg = '#fee2e2'; }
+            else if (p.estadoFacturacionOrigen === 'ANULADO') { estViejoColor = '#475569'; estViejoBg = '#e2e8f0'; }
+
+            // Estado Force Mapeado
+            let estForceBg = '#fef3c7'; let estForceCol = '#b45309';
+            if (p.estadoForceMapeado === 'FACTURADO') { estForceBg = '#dcfce7'; estForceCol = '#047857'; }
+            else if (p.estadoForceMapeado === 'ANULADO') { estForceBg = '#e2e8f0'; estForceCol = '#334155'; }
+
+            // Semáforo Diagnóstico
+            let semBg = '#dcfce7'; let semCol = '#166534';
+            if (p.semaforo === 'ROJO') { semBg = '#fee2e2'; semCol = '#991b1b'; }
+            else if (p.semaforo === 'AMBAR') { semBg = '#fef3c7'; semCol = '#92400e'; }
+            else if (p.semaforo === 'AZUL') { semBg = '#e0e7ff'; semCol = '#3730a3'; }
+
+            return `
+                <tr>
+                    <td style="text-align:center;">
+                        <input type="checkbox" ${checked} ${puedeSel ? '' : 'disabled'} onchange="toggleSelectPedido(${p.idPedidoOrigen}, this.checked)">
+                    </td>
+                    <td>
+                        <div style="font-weight:800; color:#0f172a;">${p.numPedidoOrigen}</div>
+                        <div style="font-size:10.5px; color:var(--text-muted);">PKID: ${p.idPedidoOrigen}</div>
+                    </td>
+                    <td style="font-size:12px;">${fEmision}</td>
+                    <td>
+                        <div style="font-weight:700; font-size:12px;">${p.nombreCliente}</div>
+                        <div style="font-size:11px; color:var(--text-muted);">Cód: ${p.codigoCliente} | PKID ${p.idClienteOrigen} ➔ Force ${cliBadge}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight:600; font-size:12px;">${p.codigoVendedor} - ${p.nombreVendedor}</div>
+                        <div style="margin-top:2px;">${tipoBadge}</div>
+                    </td>
+                    <td style="font-size:11.5px;">
+                        <div>Alm: <strong>${p.idAlmacenForce ?? '✕'}</strong> (${p.almacenNombre || '-'})</div>
+                        <div style="color:var(--text-muted);">Cat: <strong>${p.idCatalogoForce ?? '✕'}</strong> | LP: <strong>${p.idListaPrecioForce ?? '-'}</strong></div>
+                    </td>
+                    <td class="num">
+                        <button class="btn btn-outline btn-sm" onclick="abrirModalItemsPedido(${p.idPedidoOrigen})" style="padding:3px 9px; font-size:11.5px; font-weight:700;">
+                            ${p.items.length} ítem(s) 🔍
+                        </button>
+                    </td>
+                    <td class="num" style="font-weight:800; color:#0f172a;">S/ ${Number(p.total).toFixed(2)}</td>
+                    <td><span style="background:${estViejoBg}; color:${estViejoColor}; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:800;">${p.estadoFacturacionOrigen}</span></td>
+                    <td><span style="background:${estForceBg}; color:${estForceCol}; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:800;">${p.estadoForceMapeado}</span></td>
+                    <td>
+                        <div style="background:${semBg}; color:${semCol}; padding:5px 9px; border-radius:8px; font-size:11.5px; font-weight:600; line-height:1.35;">
+                            ${p.observacionValidacion}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        actualizarBotonSubirPedidos();
+    }
+
+    function toggleSelectPedido(idOrigen, checked) {
+        if (checked) pedidosIdsSeleccionados.add(idOrigen);
+        else pedidosIdsSeleccionados.delete(idOrigen);
+        actualizarBotonSubirPedidos();
+    }
+
+    function toggleSelectAllPedidosReady(checked) {
+        pedidosAnalisisCache.forEach(p => {
+            if (p.listoParaSubir) {
+                if (checked) pedidosIdsSeleccionados.add(p.idPedidoOrigen);
+                else pedidosIdsSeleccionados.delete(p.idPedidoOrigen);
+            }
+        });
+        renderTablaPedidos();
+    }
+
+    function actualizarBotonSubirPedidos() {
+        const btn = document.getElementById('btnSubirPedidosSeleccionados');
+        if (!btn) return;
+        const count = pedidosIdsSeleccionados.size;
+        btn.disabled = count === 0;
+        btn.innerHTML = count > 0
+            ? `⚡ 2. Subir ${count} Pedido(s) (Stock Blindado)`
+            : `⚡ 2. Subir Seleccionados (Stock Blindado)`;
+    }
+
+    function abrirModalItemsPedido(idPedidoOrigen) {
+        const p = pedidosAnalisisCache.find(x => x.idPedidoOrigen === idPedidoOrigen);
+        if (!p) return;
+
+        document.getElementById('modalPedTitulo').textContent = `Detalle del Pedido ${p.numPedidoOrigen} (PKID ${p.idPedidoOrigen})`;
+        document.getElementById('modalPedSubtitulo').textContent = `Cliente: ${p.nombreCliente} | Total: S/ ${Number(p.total).toFixed(2)}`;
+
+        const tbody = document.getElementById('tblModalPedidoItems');
+        tbody.innerHTML = p.items.map(it => {
+            const ok = it.productoOk && it.unidadOk;
+            const badge = ok
+                ? `<span style="background:#dcfce7; color:#059669; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;">✓ Prod #${it.idProductoForce} | Unid #${it.idUnidadForce}</span>`
+                : `<span style="background:#fee2e2; color:#dc2626; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;">✕ ${it.observacionItem}</span>`;
+            return `
+                <tr>
+                    <td style="font-weight:700;">${it.codigoProducto}</td>
+                    <td>${it.nombreProducto}</td>
+                    <td>${it.unidadNombre} (x${it.cantidadFactor})</td>
+                    <td class="num" style="font-weight:700;">${it.cantidad}</td>
+                    <td class="num">S/ ${Number(it.precioUnitario).toFixed(4)}</td>
+                    <td class="num" style="font-weight:700;">S/ ${Number(it.total).toFixed(2)}</td>
+                    <td>${badge}</td>
+                </tr>
+            `;
+        }).join('');
+
+        document.getElementById('modalDetallePedidoItems').style.display = 'flex';
+    }
+
+    async function subirPedidosSeleccionados() {
+        const ids = Array.from(pedidosIdsSeleccionados);
+        if (ids.length === 0) {
+            mostrarToast('Seleccione al menos un pedido listo para subir.', 'error');
+            return;
+        }
+
+        if (!confirm(`¿Confirmas subir ${ids.length} pedido(s) a Force Distribución?\n\n🔒 Los triggers de stock se deshabilitarán durante la inserción para que el inventario NO sea alterado.`)) {
+            return;
+        }
+
+        document.getElementById('panelMonitorPedidos').style.display = 'block';
+        try {
+            const resp = await fetch('/api/sync/pedidos/subir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ iDsPedidosOrigen: ids })
+            });
+
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error(err.message || 'No se pudo iniciar la carga');
+            }
+
+            pedidosEstabaCorriendo = true;
+            mostrarToast(`Subida de ${ids.length} pedido(s) iniciada con protección de stock.`, 'success');
+            cargarEstadoPedidos();
+        } catch (err) {
+            mostrarToast('Error: ' + err.message, 'error');
+        }
+    }
+
+    async function cargarEstadoPedidos() {
+        try {
+            const vista = document.getElementById('vistaPedidos');
+            if (!vista || (!vista.classList.contains('active') && !pedidosEstabaCorriendo)) return;
+
+            const resp = await fetch('/api/sync/pedidos/status');
+            if (!resp.ok) return;
+            const s = await resp.json();
+
+            if (s.isRunning || (s.eventosRecientes && s.eventosRecientes.length > 0)) {
+                document.getElementById('panelMonitorPedidos').style.display = 'block';
+            }
+
+            document.getElementById('lblPedidoFaseDetalle').textContent = s.faseDetalle || '';
+            document.getElementById('lblPedidoProgresoTexto').textContent = `${s.progresoActual} / ${s.progresoTotal} pedidos procesados (${s.porcentaje}%) | Subidos: ${s.totalSubidos} | Omitidos: ${s.totalOmitidos} | Errores: ${s.totalErrores}`;
+            document.getElementById('barraProgresoPedidos').style.width = `${s.porcentaje}%`;
+            document.getElementById('kpiPedSubidos').textContent = s.totalSubidos;
+
+            const badge = document.getElementById('badgePedidoEstadoLive');
+            badge.textContent = s.isRunning ? 'EJECUTANDO (STOCK LOCK)' : s.estadoActual;
+            badge.style.background = s.isRunning ? '#dbeafe' : '#dcfce7';
+            badge.style.color = s.isRunning ? '#1d4ed8' : '#059669';
+
+            const consola = document.getElementById('consolaEventosPedidos');
+            if (s.eventosRecientes && s.eventosRecientes.length > 0) {
+                consola.innerHTML = s.eventosRecientes.map(ev => {
+                    let col = '#94a3b8';
+                    if (ev.nivel === 'OK') col = '#4ade80';
+                    else if (ev.nivel === 'WARN') col = '#fbbf24';
+                    else if (ev.nivel === 'ERROR') col = '#f87171';
+                    else if (ev.nivel === 'INFO') col = '#60a5fa';
+                    return `<div style="color:${col};">[${ev.hora}] [${ev.numPedido}] ${ev.mensaje}</div>`;
+                }).join('');
+            }
+
+            if (pedidosEstabaCorriendo && !s.isRunning) {
+                pedidosEstabaCorriendo = false;
+                renderTablaPedidos();
+                mostrarToast(`Proceso finalizado: ${s.totalSubidos} pedido(s) subidos sin alterar stock.`, 'success');
+            }
+            pedidosEstabaCorriendo = s.isRunning;
+        } catch (e) { }
+    }
+
+    setInterval(() => { cargarEstado(); cargarEstadoProductos(); cargarEstadoVendedores(); cargarEstadoStock(); cargarEstadoPedidos(); }, 2000);
     setInterval(() => { cargarLotes(); cargarLogs(); }, 6000);
 </script>
 </body>

@@ -14,17 +14,20 @@ namespace IntegradorFlexForce.Controllers
         private readonly SyncProductosEngine _syncProductosEngine;
         private readonly SyncVendedoresEngine _syncVendedoresEngine;
         private readonly SyncStockEngine _syncStockEngine;
+        private readonly SyncPedidosEngine _syncPedidosEngine;
 
         public SyncApiController(
             SyncEngine syncEngine, 
             SyncProductosEngine syncProductosEngine, 
             SyncVendedoresEngine syncVendedoresEngine,
-            SyncStockEngine syncStockEngine)
+            SyncStockEngine syncStockEngine,
+            SyncPedidosEngine syncPedidosEngine)
         {
             _syncEngine = syncEngine;
             _syncProductosEngine = syncProductosEngine;
             _syncVendedoresEngine = syncVendedoresEngine;
             _syncStockEngine = syncStockEngine;
+            _syncPedidosEngine = syncPedidosEngine;
         }
 
         [HttpGet("status")]
@@ -291,6 +294,43 @@ namespace IntegradorFlexForce.Controllers
 
             _ = Task.Run(() => _syncStockEngine.EjecutarSincronizacionStockAsync("MANUAL", "PORTAL_WEB", CancellationToken.None));
             return Accepted(new { message = "Sincronización del Módulo de Stock iniciada." });
+        }
+
+        // =========================================================================
+        // ENDPOINTS DEL MÓDULO DE PEDIDOS (MIGRACIÓN CONTROLADA SIN TOCAR STOCK)
+        // =========================================================================
+
+        [HttpGet("pedidos/vendedores")]
+        public async Task<IActionResult> GetVendedoresPedidos(CancellationToken ct)
+        {
+            var list = await _syncPedidosEngine.ObtenerVendedoresAsync(ct);
+            return Ok(list);
+        }
+
+        [HttpPost("pedidos/consultar")]
+        public async Task<IActionResult> ConsultarPedidos([FromBody] PedidoFiltroRequestDto filtro, CancellationToken ct)
+        {
+            var res = await _syncPedidosEngine.ConsultarYAlinearPedidosAsync(filtro, ct);
+            return Ok(res);
+        }
+
+        [HttpGet("pedidos/status")]
+        public IActionResult GetPedidosStatus()
+        {
+            return Ok(_syncPedidosEngine.GetStatus());
+        }
+
+        [HttpPost("pedidos/subir")]
+        public IActionResult SubirPedidos([FromBody] PedidoSubidaRequestDto req)
+        {
+            if (_syncPedidosEngine.GetStatus().IsRunning)
+                return Conflict(new { message = "Ya hay una carga de pedidos en ejecución. Espere a que termine." });
+
+            if (req.IDsPedidosOrigen == null || req.IDsPedidosOrigen.Count == 0)
+                return BadRequest(new { message = "Debe seleccionar al menos un pedido para subir." });
+
+            _ = Task.Run(() => _syncPedidosEngine.EjecutarSubidaPedidosAsync(req.IDsPedidosOrigen, CancellationToken.None));
+            return Accepted(new { message = $"Subida iniciada para {req.IDsPedidosOrigen.Count} pedido(s) con protección de stock." });
         }
     }
 }

@@ -13,6 +13,7 @@ builder.Services.AddSingleton<SyncEngine>();
 builder.Services.AddSingleton<SyncProductosEngine>();
 builder.Services.AddSingleton<SyncVendedoresEngine>();
 builder.Services.AddSingleton<SyncStockEngine>();
+builder.Services.AddSingleton<SyncPedidosEngine>();
 builder.Services.AddHostedService<SyncBackgroundWorker>();
 
 // Habilitar CORS si se requiere acceso desde otra IP
