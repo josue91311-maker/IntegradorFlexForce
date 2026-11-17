@@ -15,19 +15,22 @@ namespace IntegradorFlexForce.Controllers
         private readonly SyncVendedoresEngine _syncVendedoresEngine;
         private readonly SyncStockEngine _syncStockEngine;
         private readonly SyncPedidosEngine _syncPedidosEngine;
+        private readonly SyncComprobantesEngine _syncComprobantesEngine;
 
         public SyncApiController(
             SyncEngine syncEngine, 
             SyncProductosEngine syncProductosEngine, 
             SyncVendedoresEngine syncVendedoresEngine,
             SyncStockEngine syncStockEngine,
-            SyncPedidosEngine syncPedidosEngine)
+            SyncPedidosEngine syncPedidosEngine,
+            SyncComprobantesEngine syncComprobantesEngine)
         {
             _syncEngine = syncEngine;
             _syncProductosEngine = syncProductosEngine;
             _syncVendedoresEngine = syncVendedoresEngine;
             _syncStockEngine = syncStockEngine;
             _syncPedidosEngine = syncPedidosEngine;
+            _syncComprobantesEngine = syncComprobantesEngine;
         }
 
         [HttpGet("status")]
@@ -331,6 +334,36 @@ namespace IntegradorFlexForce.Controllers
 
             _ = Task.Run(() => _syncPedidosEngine.EjecutarSubidaPedidosAsync(req.IDsPedidosOrigen, CancellationToken.None));
             return Accepted(new { message = $"Subida iniciada para {req.IDsPedidosOrigen.Count} pedido(s) con protección de stock." });
+        }
+
+        // =========================================================================
+        // ENDPOINTS DEL MÓDULO DE COMPROBANTES (MIGRACIÓN CON CORRELATIVO EXACTO)
+        // =========================================================================
+
+        [HttpPost("comprobantes/consultar")]
+        public async Task<IActionResult> ConsultarComprobantes([FromBody] ComprobanteFiltroRequestDto filtro, CancellationToken ct)
+        {
+            var res = await _syncComprobantesEngine.ConsultarYAlinearComprobantesAsync(filtro, ct);
+            return Ok(res);
+        }
+
+        [HttpGet("comprobantes/status")]
+        public IActionResult GetComprobantesStatus()
+        {
+            return Ok(_syncComprobantesEngine.GetStatus());
+        }
+
+        [HttpPost("comprobantes/subir")]
+        public IActionResult SubirComprobantes([FromBody] ComprobanteSubidaRequestDto req)
+        {
+            if (_syncComprobantesEngine.GetStatus().IsRunning)
+                return Conflict(new { message = "Ya hay una carga de comprobantes en ejecución. Espere a que termine." });
+
+            if (req.IDsCpOrigen == null || req.IDsCpOrigen.Count == 0)
+                return BadRequest(new { message = "Debe seleccionar al menos un comprobante para subir." });
+
+            _ = Task.Run(() => _syncComprobantesEngine.EjecutarSubidaComprobantesAsync(req.IDsCpOrigen, CancellationToken.None));
+            return Accepted(new { message = $"Subida iniciada para {req.IDsCpOrigen.Count} comprobante(s) con correlativo exacto." });
         }
     }
 }

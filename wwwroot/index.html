@@ -2065,6 +2065,11 @@
                 <span>Módulo Pedidos</span>
             </button>
 
+            <button id="navBtnComprobantes" class="nav-item" onclick="navegarVista('comprobantes')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                <span>Módulo Comprobantes</span>
+            </button>
+
             <button id="navBtnConfig" class="nav-item" onclick="navegarVista('config')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 <span>Configuración</span>
@@ -4106,6 +4111,224 @@
     </section>
 
     <!-- ==============================================================
+         VISTA COMPROBANTES: MÓDULO DE MIGRACIÓN DE FACTURAS Y BOLETAS
+         ============================================================== -->
+    <section id="vistaComprobantes" class="view-section">
+        <div class="module-banner" style="background:linear-gradient(135deg, #0f172a 0%, #065f46 100%); margin-bottom:20px; border-radius:16px; padding:22px 26px; color:#fff; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+            <div>
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+                    <span style="background:rgba(16,185,129,0.2); border:1px solid rgba(16,185,129,0.5); color:#6ee7b7; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:800; letter-spacing:0.5px;">⚖ CORRELATIVO SUNAT EXACTO</span>
+                    <span style="background:rgba(255,255,255,0.12); color:#e2e8f0; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:600;">Enlace Bidireccional: Cp.IDPedido ➔ ped_Pedido.IDCpVenta</span>
+                </div>
+                <h2 style="font-size:22px; font-weight:800; margin:0; letter-spacing:-0.3px;">Módulo de Migración de Comprobantes de Venta</h2>
+                <p style="margin:4px 0 0; font-size:13px; color:#cbd5e1;">Extrae boletas y facturas emitidas en el ERP antiguo, alinea clientes, series (TipoCpVentas) y productos, y enlaza cada comprobante con su pedido en Force.</p>
+            </div>
+            <div style="text-align:right;">
+                <div class="relojLiveModule" style="font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:700; color:#93c5fd;">--:--:--</div>
+                <div style="font-size:11px; color:#94a3b8;">Hora Oficial Perú</div>
+            </div>
+        </div>
+
+        <!-- PANEL DE FILTROS Y BÚSQUEDA -->
+        <div class="white-card" style="margin-bottom:20px;">
+            <div class="card-header-clean" style="margin-bottom:14px;">
+                <div>
+                    <h2 style="font-size:16px;">1. Filtros de Comprobantes (digalimenta41)</h2>
+                    <div style="font-size:12px; color:var(--text-muted);">Selecciona vendedor(es), rango de fechas y tipo de documento legal</div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-outline btn-sm" onclick="cargarVendedoresComprobantes(true)">🔄 Recargar Vendedores</button>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr; gap:18px; align-items:start;">
+                <!-- SELECTOR MULTI-VENDEDOR -->
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:var(--text-dark); margin-bottom:6px;">
+                        Vendedor(es) <span id="lblCountVendSelCp" style="color:var(--primary-blue); font-weight:800;">(Todos)</span>
+                    </label>
+                    <input type="text" id="txtBuscarVendCp" class="input-control" placeholder="Filtrar vendedor por código o nombre..." oninput="renderListaVendedoresComprobantes()" style="width:100%; margin-bottom:6px; font-size:12.5px;">
+                    <div id="boxListaVendedoresCp" style="max-height:165px; overflow-y:auto; border:1px solid var(--border-light); border-radius:10px; padding:6px; background:#f8fafc;">
+                        <div style="padding:14px; text-align:center; color:var(--text-muted); font-size:12px;">Cargando vendedores...</div>
+                    </div>
+                    <div style="margin-top:6px; display:flex; gap:10px; font-size:11.5px;">
+                        <a href="javascript:void(0)" onclick="seleccionarTodosVendedoresComprobantes(true)" style="color:var(--primary-blue); font-weight:700;">Seleccionar visibles</a>
+                        <a href="javascript:void(0)" onclick="seleccionarTodosVendedoresComprobantes(false)" style="color:var(--text-muted); font-weight:600;">Limpiar selección</a>
+                    </div>
+                </div>
+
+                <!-- FECHAS -->
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:var(--text-dark); margin-bottom:6px;">Fecha Emisión Desde</label>
+                    <input type="date" id="txtCpFechaDesde" class="input-control" style="width:100%; margin-bottom:12px;">
+
+                    <label style="display:block; font-size:12px; font-weight:700; color:var(--text-dark); margin-bottom:6px;">Fecha Emisión Hasta</label>
+                    <input type="date" id="txtCpFechaHasta" class="input-control" style="width:100%;">
+                </div>
+
+                <!-- TIPO DOC Y OPCIONES -->
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:var(--text-dark); margin-bottom:6px;">Tipo de Documento</label>
+                    <select id="cmbCpTipoDoc" class="input-control" style="width:100%; margin-bottom:12px; font-weight:600;">
+                        <option value="TODOS">Todos (Boletas + Facturas)</option>
+                        <option value="BOLETAS">Solo Boletas de Venta</option>
+                        <option value="FACTURAS">Solo Facturas Electrónicas</option>
+                    </select>
+
+                    <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dark); margin-bottom:14px; cursor:pointer;">
+                        <input type="checkbox" id="chkCpIncluirAnulados">
+                        <span>Incluir Comprobantes Anulados</span>
+                    </label>
+
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <button class="btn btn-primary" onclick="consultarComprobantesAlineacion()" id="btnConsultarCp" style="width:100%; justify-content:center;">
+                            🔍 1. Consultar y Alinear Comprobantes
+                        </button>
+                        <button class="btn btn-success" onclick="subirComprobantesSeleccionados()" id="btnSubirCp" style="width:100%; justify-content:center;" disabled>
+                            🚀 2. Subir Comprobantes Seleccionados
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TARJETAS KPI DE COMPROBANTES -->
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:14px; margin-bottom:20px;">
+            <div class="stat-card" style="padding:16px;">
+                <div class="stat-label">Total Encontrados</div>
+                <div class="stat-value" id="kpiCpTotal" style="color:var(--text-dark); font-size:24px;">0</div>
+                <div class="stat-sub" id="kpiCpTiempo">0.00 s</div>
+            </div>
+            <div class="stat-card" style="padding:16px; border-left:4px solid #10b981;">
+                <div class="stat-label">Listos para Subir</div>
+                <div class="stat-value" id="kpiCpListos" style="color:#059669; font-size:24px;">0</div>
+                <div class="stat-sub">🟢 Verde + 🟡 Ámbar</div>
+            </div>
+            <div class="stat-card" style="padding:16px; border-left:4px solid #3b82f6;">
+                <div class="stat-label">Ya Existen en Force</div>
+                <div class="stat-value" id="kpiCpYaExisten" style="color:#2563eb; font-size:24px;">0</div>
+                <div class="stat-sub">🔵 Sin duplicar</div>
+            </div>
+            <div class="stat-card" style="padding:16px; border-left:4px solid #f59e0b;">
+                <div class="stat-label">Sin Pedido Enlazado</div>
+                <div class="stat-value" id="kpiCpSinPedido" style="color:#d97706; font-size:24px;">0</div>
+                <div class="stat-sub">🟡 Venta directa o ped. pendiente</div>
+            </div>
+            <div class="stat-card" style="padding:16px; border-left:4px solid #ef4444;">
+                <div class="stat-label">Con Error (Maestros)</div>
+                <div class="stat-value" id="kpiCpErrores" style="color:#dc2626; font-size:24px;">0</div>
+                <div class="stat-sub">🔴 Bloqueados</div>
+            </div>
+            <div class="stat-card" style="padding:16px; border-left:4px solid #8b5cf6;">
+                <div class="stat-label">Subidos en este Lote</div>
+                <div class="stat-value" id="kpiCpSubidos" style="color:#7c3aed; font-size:24px;">0</div>
+                <div class="stat-sub">✓ Registrados en Force</div>
+            </div>
+        </div>
+
+        <!-- PANEL MONITOR EN VIVO Y BARRA DE PROGRESO -->
+        <div id="panelMonitorComprobantes" class="white-card" style="display:none; margin-bottom:20px; border:2px solid #059669; background:#f0fdf4;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="online-dot" style="background:#059669;"></span>
+                    <strong style="font-size:14px; color:#065f46;">Ejecución de Subida de Comprobantes a Force</strong>
+                    <span id="badgeCpEstadoLive" style="padding:2px 8px; border-radius:99px; font-size:10.5px; font-weight:800; background:#d1fae5; color:#065f46;">EJECUTANDO</span>
+                </div>
+                <span id="lblCpFaseDetalle" style="font-size:12px; color:#047857; font-weight:600;">Iniciando...</span>
+            </div>
+            <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; margin-bottom:8px;">
+                <div id="barraProgresoCp" style="width:0%; height:100%; background:linear-gradient(90deg, #10b981, #059669); transition:width 0.3s ease;"></div>
+            </div>
+            <div id="lblCpProgresoTexto" style="font-size:11.5px; color:#475569; margin-bottom:10px; font-family:'JetBrains Mono',monospace;">0 / 0 procesados</div>
+            <div id="consolaEventosCp" style="max-height:130px; overflow-y:auto; background:#0f172a; color:#cbd5e1; border-radius:8px; padding:10px; font-family:'JetBrains Mono',monospace; font-size:11.5px;">
+                <div style="color:#94a3b8;">Esperando inicio de eventos...</div>
+            </div>
+        </div>
+
+        <!-- TABLA DE DIAGNÓSTICO Y RESULTADOS -->
+        <div class="white-card">
+            <div class="card-header-clean" style="margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <h2 style="font-size:16px;">2. Comprobantes Diagnosticados</h2>
+                    <span id="lblContadorCpAlineados" style="font-size:12.5px; font-weight:700; color:var(--primary-blue);">0 registros</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <input type="text" id="txtFiltroRapidoCp" class="input-control" placeholder="Buscar por número, cliente o vendedor..." oninput="filtrarTablaComprobantesMemoria()" style="font-size:12px; padding:6px 12px; width:260px;">
+                    <select id="cmbFiltroSemaforoCp" class="input-control" onchange="filtrarTablaComprobantesMemoria()" style="font-size:12px; padding:6px 10px;">
+                        <option value="TODOS">Todos los Semáforos</option>
+                        <option value="VERDE">🟢 Solo Verde (Listos 100%)</option>
+                        <option value="AMBAR">🟡 Solo Ámbar (Sin pedido / con obs)</option>
+                        <option value="AZUL">🔵 Solo Azul (Ya en Force)</option>
+                        <option value="ROJO">🔴 Solo Rojo (Con Errores)</option>
+                    </select>
+                    <button class="btn btn-outline btn-sm" onclick="seleccionarTodosComprobantes(true)">✓ Marcar Listos</button>
+                    <button class="btn btn-outline btn-sm" onclick="seleccionarTodosComprobantes(false)">✗ Desmarcar</button>
+                </div>
+            </div>
+
+            <div class="table-responsive" style="max-height:550px; overflow-y:auto;">
+                <table class="table-clean" style="font-size:12px;">
+                    <thead style="position:sticky; top:0; background:#f8fafc; z-index:2;">
+                        <tr>
+                            <th style="width:36px; text-align:center;">
+                                <input type="checkbox" id="chkTodosCp" onchange="toggleSeleccionarTodosComprobantes(this.checked)">
+                            </th>
+                            <th style="width:40px; text-align:center;">Sem.</th>
+                            <th>Tipo</th>
+                            <th>Nº Comprobante</th>
+                            <th>Emisión</th>
+                            <th>Cliente</th>
+                            <th>Vendedor</th>
+                            <th>Pedido Enlazado</th>
+                            <th class="num">Total S/</th>
+                            <th>Condición</th>
+                            <th>Diagnóstico de Alineación</th>
+                            <th style="text-align:center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblComprobantesBody">
+                        <tr>
+                            <td colspan="12" style="text-align:center; padding:35px; color:var(--text-muted);">
+                                Presiona <strong>"1. Consultar y Alinear Comprobantes"</strong> para iniciar el diagnóstico.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- MODAL DETALLE DE ÍTEMS DEL COMPROBANTE -->
+        <div id="modalDetalleCpItems" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); z-index:9999; justify-content:center; align-items:center; padding:20px;">
+            <div style="background:#fff; border-radius:16px; max-width:850px; width:100%; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 20px 25px -5px rgba(0,0,0,0.3); overflow:hidden;">
+                <div style="padding:18px 24px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
+                    <div>
+                        <h3 id="lblModalCpTitulo" style="margin:0; font-size:16px; font-weight:800; color:#0f172a;">Detalle de Ítems del Comprobante</h3>
+                        <div id="lblModalCpSubtitulo" style="font-size:12px; color:#64748b; margin-top:2px;">Cliente y comprobante</div>
+                    </div>
+                    <button onclick="document.getElementById('modalDetalleCpItems').style.display='none'" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b;">✕</button>
+                </div>
+                <div style="padding:18px 24px; overflow-y:auto; flex:1;">
+                    <table class="table-clean" style="font-size:12px;">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Producto</th>
+                                <th>Presentación</th>
+                                <th class="num">Cant.</th>
+                                <th class="num">P. Unitario</th>
+                                <th class="num">SubTotal</th>
+                                <th class="num">Total S/</th>
+                                <th>Alineación Force</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblModalCpItems"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==============================================================
          VISTA 4: HISTORIAL DE LOTES EJECUTADOS
          ============================================================== -->
     <section id="vistaHistorial" class="view-section">
@@ -5014,6 +5237,7 @@
             'vendedores': 'vistaVendedores',
             'stock': 'vistaStock',
             'pedidos': 'vistaPedidos',
+            'comprobantes': 'vistaComprobantes',
             'historial': 'vistaHistorial',
             'logs': 'vistaLogs',
             'config': 'vistaConfig'
@@ -5025,6 +5249,7 @@
             'vendedores': 'navBtnVendedores',
             'stock': 'navBtnStock',
             'pedidos': 'navBtnPedidos',
+            'comprobantes': 'navBtnComprobantes',
             'historial': 'navBtnHistorial',
             'logs': 'navBtnReportes',
             'config': 'navBtnConfig'
@@ -5046,6 +5271,8 @@
             cargarConfiguracion();
         } else if (vista === 'pedidos') {
             inicializarVistaPedidos();
+        } else if (vista === 'comprobantes') {
+            inicializarVistaComprobantes();
         }
     }
 
@@ -8560,7 +8787,381 @@ async function ejecutarSincronizacion(modo) {
         } catch (e) { }
     }
 
-    setInterval(() => { cargarEstado(); cargarEstadoProductos(); cargarEstadoVendedores(); cargarEstadoStock(); cargarEstadoPedidos(); }, 2000);
+    // =========================================================================
+    // LÓGICA DEL MÓDULO DE COMPROBANTES (MIGRACIÓN CON CORRELATIVO SUNAT EXACTO)
+    // =========================================================================
+    let vendedoresCpCache = [];
+    let vendedoresCpSeleccionados = new Set();
+    let comprobantesAnalizadosCache = [];
+    let comprobantesIdsSeleccionados = new Set();
+    let comprobantesEstabaCorriendo = false;
+    let comprobantesInicializado = false;
+
+    function inicializarVistaComprobantes() {
+        if (!comprobantesInicializado) {
+            comprobantesInicializado = true;
+            const hoy = new Date();
+            const yyyy = hoy.getFullYear();
+            const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+            const dd = String(hoy.getDate()).padStart(2, '0');
+            const fechaStr = `${yyyy}-${mm}-${dd}`;
+            document.getElementById('txtCpFechaDesde').value = fechaStr;
+            document.getElementById('txtCpFechaHasta').value = fechaStr;
+            cargarVendedoresComprobantes(false);
+        }
+    }
+
+    async function cargarVendedoresComprobantes(forzar = false) {
+        if (vendedoresCpCache.length > 0 && !forzar) return;
+        const box = document.getElementById('boxListaVendedoresCp');
+        box.innerHTML = `<div style="padding:14px; text-align:center; color:var(--text-muted); font-size:12px;">Cargando vendedores desde ERP...</div>`;
+        try {
+            const resp = await fetch('/api/sync/pedidos/vendedores');
+            if (!resp.ok) throw new Error('Error consultando vendedores');
+            vendedoresCpCache = await resp.json();
+            renderListaVendedoresComprobantes();
+        } catch (err) {
+            box.innerHTML = `<div style="padding:12px; color:#dc2626; font-size:12px;">Error al cargar vendedores: ${err.message}</div>`;
+        }
+    }
+
+    function renderListaVendedoresComprobantes() {
+        const q = (document.getElementById('txtBuscarVendCp').value || '').toLowerCase().trim();
+        const box = document.getElementById('boxListaVendedoresCp');
+        const filtrados = vendedoresCpCache.filter(v =>
+            !q || v.codigo.toLowerCase().includes(q) || v.nombre.toLowerCase().includes(q)
+        );
+
+        if (filtrados.length === 0) {
+            box.innerHTML = `<div style="padding:12px; text-align:center; color:var(--text-muted); font-size:12px;">Sin coincidencias</div>`;
+            return;
+        }
+
+        box.innerHTML = filtrados.map(v => {
+            const chk = vendedoresCpSeleccionados.has(v.idOrigen) ? 'checked' : '';
+            return `
+                <label style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 8px; border-radius:6px; cursor:pointer; font-size:12px; border-bottom:1px solid #f1f5f9;">
+                    <span style="display:flex; align-items:center; gap:7px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                        <input type="checkbox" ${chk} onchange="toggleVendedorComprobante(${v.idOrigen}, this.checked)">
+                        <strong>${v.codigo}</strong>
+                        <span style="color:#334155;">${v.nombre}</span>
+                    </span>
+                </label>
+            `;
+        }).join('');
+
+        actualizarContadorVendedoresComprobantes();
+    }
+
+    function toggleVendedorComprobante(idOrigen, checked) {
+        if (checked) vendedoresCpSeleccionados.add(idOrigen);
+        else vendedoresCpSeleccionados.delete(idOrigen);
+        actualizarContadorVendedoresComprobantes();
+    }
+
+    function seleccionarTodosVendedoresComprobantes(marcar) {
+        const q = (document.getElementById('txtBuscarVendCp').value || '').toLowerCase().trim();
+        const filtrados = vendedoresCpCache.filter(v =>
+            !q || v.codigo.toLowerCase().includes(q) || v.nombre.toLowerCase().includes(q)
+        );
+        filtrados.forEach(v => {
+            if (marcar) vendedoresCpSeleccionados.add(v.idOrigen);
+            else vendedoresCpSeleccionados.delete(v.idOrigen);
+        });
+        renderListaVendedoresComprobantes();
+    }
+
+    function actualizarContadorVendedoresComprobantes() {
+        const lbl = document.getElementById('lblCountVendSelCp');
+        if (!lbl) return;
+        lbl.textContent = vendedoresCpSeleccionados.size === 0
+            ? '(Todos los vendedores)'
+            : `(${vendedoresCpSeleccionados.size} seleccionado/s)`;
+    }
+
+    async function consultarComprobantesAlineacion() {
+        const btn = document.getElementById('btnConsultarCp');
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Diagnosticando...`;
+
+        const filtro = {
+            vendedoresOrigenIds: Array.from(vendedoresCpSeleccionados),
+            fechaDesde: document.getElementById('txtCpFechaDesde').value,
+            fechaHasta: document.getElementById('txtCpFechaHasta').value,
+            incluirAnulados: document.getElementById('chkCpIncluirAnulados').checked,
+            tipoDocumento: document.getElementById('cmbCpTipoDoc').value
+        };
+
+        try {
+            const resp = await fetch('/api/sync/comprobantes/consultar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(filtro)
+            });
+
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error(err.message || 'Error en consulta');
+            }
+
+            const data = await resp.json();
+            comprobantesAnalizadosCache = data.comprobantes || [];
+
+            // Marcar por defecto los listos (VERDE y AMBAR)
+            comprobantesIdsSeleccionados.clear();
+            comprobantesAnalizadosCache.filter(c => c.listoParaSubir).forEach(c => comprobantesIdsSeleccionados.add(c.idCpOrigen));
+
+            // Actualizar KPIs
+            document.getElementById('kpiCpTotal').textContent = (data.totalEncontrados || 0).toLocaleString();
+            document.getElementById('kpiCpTiempo').textContent = `${data.tiempoSegundos || 0} s`;
+            document.getElementById('kpiCpListos').textContent = (data.listosParaSubir || 0).toLocaleString();
+            document.getElementById('kpiCpYaExisten').textContent = (data.yaExistenEnForce || 0).toLocaleString();
+            document.getElementById('kpiCpSinPedido').textContent = (data.sinPedidoEnlazado || 0).toLocaleString();
+            document.getElementById('kpiCpErrores').textContent = (data.observadosConError || 0).toLocaleString();
+
+            renderTablaComprobantes();
+            document.getElementById('btnSubirCp').disabled = (data.listosParaSubir === 0);
+            mostrarToast(`Diagnóstico completado: ${data.totalEncontrados} comprobante(s) procesados en ${data.tiempoSegundos}s.`, 'info');
+        } catch (err) {
+            mostrarToast('Error en diagnóstico: ' + err.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `🔍 1. Consultar y Alinear Comprobantes`;
+        }
+    }
+
+    function filtrarTablaComprobantesMemoria() {
+        renderTablaComprobantes();
+    }
+
+    function renderTablaComprobantes() {
+        const q = (document.getElementById('txtFiltroRapidoCp').value || '').toLowerCase().trim();
+        const semaforoFiltro = document.getElementById('cmbFiltroSemaforoCp').value;
+        const tbody = document.getElementById('tblComprobantesBody');
+
+        const filtrados = comprobantesAnalizadosCache.filter(c => {
+            if (semaforoFiltro !== 'TODOS' && c.semaforo !== semaforoFiltro) return false;
+            if (q) {
+                const matchNum = (c.numCp || '').toLowerCase().includes(q);
+                const matchCli = (c.codigoCliente || '').toLowerCase().includes(q) || (c.nombreCliente || '').toLowerCase().includes(q);
+                const matchVend = (c.codigoVendedor || '').toLowerCase().includes(q) || (c.nombreVendedor || '').toLowerCase().includes(q);
+                const matchPed = (c.numPedidoOrigen || '').toLowerCase().includes(q) || (c.numPedidoForce || '').toLowerCase().includes(q);
+                if (!matchNum && !matchCli && !matchVend && !matchPed) return false;
+            }
+            return true;
+        });
+
+        document.getElementById('lblContadorCpAlineados').textContent = `${filtrados.length} de ${comprobantesAnalizadosCache.length} comprobantes`;
+
+        if (filtrados.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:30px; color:var(--text-muted);">Sin comprobantes que coincidan con los filtros.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = filtrados.map(c => {
+            const chk = comprobantesIdsSeleccionados.has(c.idCpOrigen) ? 'checked' : '';
+            const dis = !c.listoParaSubir ? 'disabled' : '';
+
+            let semHtml = '';
+            if (c.semaforo === 'VERDE') semHtml = `<span style="font-size:16px;" title="100% Listo para subir">🟢</span>`;
+            else if (c.semaforo === 'AMBAR') semHtml = `<span style="font-size:16px;" title="Advertencia menor (Listo para subir)">🟡</span>`;
+            else if (c.semaforo === 'AZUL') semHtml = `<span style="font-size:16px;" title="Ya existe en Force (Se omitirá)">🔵</span>`;
+            else semHtml = `<span style="font-size:16px;" title="Bloqueado por maestros faltantes">🔴</span>`;
+
+            const esFactura = c.idTipoComprobantePagoOrigen === 1;
+            const badgeTipo = esFactura
+                ? `<span style="background:#e0e7ff; color:#3730a3; padding:2px 6px; border-radius:4px; font-weight:800; font-size:10px;">FAC</span>`
+                : `<span style="background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:4px; font-weight:800; font-size:10px;">BOL</span>`;
+
+            const fechaStr = (c.fechaEmision || '').substring(0, 10);
+
+            let pedHtml = '';
+            if (c.idPedidoForce) {
+                pedHtml = `<span style="color:#059669; font-weight:700;">#${c.idPedidoForce} (${c.numPedidoForce || c.numPedidoOrigen})</span>`;
+            } else if (c.numPedidoOrigen) {
+                pedHtml = `<span style="color:#d97706; font-size:11px;">Orig: ${c.numPedidoOrigen} (Sin migrar)</span>`;
+            } else {
+                pedHtml = `<span style="color:#94a3b8; font-size:11px;">Directo</span>`;
+            }
+
+            const condicion = c.esCredito
+                ? `<span style="color:#d97706; font-weight:700;">Crédito</span>`
+                : `<span style="color:#059669; font-weight:600;">Contado</span>`;
+
+            return `
+                <tr style="${c.yaExisteEnForce ? 'background:#f8fafc; opacity:0.85;' : ''}">
+                    <td style="text-align:center;">
+                        <input type="checkbox" ${chk} ${dis} onchange="toggleSeleccionarComprobante(${c.idCpOrigen}, this.checked)">
+                    </td>
+                    <td style="text-align:center;">${semHtml}</td>
+                    <td>${badgeTipo}</td>
+                    <td>
+                        <strong style="color:var(--text-dark);">${c.numCp}</strong>
+                        ${c.anuladoOrigen ? '<span style="background:#fee2e2; color:#dc2626; padding:1px 5px; border-radius:4px; font-size:9.5px; font-weight:800; margin-left:4px;">ANULADO</span>' : ''}
+                    </td>
+                    <td>${fechaStr}</td>
+                    <td>
+                        <div style="font-weight:700; color:var(--text-dark);">${c.codigoCliente}</div>
+                        <div style="font-size:11px; color:#475569; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${c.nombreCliente}">${c.nombreCliente}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight:700;">${c.codigoVendedor}</div>
+                        <div style="font-size:11px; color:#64748b;">${c.nombreVendedor}</div>
+                    </td>
+                    <td>${pedHtml}</td>
+                    <td class="num" style="font-weight:800; color:var(--text-dark);">S/ ${Number(c.total).toFixed(2)}</td>
+                    <td>${condicion}</td>
+                    <td style="font-size:11px; color:${c.semaforo === 'ROJO' ? '#dc2626' : (c.semaforo === 'AMBAR' ? '#b45309' : '#059669')};">
+                        ${c.observacionValidacion}
+                    </td>
+                    <td style="text-align:center;">
+                        <button class="btn btn-outline btn-sm" onclick="verItemsComprobanteModal(${c.idCpOrigen})" style="padding:2px 8px; font-size:11px;">
+                            📦 ${c.items ? c.items.length : 0} ítems
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function toggleSeleccionarComprobante(idCpOrigen, checked) {
+        if (checked) comprobantesIdsSeleccionados.add(idCpOrigen);
+        else comprobantesIdsSeleccionados.delete(idCpOrigen);
+        actualizarBotonSubirComprobantes();
+    }
+
+    function toggleSeleccionarTodosComprobantes(marcar) {
+        comprobantesAnalizadosCache.forEach(c => {
+            if (c.listoParaSubir) {
+                if (marcar) comprobantesIdsSeleccionados.add(c.idCpOrigen);
+                else comprobantesIdsSeleccionados.delete(c.idCpOrigen);
+            }
+        });
+        renderTablaComprobantes();
+        actualizarBotonSubirComprobantes();
+    }
+
+    function seleccionarTodosComprobantes(marcar) {
+        document.getElementById('chkTodosCp').checked = marcar;
+        toggleSeleccionarTodosComprobantes(marcar);
+    }
+
+    function actualizarBotonSubirComprobantes() {
+        const btn = document.getElementById('btnSubirCp');
+        btn.disabled = comprobantesIdsSeleccionados.size === 0;
+        btn.innerHTML = comprobantesIdsSeleccionados.size === 0
+            ? '🚀 2. Subir Comprobantes Seleccionados'
+            : `🚀 2. Subir (${comprobantesIdsSeleccionados.size}) Comprobantes`;
+    }
+
+    function verItemsComprobanteModal(idCpOrigen) {
+        const cp = comprobantesAnalizadosCache.find(x => x.idCpOrigen === idCpOrigen);
+        if (!cp) return;
+
+        document.getElementById('lblModalCpTitulo').textContent = `Ítems de ${cp.numCp} (${cp.items.length} productos)`;
+        document.getElementById('lblModalCpSubtitulo').textContent = `Cliente: ${cp.codigoCliente} - ${cp.nombreCliente} | Total S/ ${Number(cp.total).toFixed(2)}`;
+
+        const tbody = document.getElementById('tblModalCpItems');
+        tbody.innerHTML = (cp.items || []).map(it => {
+            const alineado = it.idProductoForce
+                ? `<span style="color:#059669; font-weight:700;">✓ Force ID #${it.idProductoForce}</span>`
+                : `<span style="color:#dc2626; font-weight:700;">✕ Sin IDExtra</span>`;
+            return `
+                <tr>
+                    <td><strong>${it.codigoProducto}</strong></td>
+                    <td>${it.descripcionProducto} ${it.esBonificacion ? '<span style="background:#dcfce7; color:#059669; padding:1px 4px; border-radius:3px; font-size:9.5px; font-weight:800;">BONIF</span>' : ''}</td>
+                    <td>${it.unidadAbrev || 'UND'} (F: ${it.cantidadFactor})</td>
+                    <td class="num">${Number(it.cantidad).toFixed(2)}</td>
+                    <td class="num">S/ ${Number(it.precioUnitario).toFixed(3)}</td>
+                    <td class="num">S/ ${Number(it.subTotal).toFixed(2)}</td>
+                    <td class="num" style="font-weight:700;">S/ ${Number(it.total).toFixed(2)}</td>
+                    <td>${alineado}</td>
+                </tr>
+            `;
+        }).join('');
+
+        document.getElementById('modalDetalleCpItems').style.display = 'flex';
+    }
+
+    async function subirComprobantesSeleccionados() {
+        const ids = Array.from(comprobantesIdsSeleccionados);
+        if (ids.length === 0) {
+            mostrarToast('Seleccione al menos un comprobante listo para subir.', 'error');
+            return;
+        }
+
+        if (!confirm(`¿Confirmas subir ${ids.length} comprobante(s) a Force Distribución?\n\n⚖ Se mantendrá el correlativo SUNAT exacto y se enlazarán automáticamente a sus pedidos correspondientes.`)) {
+            return;
+        }
+
+        document.getElementById('panelMonitorComprobantes').style.display = 'block';
+        try {
+            const resp = await fetch('/api/sync/comprobantes/subir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ iDsCpOrigen: ids })
+            });
+
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error(err.message || 'No se pudo iniciar la carga');
+            }
+
+            comprobantesEstabaCorriendo = true;
+            mostrarToast(`Subida de ${ids.length} comprobante(s) iniciada.`, 'success');
+            cargarEstadoComprobantes();
+        } catch (err) {
+            mostrarToast('Error: ' + err.message, 'error');
+        }
+    }
+
+    async function cargarEstadoComprobantes() {
+        try {
+            const vista = document.getElementById('vistaComprobantes');
+            if (!vista || (!vista.classList.contains('active') && !comprobantesEstabaCorriendo)) return;
+
+            const resp = await fetch('/api/sync/comprobantes/status');
+            if (!resp.ok) return;
+            const s = await resp.json();
+
+            if (s.isRunning || (s.eventosRecientes && s.eventosRecientes.length > 0)) {
+                document.getElementById('panelMonitorComprobantes').style.display = 'block';
+            }
+
+            const pct = s.progresoTotal > 0 ? Math.round((s.progresoActual / s.progresoTotal) * 100) : 0;
+            document.getElementById('lblCpFaseDetalle').textContent = s.faseDetalle || '';
+            document.getElementById('lblCpProgresoTexto').textContent = `${s.progresoActual} / ${s.progresoTotal} procesados (${pct}%) | Subidos: ${s.totalSubidos} | Omitidos: ${s.totalOmitidos} | Errores: ${s.totalErrores}`;
+            document.getElementById('barraProgresoCp').style.width = `${pct}%`;
+            document.getElementById('kpiCpSubidos').textContent = s.totalSubidos;
+
+            const badge = document.getElementById('badgeCpEstadoLive');
+            badge.textContent = s.isRunning ? 'EJECUTANDO' : s.estadoActual;
+            badge.style.background = s.isRunning ? '#dbeafe' : '#dcfce7';
+            badge.style.color = s.isRunning ? '#1d4ed8' : '#059669';
+
+            const consola = document.getElementById('consolaEventosCp');
+            if (s.eventosRecientes && s.eventosRecientes.length > 0) {
+                consola.innerHTML = s.eventosRecientes.map(ev => {
+                    let col = '#94a3b8';
+                    if (ev.tipo === 'SUCCESS') col = '#4ade80';
+                    else if (ev.tipo === 'WARN') col = '#fbbf24';
+                    else if (ev.tipo === 'ERROR') col = '#f87171';
+                    else if (ev.tipo === 'INFO') col = '#60a5fa';
+                    const horaStr = (ev.timestamp || '').substring(11, 19) || '';
+                    return `<div style="color:${col};">[${horaStr}] [${ev.numCp}] ${ev.mensaje}</div>`;
+                }).join('');
+            }
+
+            if (comprobantesEstabaCorriendo && !s.isRunning) {
+                comprobantesEstabaCorriendo = false;
+                renderTablaComprobantes();
+                mostrarToast(`Proceso finalizado: ${s.totalSubidos} comprobante(s) subidos a Force.`, 'success');
+            }
+            comprobantesEstabaCorriendo = s.isRunning;
+        } catch (e) { }
+    }
+
+    setInterval(() => { cargarEstado(); cargarEstadoProductos(); cargarEstadoVendedores(); cargarEstadoStock(); cargarEstadoPedidos(); cargarEstadoComprobantes(); }, 2000);
     setInterval(() => { cargarLotes(); cargarLogs(); }, 6000);
 </script>
 </body>
