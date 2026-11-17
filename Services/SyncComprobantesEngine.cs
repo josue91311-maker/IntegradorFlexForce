@@ -749,37 +749,56 @@ namespace IntegradorFlexForce.Services
                                 await cmdVenta.ExecuteNonQueryAsync(ct);
                             }
 
-                            // 4. Insertar Ítems en dbo.ItemCp
+                            // 4. Insertar Ítems en dbo.ItemCp (esquema real 192.168.2.93)
                             const string sqlInsertItem = @"
                                 INSERT INTO dbo.ItemCp (
-                                    IDCp, IDProducto, IDUnidad, Cantidad, Precio, SubTotal, Total,
-                                    ValorUnitario, ValorAfecto, ValorInafecto, ValorVenta, ValorDescuento, PorcentajeImpto,
-                                    TieneImpuesto, EsBonificacion, Eliminado
+                                    IDCp, Cantidad, IDProducto, IDUnidad, Factor, IDAlmacen, Descripcion,
+                                    Total, ValorUnitario, PorcentajeImpto, Inafecto, Bonificacion,
+                                    ValorAfecto, ValorVenta, SubTotal, ValorDescuento, ValorInafecto,
+                                    BonificacionManual, DescuentoPieCp, RecargoPieCp,
+                                    PorcentajePercepcion, MontoPercepcion, PorcentajeDetraccion, MontoDetraccion, ValorReferencialDetraccion,
+                                    Anulado, ValorExonerado, TotalAnticipo,
+                                    AplicaDescuentoConVale, EscalaPreferencial, DescuentoAplicado, DescuentoFijo,
+                                    IDDefinicionBonificacion, IDDefinicionDescuento, Amortizacion, IDSUNATCatalogo7, DescuentoRecargo
                                 ) VALUES (
-                                    @IDCp, @IDProducto, @IDUnidad, @Cantidad, @Precio, @SubTotal, @Total,
-                                    @ValorUnitario, @ValorAfecto, @ValorInafecto, @ValorVenta, @ValorDescuento, @PorcentajeImpto,
-                                    1, @EsBonificacion, 0
+                                    @IDCp, @Cantidad, @IDProducto, @IDUnidad, @Factor, @IDAlmacen, @Descripcion,
+                                    @Total, @ValorUnitario, @PorcentajeImpto, @Inafecto, @Bonificacion,
+                                    @ValorAfecto, @ValorVenta, @SubTotal, @ValorDescuento, @ValorInafecto,
+                                    0, 0, 0,
+                                    0, 0, 0, 0, 0,
+                                    @Anulado, 0, 0,
+                                    0, 0, @DescuentoAplicado, 0,
+                                    NULL, NULL, 0, @IDSUNATCatalogo7, ''
                                 );";
 
                             foreach (var it in c.Items)
                             {
                                 if (!it.IDProductoForce.HasValue) continue;
 
+                                bool esInafecto = it.ValorInafecto > 0 && it.ValorAfecto == 0;
+                                int sunatCat7 = esInafecto ? 30 : 10;
+
                                 using var cmdIt = new SqlCommand(sqlInsertItem, connForce, tx);
                                 cmdIt.Parameters.AddWithValue("@IDCp", nuevoIdCp);
+                                cmdIt.Parameters.AddWithValue("@Cantidad", it.Cantidad);
                                 cmdIt.Parameters.AddWithValue("@IDProducto", it.IDProductoForce.Value);
                                 cmdIt.Parameters.AddWithValue("@IDUnidad", (object?)it.IDUnidadForce ?? DBNull.Value);
-                                cmdIt.Parameters.AddWithValue("@Cantidad", it.Cantidad);
-                                cmdIt.Parameters.AddWithValue("@Precio", it.PrecioUnitario);
-                                cmdIt.Parameters.AddWithValue("@SubTotal", it.SubTotal);
+                                cmdIt.Parameters.AddWithValue("@Factor", it.CantidadFactor);
+                                cmdIt.Parameters.AddWithValue("@IDAlmacen", c.IDAlmacenForce ?? 169);
+                                cmdIt.Parameters.AddWithValue("@Descripcion", it.DescripcionProducto ?? "");
                                 cmdIt.Parameters.AddWithValue("@Total", it.Total);
                                 cmdIt.Parameters.AddWithValue("@ValorUnitario", it.PrecioUnitario);
-                                cmdIt.Parameters.AddWithValue("@ValorAfecto", it.ValorAfecto);
-                                cmdIt.Parameters.AddWithValue("@ValorInafecto", it.ValorInafecto);
-                                cmdIt.Parameters.AddWithValue("@ValorVenta", it.ValorVenta);
-                                cmdIt.Parameters.AddWithValue("@ValorDescuento", it.ValorDescuento);
                                 cmdIt.Parameters.AddWithValue("@PorcentajeImpto", it.PorcentajeImpuesto);
-                                cmdIt.Parameters.AddWithValue("@EsBonificacion", it.EsBonificacion);
+                                cmdIt.Parameters.AddWithValue("@Inafecto", esInafecto);
+                                cmdIt.Parameters.AddWithValue("@Bonificacion", it.EsBonificacion);
+                                cmdIt.Parameters.AddWithValue("@ValorAfecto", it.ValorAfecto);
+                                cmdIt.Parameters.AddWithValue("@ValorVenta", it.ValorVenta);
+                                cmdIt.Parameters.AddWithValue("@SubTotal", it.SubTotal);
+                                cmdIt.Parameters.AddWithValue("@ValorDescuento", it.ValorDescuento);
+                                cmdIt.Parameters.AddWithValue("@ValorInafecto", it.ValorInafecto);
+                                cmdIt.Parameters.AddWithValue("@Anulado", it.Anulado);
+                                cmdIt.Parameters.AddWithValue("@DescuentoAplicado", it.ValorDescuento);
+                                cmdIt.Parameters.AddWithValue("@IDSUNATCatalogo7", sunatCat7);
 
                                 await cmdIt.ExecuteNonQueryAsync(ct);
                             }
