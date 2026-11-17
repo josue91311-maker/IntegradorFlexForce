@@ -1545,8 +1545,8 @@ namespace IntegradorFlexForce.Services
                 transaccion.Estado = errores > 0 ? "CON_ERRORES" : "EXITOSO";
 
                 await RegistrarFinLoteAsync(transaccion, ct);
-                await RegistrarLogAsync(loteId, "CLIENTES", erroresCount > 0 ? "WARN" : "INFO", null, null,
-                    $"Ciclo Clientes finalizado en {Math.Round(swTotal.Elapsed.TotalSeconds, 2)}s: {transaccion.TotalNuevos} nuevos, {transaccion.TotalModificados} modificados, {zonasActualizadas} zonas, {creditosActualizados} créditos, {erroresCount} errores.", null, ct);
+                await RegistrarLogAsync(loteId, "ZONAS_RUTAS", errores > 0 ? "WARN" : "INFO", null, null,
+                    $"Ciclo Zonas y Rutas finalizado en {Math.Round(swTotal.Elapsed.TotalSeconds, 2)}s: {cambios} cambios procesados, {errores} errores.", null, ct);
 
                 _currentStatus.UltimaEjecucion = DateTime.Now;
                 _currentStatus.UltimoLoteZonasActualizadas = cambios;
