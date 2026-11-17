@@ -178,7 +178,8 @@ namespace IntegradorFlexForce.Services
                         CAST(ISNULL(cp.ValorInafecto, 0) AS decimal(18,6)) AS ValorInafecto,
                         CAST(ISNULL(cp.MontoPercepcion, 0) AS decimal(18,6)) AS MontoPercepcion,
                         CAST(ISNULL(cp.Anulado, 0) AS bit)               AS AnuladoOrigen,
-                        UPPER(LTRIM(RTRIM(ISNULL(ped.EstadoFacturacion, 'PENDIENTE')))) AS EstadoFacturacion
+                        UPPER(LTRIM(RTRIM(ISNULL(ped.EstadoFacturacion, 'PENDIENTE')))) AS EstadoFacturacion,
+                        CAST(ISNULL(cp.ValorDescuento, 0) AS decimal(18,6)) AS ValorDescuento
                     FROM dbo.Cp cp WITH (NOLOCK)
                     INNER JOIN dbo.Pedido ped WITH (NOLOCK) ON ped.PKID = cp.PKID
                     LEFT JOIN dbo.CpInventario ci WITH (NOLOCK) ON ci.IDCp = cp.PKID
@@ -248,7 +249,8 @@ namespace IntegradorFlexForce.Services
                             TotalPercepcion = Math.Max(0, r.GetDecimal(21)),
                             AnuladoOrigen = anulado,
                             EstadoFacturacionOrigen = anulado ? "ANULADO" : estFact,
-                            EstadoForceMapeado = estadoForce
+                            EstadoForceMapeado = estadoForce,
+                            TotalDescuento = Math.Max(0, r.GetDecimal(24))
                         };
 
                         pedidos.Add(dto);
@@ -279,7 +281,9 @@ namespace IntegradorFlexForce.Services
                             CAST(ISNULL(ic.ValorAfecto, 0) AS decimal(18,6))   AS ValorAfecto,
                             CAST(ISNULL(ic.ValorInafecto, 0) AS decimal(18,6)) AS ValorInafecto,
                             CAST(ISNULL(ic.MontoPercepcion, 0) AS decimal(18,6)) AS MontoPercepcion,
-                            CAST(ISNULL(iped.Credito, 0) AS bit)               AS Credito
+                            CAST(ISNULL(iped.Credito, 0) AS bit)               AS Credito,
+                            CAST(ISNULL(ic.ValorDescuento, 0) AS decimal(18,6)) AS ValorDescuento,
+                            CAST(ISNULL(ic.Bonificacion, 0) AS bit)            AS EsBonificacion
                         FROM dbo.ItemCp ic WITH (NOLOCK)
                         INNER JOIN dbo.ItemProducto ip WITH (NOLOCK) ON ip.PKID = ic.PKID
                         LEFT JOIN dbo.ItemPedido iped WITH (NOLOCK) ON iped.PKID = ic.PKID
@@ -325,7 +329,9 @@ namespace IntegradorFlexForce.Services
                             ValorAfecto = Math.Max(0, rIt.GetDecimal(14)),
                             ValorInafecto = Math.Max(0, rIt.GetDecimal(15)),
                             MontoPercepcion = Math.Max(0, rIt.GetDecimal(16)),
-                            Credito = rIt.GetBoolean(17)
+                            Credito = rIt.GetBoolean(17),
+                            Descuento = Math.Max(0, rIt.GetDecimal(18)),
+                            EsBonificacion = rIt.GetBoolean(19) || tot == 0m
                         };
 
                         if (itemsPorPedido.TryGetValue(idPed, out var listIt))
@@ -786,14 +792,17 @@ namespace IntegradorFlexForce.Services
                                     @PedidoMovilID, @Numero, @IDCliente, @IDVendedor, @IDAlmacen, @IDSucursal,
                                     @IDListaPrecio, @IDCatalogo, @IDMedioPago, @IDModalidadCredito,
                                     @FechaEmision, @FechaEntrega,
-                                    @TieneCredito, 0, 0,
-                                    @Cantidad, @SubTotal, 0, @TotalCredito, @TotalContado, @Total,
+                                    @TieneCredito, @TieneBonificacion, @TieneBonificacion,
+                                    @Cantidad, @SubTotal, @TotalDescuento, @TotalCredito, @TotalContado, @Total,
                                     @Estado, NULL, @DetalleAdicional,
                                     16, GETDATE(), GETDATE(), 0,
                                     @IDTipoCpPedido, @IDRuta,
                                     @TieneImpuesto, @TotalImpuesto, @ValorAfecto, @ValorInafecto, @TotalPercepcion, 0
                                 );
                                 SELECT CAST(SCOPE_IDENTITY() AS int);";
+
+                            bool tieneBonifPed = p.Items.Any(it => it.EsBonificacion);
+                            decimal totalDescPed = p.TotalDescuento > 0 ? p.TotalDescuento : p.Items.Sum(it => it.Descuento);
 
                             int nuevoIdPedido;
                             using (var cmdCab = new SqlCommand(sqlInsertCab, connForce, tx))
@@ -811,8 +820,10 @@ namespace IntegradorFlexForce.Services
                                 cmdCab.Parameters.AddWithValue("@FechaEmision", p.FechaEmision);
                                 cmdCab.Parameters.AddWithValue("@FechaEntrega", (object?)p.FechaEntrega ?? DBNull.Value);
                                 cmdCab.Parameters.AddWithValue("@TieneCredito", p.TieneCredito);
+                                cmdCab.Parameters.AddWithValue("@TieneBonificacion", tieneBonifPed);
                                 cmdCab.Parameters.AddWithValue("@Cantidad", p.CantidadTotal);
                                 cmdCab.Parameters.AddWithValue("@SubTotal", p.SubTotal);
+                                cmdCab.Parameters.AddWithValue("@TotalDescuento", totalDescPed);
                                 cmdCab.Parameters.AddWithValue("@TotalCredito", p.TotalCredito);
                                 cmdCab.Parameters.AddWithValue("@TotalContado", p.TotalContado);
                                 cmdCab.Parameters.AddWithValue("@Total", p.Total);
@@ -839,10 +850,10 @@ namespace IntegradorFlexForce.Services
                                 )
                                 VALUES (
                                     @IDPedido, @IDProducto, @IDUnidad, @Cantidad, @CantidadFactor,
-                                    @Precio, @PrecioNeto, @PrecioConImpuesto, 0, 0,
+                                    @Precio, @PrecioNeto, @PrecioConImpuesto, @Descuento, @Descuento,
                                     @SubTotal, @SubTotalNeto, @SubTotalConImpuesto, @Total,
                                     @TieneImpuesto, @PorcentajeImpuesto, @MontoImpuesto, @ValorAfecto, @ValorInafecto,
-                                    @IDSUNATCatalogo7, @MontoPercepcion, @Credito, 0, NULL, 0
+                                    @IDSUNATCatalogo7, @MontoPercepcion, @Credito, @EsBonificacion, NULL, 0
                                 );";
 
                             foreach (var it in p.Items)
@@ -856,6 +867,7 @@ namespace IntegradorFlexForce.Services
                                 cmdIt.Parameters.AddWithValue("@Precio", it.PrecioUnitario);
                                 cmdIt.Parameters.AddWithValue("@PrecioNeto", it.PrecioNeto);
                                 cmdIt.Parameters.AddWithValue("@PrecioConImpuesto", it.PrecioConImpuesto);
+                                cmdIt.Parameters.AddWithValue("@Descuento", it.Descuento);
                                 cmdIt.Parameters.AddWithValue("@SubTotal", it.SubTotal);
                                 cmdIt.Parameters.AddWithValue("@SubTotalNeto", it.SubTotalNeto);
                                 cmdIt.Parameters.AddWithValue("@SubTotalConImpuesto", it.Total);
@@ -868,6 +880,7 @@ namespace IntegradorFlexForce.Services
                                 cmdIt.Parameters.AddWithValue("@IDSUNATCatalogo7", sunatCat7Gravado);
                                 cmdIt.Parameters.AddWithValue("@MontoPercepcion", it.MontoPercepcion);
                                 cmdIt.Parameters.AddWithValue("@Credito", it.Credito);
+                                cmdIt.Parameters.AddWithValue("@EsBonificacion", it.EsBonificacion);
 
                                 await cmdIt.ExecuteNonQueryAsync(ct);
                             }

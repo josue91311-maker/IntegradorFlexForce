@@ -45,6 +45,8 @@ namespace IntegradorFlexForce.Models
         public decimal ValorAfecto { get; set; }
         public decimal ValorInafecto { get; set; }
         public decimal MontoPercepcion { get; set; }
+        public decimal Descuento { get; set; }
+        public bool EsBonificacion { get; set; }
         public bool Credito { get; set; }
 
         // Homologación Force
@@ -97,6 +99,8 @@ namespace IntegradorFlexForce.Models
         public bool TieneCredito { get; set; }
         public decimal CantidadTotal { get; set; }
         public decimal SubTotal { get; set; }
+        public decimal TotalDescuento { get; set; }
+        public bool TieneBonificacion { get; set; }
         public decimal Total { get; set; }
         public decimal TotalCredito { get; set; }
         public decimal TotalContado { get; set; }

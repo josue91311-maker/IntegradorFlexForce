@@ -249,7 +249,8 @@ namespace IntegradorFlexForce.Services
                                 CAST(ISNULL(icp.ValorExonerado, 0) AS decimal(18,6)) AS ValorExonerado,
                                 CAST(ISNULL(icp.ValorVenta, 0) AS decimal(18,6)) AS ValorVenta,
                                 CAST(ISNULL(icp.Bonificacion, 0) AS bit)         AS EsBonificacion,
-                                CAST(ISNULL(icp.Anulado, 0) AS bit)              AS Anulado
+                                CAST(ISNULL(icp.Anulado, 0) AS bit)              AS Anulado,
+                                CAST(ISNULL(icp.ValorDescuento, 0) AS decimal(18,6)) AS ValorDescuento
                             FROM dbo.ItemCp icp WITH (NOLOCK)
                             LEFT JOIN dbo.ItemProducto ip WITH (NOLOCK) ON ip.PKID = icp.PKID
                             LEFT JOIN dbo.ProductoServicio ps WITH (NOLOCK) ON ps.PKID = ip.IDProducto
@@ -281,7 +282,8 @@ namespace IntegradorFlexForce.Services
                                     ValorInafecto = rIt.GetDecimal(14),
                                     ValorVenta = rIt.GetDecimal(16),
                                     EsBonificacion = rIt.GetBoolean(17),
-                                    Anulado = rIt.GetBoolean(18)
+                                    Anulado = rIt.GetBoolean(18),
+                                    ValorDescuento = Math.Max(0, rIt.GetDecimal(19))
                                 });
                             }
                         }
@@ -751,11 +753,11 @@ namespace IntegradorFlexForce.Services
                             const string sqlInsertItem = @"
                                 INSERT INTO dbo.ItemCp (
                                     IDCp, IDProducto, IDUnidad, Cantidad, Precio, SubTotal, Total,
-                                    ValorUnitario, ValorAfecto, ValorInafecto, ValorVenta, PorcentajeImpto,
+                                    ValorUnitario, ValorAfecto, ValorInafecto, ValorVenta, ValorDescuento, PorcentajeImpto,
                                     TieneImpuesto, EsBonificacion, Eliminado
                                 ) VALUES (
                                     @IDCp, @IDProducto, @IDUnidad, @Cantidad, @Precio, @SubTotal, @Total,
-                                    @ValorUnitario, @ValorAfecto, @ValorInafecto, @ValorVenta, @PorcentajeImpto,
+                                    @ValorUnitario, @ValorAfecto, @ValorInafecto, @ValorVenta, @ValorDescuento, @PorcentajeImpto,
                                     1, @EsBonificacion, 0
                                 );";
 
@@ -775,6 +777,7 @@ namespace IntegradorFlexForce.Services
                                 cmdIt.Parameters.AddWithValue("@ValorAfecto", it.ValorAfecto);
                                 cmdIt.Parameters.AddWithValue("@ValorInafecto", it.ValorInafecto);
                                 cmdIt.Parameters.AddWithValue("@ValorVenta", it.ValorVenta);
+                                cmdIt.Parameters.AddWithValue("@ValorDescuento", it.ValorDescuento);
                                 cmdIt.Parameters.AddWithValue("@PorcentajeImpto", it.PorcentajeImpuesto);
                                 cmdIt.Parameters.AddWithValue("@EsBonificacion", it.EsBonificacion);
 
