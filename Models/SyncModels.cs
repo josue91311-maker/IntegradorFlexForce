@@ -215,4 +215,63 @@ namespace IntegradorFlexForce.Models
         public decimal PorcentajeMaximoVencidoContado { get; set; } = 100;
         public bool Activo { get; set; } = true;
     }
+
+    // =========================================================================
+    // MONITOR DE AUTOMATIZACIÓN (DASHBOARD Y TELEMETRÍA EN VIVO)
+    // =========================================================================
+    public class AutoModuleStateDto
+    {
+        public string Modulo { get; set; } = "";
+        public string NombreDisplay { get; set; } = "";
+        public bool AutoActivo { get; set; }
+        public string Modo { get; set; } = "INTERVALO";
+        public string FrecuenciaTexto { get; set; } = "";
+        public string VentanaHoraria { get; set; } = "";
+        public string EstadoActual { get; set; } = "EN_ESPERA";
+        public bool EnEjecucion { get; set; }
+        public double ProgresoPorcentaje { get; set; }
+        public string FaseDetalle { get; set; } = "";
+        public int IntentoActual { get; set; }
+        public int MaxIntentos { get; set; }
+        public DateTime? UltimaEjecucion { get; set; }
+        public DateTime? UltimoExito { get; set; }
+        public DateTime? ProximaEjecucionEstimada { get; set; }
+        public int? SegundosParaProxima { get; set; }
+        public string UltimoResultado { get; set; } = "SIN_DATOS";
+        public string? UltimoError { get; set; }
+        public decimal? UltimaDuracionSeg { get; set; }
+        public Guid? UltimoLoteId { get; set; }
+        public int UltimosEscaneados { get; set; }
+        public int UltimosNuevos { get; set; }
+        public int UltimosModificados { get; set; }
+        public int UltimosErrores { get; set; }
+        public int EjecucionesHoy { get; set; }
+        public int ExitosHoy { get; set; }
+        public int ErroresHoy { get; set; }
+    }
+
+    public class AutoHourlyStatDto
+    {
+        public int Hora { get; set; }
+        public string EtiquetaHora { get; set; } = "";
+        public int Exitos { get; set; }
+        public int Errores { get; set; }
+        public int RegistrosProcesados { get; set; }
+    }
+
+    public class AutomationMonitorDto
+    {
+        public bool GlobalActivo { get; set; }
+        public DateTime HoraServidor { get; set; } = DateTime.Now;
+        public DateTime? WorkerHeartbeat { get; set; }
+        public int TotalEjecucionesHoy { get; set; }
+        public int TotalExitosHoy { get; set; }
+        public int TotalErroresHoy { get; set; }
+        public double TasaExitoPct { get; set; }
+        public int TotalRegistrosHoy { get; set; }
+        public double DuracionPromedioSeg { get; set; }
+        public List<AutoModuleStateDto> Modulos { get; set; } = new();
+        public List<AutoHourlyStatDto> SeriePorHora { get; set; } = new();
+        public List<SyncTransaccionDto> Historial { get; set; } = new();
+    }
 }

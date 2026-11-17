@@ -2013,6 +2013,186 @@
             background: #f8fafc;
             z-index: 10;
         }
+
+        /* ==============================================================
+           MONITOR DE AUTOMATIZACIÓN (TORRE DE CONTROL)
+           ============================================================== */
+        .auto-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 1200px) {
+            .auto-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        .auto-kpi-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px 18px;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .auto-kpi-label {
+            font-size: 11.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #64748b;
+        }
+        .auto-kpi-val {
+            font-size: 24px;
+            font-weight: 800;
+            color: #0f172a;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.15;
+        }
+        .auto-kpi-sub {
+            font-size: 12px;
+            color: #64748b;
+        }
+        .auto-mod-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 1050px) {
+            .auto-mod-grid { grid-template-columns: 1fr; }
+        }
+        .auto-mod-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 18px 20px;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+        .auto-mod-card:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.07);
+        }
+        .auto-mod-card.is-running {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+        }
+        .auto-mod-card.is-error {
+            border-color: #f87171;
+        }
+        .auto-pulse-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .auto-pulse-dot.running {
+            background: #2563eb;
+            box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7);
+            animation: autoPulse 1.4s infinite;
+        }
+        .auto-pulse-dot.active {
+            background: #10b981;
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+            animation: autoPulseGreen 2s infinite;
+        }
+        .auto-pulse-dot.paused { background: #94a3b8; }
+        .auto-pulse-dot.error { background: #ef4444; }
+        .auto-pulse-dot.warn { background: #f59e0b; }
+
+        @keyframes autoPulse {
+            0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.6); }
+            70% { box-shadow: 0 0 0 8px rgba(37, 99, 235, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+        }
+        @keyframes autoPulseGreen {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+            70% { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .auto-progress-track {
+            width: 100%;
+            height: 7px;
+            background: #f1f5f9;
+            border-radius: 999px;
+            overflow: hidden;
+            margin: 10px 0 6px 0;
+        }
+        .auto-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2563eb, #38bdf8);
+            border-radius: 999px;
+            transition: width 0.35s ease;
+        }
+        .auto-chart-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+            height: 120px;
+            padding: 12px 6px 4px 6px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .auto-chart-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+            justify-content: flex-end;
+            position: relative;
+            cursor: pointer;
+        }
+        .auto-chart-stack {
+            width: 100%;
+            max-width: 22px;
+            display: flex;
+            flex-direction: column-reverse;
+            border-radius: 4px 4px 0 0;
+            overflow: hidden;
+            min-height: 2px;
+        }
+        .auto-chart-bar-ok { background: #10b981; transition: height 0.3s; }
+        .auto-chart-bar-err { background: #ef4444; transition: height 0.3s; }
+        .auto-chart-lbl {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-top: 5px;
+            font-variant-numeric: tabular-nums;
+        }
+        .auto-row-clickable {
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+        .auto-row-clickable:hover {
+            background: #f0f7ff !important;
+        }
+        /* Slide-over Drawer para Detalle de Lote */
+        .auto-drawer-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(2px);
+            z-index: 9990;
+            display: none;
+            justify-content: flex-end;
+        }
+        .auto-drawer-backdrop.open { display: flex; }
+        .auto-drawer {
+            width: min(860px, 95vw);
+            height: 100vh;
+            background: #ffffff;
+            box-shadow: -8px 0 32px rgba(15, 23, 42, 0.22);
+            display: flex;
+            flex-direction: column;
+            animation: slideInRight 0.2s ease-out;
+        }
+        @keyframes slideInRight {
+            from { transform: translateX(40px); opacity: 0.7; }
+            to { transform: translateX(0); opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -2068,6 +2248,12 @@
             <button id="navBtnComprobantes" class="nav-item" onclick="navegarVista('comprobantes')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                 <span>Módulo Comprobantes</span>
+            </button>
+
+            <button id="navBtnAutomatizacion" class="nav-item" onclick="navegarVista('automatizacion')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                <span>Monitor Automatización</span>
+                <span id="navAutoDot" class="auto-pulse-dot paused" style="margin-left:auto;"></span>
             </button>
 
             <button id="navBtnConfig" class="nav-item" onclick="navegarVista('config')">
@@ -4446,6 +4632,184 @@
     </section>
 
     <!-- ==============================================================
+         VISTA: MONITOR DE AUTOMATIZACIÓN (TORRE DE CONTROL EN VIVO)
+         ============================================================== -->
+    <section id="vistaAutomatizacion" class="view-section">
+        <!-- CABECERA DEL MONITOR -->
+        <div style="background:#ffffff; border-radius:18px; padding:20px 26px; box-shadow:var(--shadow-card); margin-bottom:18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; border:1px solid #e2e8f0;">
+            <div>
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+                    <div style="width:38px; height:38px; border-radius:10px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    </div>
+                    <h2 style="margin:0; font-size:20px; font-weight:800; color:#0f172a;">Monitor de Automatización</h2>
+                    <span id="autoWorkerBadge" style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:11.5px; font-weight:700; background:#f1f5f9; color:#475569;">
+                        <span class="auto-pulse-dot paused"></span> Cargando...
+                    </span>
+                </div>
+                <p style="margin:0; font-size:13px; color:#64748b;">
+                    Torre de control en tiempo real: frecuencia de ejecución, próximos ciclos, tasa de éxito y auditoría de lotes (clic en cualquier fila para ver el detalle).
+                </p>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <button id="btnAutoLiveToggle" class="btn btn-outline btn-sm" onclick="toggleAutoLivePolling()" title="Pausar o reanudar actualización automática cada 5s">
+                    ⏸ Live: ON (5s)
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="cargarMonitorAutomatizacion()">
+                    ↻ Actualizar Ahora
+                </button>
+                <button id="btnAutoGlobalSwitch" class="btn btn-primary btn-sm" onclick="toggleAutomatizacionDesdeMonitor()">
+                    ⚡ Activar Automatización
+                </button>
+            </div>
+        </div>
+
+        <!-- KPIs PRINCIPALES DE HOY -->
+        <div class="auto-kpi-grid">
+            <div class="auto-kpi-card">
+                <span class="auto-kpi-label">Estado del Motor</span>
+                <div id="kpiAutoEstado" class="auto-kpi-val" style="font-size:18px; color:#64748b;">--</div>
+                <div id="kpiAutoModulosActivos" class="auto-kpi-sub">-- de 4 módulos en automático</div>
+            </div>
+            <div class="auto-kpi-card">
+                <span class="auto-kpi-label">Ejecuciones Hoy</span>
+                <div id="kpiAutoEjecuciones" class="auto-kpi-val">0</div>
+                <div id="kpiAutoHeartbeat" class="auto-kpi-sub">Latido worker: --</div>
+            </div>
+            <div class="auto-kpi-card">
+                <span class="auto-kpi-label">Tasa de Éxito Hoy</span>
+                <div id="kpiAutoTasaExito" class="auto-kpi-val" style="color:#059669;">100%</div>
+                <div id="kpiAutoErroresHoy" class="auto-kpi-sub">0 lotes con error hoy</div>
+            </div>
+            <div class="auto-kpi-card">
+                <span class="auto-kpi-label">Registros Procesados Hoy</span>
+                <div id="kpiAutoRegistros" class="auto-kpi-val" style="color:#2563eb;">0</div>
+                <div class="auto-kpi-sub">Nuevos + Modificados en Force</div>
+            </div>
+            <div class="auto-kpi-card">
+                <span class="auto-kpi-label">Duración Promedio</span>
+                <div id="kpiAutoDuracion" class="auto-kpi-val">0.0s</div>
+                <div class="auto-kpi-sub">Tiempo medio por ciclo</div>
+            </div>
+        </div>
+
+        <!-- TARJETAS EN VIVO POR MÓDULO -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">Estado en Vivo por Módulo</h3>
+            <span style="font-size:12px; color:#64748b;">Cuenta regresiva en tiempo real · Clic en "Ver Detalle" para auditar logs del último ciclo</span>
+        </div>
+        <div id="autoModulosGrid" class="auto-mod-grid">
+            <!-- Se renderiza dinámicamente -->
+        </div>
+
+        <!-- GRÁFICO DE ACTIVIDAD POR HORA (HOY) -->
+        <div class="card" style="margin-bottom:20px; padding:18px 22px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:8px;">
+                <div>
+                    <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">Pulso de Ejecuciones por Hora (Hoy)</h3>
+                    <span style="font-size:12px; color:#64748b;">Distribución horaria de ciclos completados con éxito vs con errores</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:14px; font-size:12px; font-weight:600;">
+                    <span style="display:inline-flex; align-items:center; gap:6px; color:#059669;"><span style="width:10px; height:10px; border-radius:2px; background:#10b981; display:inline-block;"></span> Éxitos</span>
+                    <span style="display:inline-flex; align-items:center; gap:6px; color:#dc2626;"><span style="width:10px; height:10px; border-radius:2px; background:#ef4444; display:inline-block;"></span> Con Error</span>
+                </div>
+            </div>
+            <div id="autoChartHoras" class="auto-chart-bars">
+                <!-- Barras por hora 00h - 23h -->
+            </div>
+        </div>
+
+        <!-- HISTORIAL DE EJECUCIONES AUTOMÁTICAS Y MANUALES -->
+        <div class="card" style="padding:18px 22px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                <div>
+                    <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">Historial de Lotes Ejecutados</h3>
+                    <span style="font-size:12px; color:#64748b;">Haz clic en cualquier fila para abrir el inspector detallado de eventos, advertencias y errores</span>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <select id="filtroAutoEntidad" onchange="cargarMonitorAutomatizacion()" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:12.5px; background:#fff;">
+                        <option value="">Todos los Módulos</option>
+                        <option value="CLIENT">Clientes / Rutas</option>
+                        <option value="PRODUCT">Productos / Precios</option>
+                        <option value="VENDEDOR">Vendedores</option>
+                        <option value="STOCK">Stock</option>
+                    </select>
+                    <select id="filtroAutoTipo" onchange="cargarMonitorAutomatizacion()" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:12.5px; background:#fff;">
+                        <option value="">Auto + Manual</option>
+                        <option value="AUTOMATICO">Solo Automático</option>
+                        <option value="MANUAL">Solo Manual</option>
+                    </select>
+                    <select id="filtroAutoEstado" onchange="cargarMonitorAutomatizacion()" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:12.5px; background:#fff;">
+                        <option value="">Todos los Estados</option>
+                        <option value="COMPLETADO">Completado</option>
+                        <option value="ERROR">Error</option>
+                        <option value="EN_PROCESO">En Proceso</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="overflow-x:auto; max-height:440px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px;">
+                <table class="data-table table-sticky-header" style="width:100%; border-collapse:collapse; font-size:12.5px;">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left; padding:10px 12px;">Módulo</th>
+                            <th style="text-align:left; padding:10px 12px;">Modo</th>
+                            <th style="text-align:left; padding:10px 12px;">Inicio</th>
+                            <th style="text-align:right; padding:10px 12px;">Duración</th>
+                            <th style="text-align:right; padding:10px 12px;">Escaneados</th>
+                            <th style="text-align:right; padding:10px 12px;">Nuevos</th>
+                            <th style="text-align:right; padding:10px 12px;">Modificados</th>
+                            <th style="text-align:right; padding:10px 12px;">Errores</th>
+                            <th style="text-align:left; padding:10px 12px;">Estado</th>
+                            <th style="text-align:center; padding:10px 12px;">Detalle</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyAutoHistorial">
+                        <tr><td colspan="10" style="text-align:center; padding:24px; color:#64748b;">Cargando historial...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- DRAWER LATERAL DE DETALLE DE LOTE (INSPECTOR DE LOGS) -->
+    <div id="autoDrawerBackdrop" class="auto-drawer-backdrop" onclick="if(event.target===this) cerrarDetalleLoteAuto()">
+        <div class="auto-drawer">
+            <div style="padding:18px 24px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; background:#f8fafc;">
+                <div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                        <span id="drawerAutoModuloBadge" style="padding:3px 9px; border-radius:6px; font-size:11px; font-weight:800; background:#dbeafe; color:#1d4ed8;">MÓDULO</span>
+                        <span id="drawerAutoEstadoBadge" style="padding:3px 9px; border-radius:6px; font-size:11px; font-weight:800; background:#dcfce7; color:#15803d;">COMPLETADO</span>
+                    </div>
+                    <h3 id="drawerAutoTitulo" style="margin:0; font-size:17px; font-weight:800; color:#0f172a;">Detalle de Ejecución</h3>
+                    <div id="drawerAutoSubtitulo" style="font-size:12px; color:#64748b; margin-top:2px;">Lote ID: --</div>
+                </div>
+                <button onclick="cerrarDetalleLoteAuto()" style="border:1px solid #cbd5e1; background:#fff; border-radius:8px; width:34px; height:34px; cursor:pointer; font-size:16px; color:#334155;">✕</button>
+            </div>
+
+            <!-- Resumen numérico del lote -->
+            <div id="drawerAutoKpis" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; padding:12px 24px; border-bottom:1px solid #e2e8f0; background:#ffffff;">
+            </div>
+
+            <!-- Filtros de logs dentro del drawer -->
+            <div style="padding:12px 24px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; background:#ffffff;">
+                <div style="display:flex; gap:6px;" id="drawerAutoFilterTabs">
+                    <button class="btn btn-sm btn-primary" data-nivel="" onclick="filtrarDrawerLogs(this, '')">Todos</button>
+                    <button class="btn btn-sm btn-outline" data-nivel="ERROR" onclick="filtrarDrawerLogs(this, 'ERROR')">Errores</button>
+                    <button class="btn btn-sm btn-outline" data-nivel="WARN" onclick="filtrarDrawerLogs(this, 'WARN')">Advertencias</button>
+                    <button class="btn btn-sm btn-outline" data-nivel="INFO" onclick="filtrarDrawerLogs(this, 'INFO')">Info / Éxitos</button>
+                </div>
+                <input id="drawerAutoBuscar" type="text" placeholder="Buscar código o mensaje..." oninput="renderizarDrawerLogs()" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12.5px; width:220px;">
+            </div>
+
+            <!-- Lista de logs -->
+            <div id="drawerAutoBody" style="flex:1; overflow-y:auto; padding:16px 24px; background:#f8fafc;">
+                <div style="text-align:center; padding:30px; color:#64748b;">Cargando detalle...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==============================================================
          VISTA 6: CONFIGURACIÓN MODULAR DEL INTEGRADOR Y AUTOMATIZACIÓN
          ============================================================== -->
     <section id="vistaConfig" class="view-section">
@@ -5243,6 +5607,7 @@
             'stock': 'vistaStock',
             'pedidos': 'vistaPedidos',
             'comprobantes': 'vistaComprobantes',
+            'automatizacion': 'vistaAutomatizacion',
             'historial': 'vistaHistorial',
             'logs': 'vistaLogs',
             'config': 'vistaConfig'
@@ -5255,6 +5620,7 @@
             'stock': 'navBtnStock',
             'pedidos': 'navBtnPedidos',
             'comprobantes': 'navBtnComprobantes',
+            'automatizacion': 'navBtnAutomatizacion',
             'historial': 'navBtnHistorial',
             'logs': 'navBtnReportes',
             'config': 'navBtnConfig'
@@ -5278,6 +5644,12 @@
             inicializarVistaPedidos();
         } else if (vista === 'comprobantes') {
             inicializarVistaComprobantes();
+        } else if (vista === 'automatizacion') {
+            inicializarMonitorAutomatizacion();
+        }
+
+        if (vista !== 'automatizacion') {
+            detenerPollingMonitorAutomatizacion();
         }
     }
 
@@ -9183,6 +9555,447 @@ async function ejecutarSincronizacion(modo) {
 
     setInterval(() => { cargarEstado(); cargarEstadoProductos(); cargarEstadoVendedores(); cargarEstadoStock(); cargarEstadoPedidos(); cargarEstadoComprobantes(); }, 2000);
     setInterval(() => { cargarLotes(); cargarLogs(); }, 6000);
+
+    // =========================================================================
+    // MONITOR DE AUTOMATIZACIÓN (TORRE DE CONTROL Y DETALLE DE LOTES)
+    // =========================================================================
+    let autoMonitorTimer = null;
+    let autoCountdownTimer = null;
+    let autoLiveActivo = true;
+    let autoMonitorData = null;
+    let drawerAutoLogsCache = [];
+    let drawerAutoNivelFiltro = '';
+
+    function inicializarMonitorAutomatizacion() {
+        cargarMonitorAutomatizacion();
+        if (autoLiveActivo) {
+            iniciarPollingMonitorAutomatizacion();
+        }
+        if (!autoCountdownTimer) {
+            autoCountdownTimer = setInterval(tickCountdownsAuto, 1000);
+        }
+    }
+
+    function iniciarPollingMonitorAutomatizacion() {
+        detenerPollingMonitorAutomatizacion();
+        autoMonitorTimer = setInterval(() => {
+            if (document.getElementById('vistaAutomatizacion')?.classList.contains('active')) {
+                cargarMonitorAutomatizacion();
+            }
+        }, 5000);
+    }
+
+    function detenerPollingMonitorAutomatizacion() {
+        if (autoMonitorTimer) {
+            clearInterval(autoMonitorTimer);
+            autoMonitorTimer = null;
+        }
+    }
+
+    function toggleAutoLivePolling() {
+        autoLiveActivo = !autoLiveActivo;
+        const btn = document.getElementById('btnAutoLiveToggle');
+        if (autoLiveActivo) {
+            btn.textContent = '⏸ Live: ON (5s)';
+            cargarMonitorAutomatizacion();
+            iniciarPollingMonitorAutomatizacion();
+        } else {
+            btn.textContent = '▶ Live: PAUSADO';
+            detenerPollingMonitorAutomatizacion();
+        }
+    }
+
+    function formatearSegundosCountdown(seg) {
+        if (seg === null || seg === undefined) return '--';
+        if (seg <= 0) return 'Inminente...';
+        const h = Math.floor(seg / 3600);
+        const m = Math.floor((seg % 3600) / 60);
+        const s = seg % 60;
+        if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+        return `${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+    }
+
+    function formatearHoraCorta(iso) {
+        if (!iso) return '--';
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '--';
+        return d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    }
+
+    function formatearFechaHoraCorta(iso) {
+        if (!iso) return '--';
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '--';
+        return d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) + ' ' +
+               d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    }
+
+    function tickCountdownsAuto() {
+        if (!autoMonitorData || !autoMonitorData.modulos) return;
+        autoMonitorData.modulos.forEach(m => {
+            if (m.segundosParaProxima !== null && m.segundosParaProxima !== undefined && m.segundosParaProxima > 0 && !m.enEjecucion) {
+                m.segundosParaProxima--;
+                const el = document.getElementById(`autoCountdown_${m.modulo}`);
+                if (el) el.textContent = formatearSegundosCountdown(m.segundosParaProxima);
+            }
+        });
+    }
+
+    async function cargarMonitorAutomatizacion() {
+        try {
+            const entidad = document.getElementById('filtroAutoEntidad')?.value || '';
+            const tipo = document.getElementById('filtroAutoTipo')?.value || '';
+            const estado = document.getElementById('filtroAutoEstado')?.value || '';
+            const qs = new URLSearchParams();
+            if (entidad) qs.set('entidad', entidad);
+            if (tipo) qs.set('tipo', tipo);
+            if (estado) qs.set('estado', estado);
+
+            const res = await fetch(`/api/sync/automation/monitor?${qs.toString()}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            autoMonitorData = data;
+
+            renderMonitorHeaderYKs(data);
+            renderMonitorModulos(data.modulos || []);
+            renderMonitorChartHoras(data.seriePorHora || []);
+            renderMonitorHistorial(data.historial || []);
+        } catch (e) {
+            console.error('Error cargando monitor de automatización:', e);
+        }
+    }
+
+    function renderMonitorHeaderYKs(data) {
+        const navDot = document.getElementById('navAutoDot');
+        const badge = document.getElementById('autoWorkerBadge');
+        const btnSwitch = document.getElementById('btnAutoGlobalSwitch');
+        const kpiEst = document.getElementById('kpiAutoEstado');
+
+        const hayCorriendo = (data.modulos || []).some(m => m.enEjecucion);
+        if (data.globalActivo) {
+            if (navDot) navDot.className = `auto-pulse-dot ${hayCorriendo ? 'running' : 'active'}`;
+            badge.style.background = '#dcfce7';
+            badge.style.color = '#15803d';
+            badge.innerHTML = `<span class="auto-pulse-dot ${hayCorriendo ? 'running' : 'active'}"></span> ${hayCorriendo ? 'PROCESANDO CICLO' : 'MOTOR AUTOMÁTICO ACTIVO'}`;
+            btnSwitch.textContent = '⏸ Pausar Automatización';
+            btnSwitch.className = 'btn btn-outline btn-sm';
+            kpiEst.textContent = 'AUTOMÁTICO ON';
+            kpiEst.style.color = '#059669';
+        } else {
+            if (navDot) navDot.className = 'auto-pulse-dot paused';
+            badge.style.background = '#fef3c7';
+            badge.style.color = '#b45309';
+            badge.innerHTML = `<span class="auto-pulse-dot warn"></span> MODO MANUAL (PAUSADO)`;
+            btnSwitch.textContent = '⚡ Activar Automatización';
+            btnSwitch.className = 'btn btn-primary btn-sm';
+            kpiEst.textContent = 'MODO MANUAL';
+            kpiEst.style.color = '#d97706';
+        }
+
+        const activosCount = (data.modulos || []).filter(m => m.autoActivo).length;
+        document.getElementById('kpiAutoModulosActivos').textContent = `${activosCount} de ${(data.modulos || []).length} módulos en automático`;
+        document.getElementById('kpiAutoEjecuciones').textContent = (data.totalEjecucionesHoy || 0).toLocaleString();
+        document.getElementById('kpiAutoHeartbeat').textContent = data.workerHeartbeat
+            ? `Latido worker: ${formatearHoraCorta(data.workerHeartbeat)}`
+            : 'Latido worker: esperando...';
+
+        const tasa = data.tasaExitoPct ?? 100;
+        const elTasa = document.getElementById('kpiAutoTasaExito');
+        elTasa.textContent = `${tasa}%`;
+        elTasa.style.color = tasa >= 95 ? '#059669' : (tasa >= 80 ? '#d97706' : '#dc2626');
+        document.getElementById('kpiAutoErroresHoy').textContent = `${data.totalErroresHoy || 0} lote(s) con error hoy`;
+
+        document.getElementById('kpiAutoRegistros').textContent = (data.totalRegistrosHoy || 0).toLocaleString();
+        document.getElementById('kpiAutoDuracion').textContent = `${(data.duracionPromedioSeg || 0).toFixed(1)}s`;
+    }
+
+    function renderMonitorModulos(modulos) {
+        const grid = document.getElementById('autoModulosGrid');
+        if (!grid) return;
+
+        grid.innerHTML = modulos.map(m => {
+            let pillBg = '#f1f5f9', pillFg = '#475569', dotCls = 'paused', estadoTxt = m.estadoActual;
+            let cardCls = 'auto-mod-card';
+
+            if (m.estadoActual === 'EJECUTANDO') {
+                pillBg = '#dbeafe'; pillFg = '#1d4ed8'; dotCls = 'running'; estadoTxt = 'EJECUTANDO AHORA';
+                cardCls += ' is-running';
+            } else if (m.estadoActual === 'REINTENTANDO') {
+                pillBg = '#fef3c7'; pillFg = '#b45309'; dotCls = 'warn'; estadoTxt = `REINTENTANDO (${m.intentoActual}/${m.maxIntentos})`;
+                cardCls += ' is-running';
+            } else if (m.estadoActual === 'EN_ESPERA') {
+                pillBg = '#dcfce7'; pillFg = '#15803d'; dotCls = 'active'; estadoTxt = 'ACTIVO · EN ESPERA';
+            } else if (m.estadoActual === 'FUERA_VENTANA') {
+                pillBg = '#f1f5f9'; pillFg = '#475569'; dotCls = 'warn'; estadoTxt = 'FUERA DE VENTANA';
+            } else if (m.estadoActual === 'ERROR') {
+                pillBg = '#fee2e2'; pillFg = '#b91c1c'; dotCls = 'error'; estadoTxt = 'ÚLTIMO CICLO CON ERROR';
+                cardCls += ' is-error';
+            } else {
+                estadoTxt = 'DESACTIVADO';
+            }
+
+            const progressHtml = m.enEjecucion
+                ? `<div class="auto-progress-track"><div class="auto-progress-fill" style="width:${Math.max(8, m.progresoPorcentaje || 0)}%;"></div></div>
+                   <div style="font-size:11.5px; color:#2563eb; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${m.progresoPorcentaje || 0}% · ${escapeHtmlAuto(m.faseDetalle || 'Procesando...')}</div>`
+                : `<div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; margin:10px 0 6px 0;">
+                       <span style="font-size:12px; color:#64748b; font-weight:600;">Próxima ejecución</span>
+                       <span id="autoCountdown_${m.modulo}" style="font-size:13px; font-weight:800; color:${m.autoActivo ? '#0f172a' : '#94a3b8'}; font-variant-numeric:tabular-nums;">
+                           ${m.autoActivo ? formatearSegundosCountdown(m.segundosParaProxima) : 'Pausado'}
+                       </span>
+                   </div>`;
+
+            const errBox = m.ultimoError
+                ? `<div style="margin-top:8px; padding:6px 10px; border-radius:6px; background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; font-size:11.5px;">⚠ ${escapeHtmlAuto(m.ultimoError)}</div>`
+                : '';
+
+            const btnDetalle = m.ultimoLoteId
+                ? `<button class="btn btn-outline btn-sm" onclick="abrirDetalleLoteAuto('${m.ultimoLoteId}', '${escapeHtmlAuto(m.modulo)}', '${escapeHtmlAuto(m.ultimoResultado)}', '${m.ultimaEjecucion || ''}', ${m.ultimaDuracionSeg || 0}, ${m.ultimosEscaneados}, ${m.ultimosNuevos}, ${m.ultimosModificados}, ${m.ultimosErrores}, 'WORKER')">🔍 Ver Último Detalle</button>`
+                : `<button class="btn btn-outline btn-sm" disabled style="opacity:0.5;">Sin lotes aún</button>`;
+
+            return `
+            <div class="${cardCls}">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+                    <div>
+                        <div style="font-size:15px; font-weight:800; color:#0f172a;">${escapeHtmlAuto(m.nombreDisplay)}</div>
+                        <div style="font-size:12px; color:#64748b; margin-top:2px;">
+                            ⏱ <strong>${escapeHtmlAuto(m.frecuenciaTexto)}</strong> · Ventana: ${escapeHtmlAuto(m.ventanaHoraria)}
+                        </div>
+                    </div>
+                    <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:800; background:${pillBg}; color:${pillFg}; white-space:nowrap;">
+                        <span class="auto-pulse-dot ${dotCls}"></span> ${estadoTxt}
+                    </span>
+                </div>
+
+                ${progressHtml}
+
+                <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid #f1f5f9; font-size:12px;">
+                    <div>
+                        <div style="color:#94a3b8; font-size:11px;">Última vez</div>
+                        <div style="font-weight:700; color:#334155;">${formatearHoraCorta(m.ultimaEjecucion)}</div>
+                    </div>
+                    <div>
+                        <div style="color:#94a3b8; font-size:11px;">Duración</div>
+                        <div style="font-weight:700; color:#334155;">${m.ultimaDuracionSeg !== null && m.ultimaDuracionSeg !== undefined ? m.ultimaDuracionSeg + 's' : '--'}</div>
+                    </div>
+                    <div>
+                        <div style="color:#94a3b8; font-size:11px;">Últ. Cambios</div>
+                        <div style="font-weight:700; color:#2563eb;">+${m.ultimosNuevos || 0} / ✎${m.ultimosModificados || 0}</div>
+                    </div>
+                    <div>
+                        <div style="color:#94a3b8; font-size:11px;">Hoy (Éxito/Err)</div>
+                        <div style="font-weight:700;"><span style="color:#059669;">${m.exitosHoy || 0}</span> / <span style="color:${(m.erroresHoy || 0) > 0 ? '#dc2626' : '#64748b'};">${m.erroresHoy || 0}</span></div>
+                    </div>
+                </div>
+                ${errBox}
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
+                    ${btnDetalle}
+                    <button class="btn btn-primary btn-sm" onclick="forzarModuloDesdeMonitor('${m.modulo}')" ${m.enEjecucion ? 'disabled' : ''}>
+                        ▶ Ejecutar Ahora
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function renderMonitorChartHoras(serie) {
+        const cont = document.getElementById('autoChartHoras');
+        if (!cont) return;
+        const maxVal = Math.max(1, ...serie.map(s => (s.exitos || 0) + (s.errores || 0)));
+
+        cont.innerHTML = serie.map(s => {
+            const total = (s.exitos || 0) + (s.errores || 0);
+            const okPct = total > 0 ? Math.round((s.exitos / maxVal) * 85) : 0;
+            const errPct = total > 0 ? Math.round((s.errores / maxVal) * 85) : 0;
+            const tooltip = `${s.etiquetaHora}: ${s.exitos} éxito(s), ${s.errores} con error · ${s.registrosProcesados} reg. procesados`;
+            return `
+            <div class="auto-chart-col" title="${tooltip}">
+                <div class="auto-chart-stack" style="height:${Math.max(2, okPct + errPct)}px;">
+                    <div class="auto-chart-bar-ok" style="height:${okPct}px;"></div>
+                    <div class="auto-chart-bar-err" style="height:${errPct}px;"></div>
+                </div>
+                <span class="auto-chart-lbl">${s.hora % 2 === 0 ? s.etiquetaHora : ''}</span>
+            </div>`;
+        }).join('');
+    }
+
+    function renderMonitorHistorial(historial) {
+        const tbody = document.getElementById('tbodyAutoHistorial');
+        if (!tbody) return;
+
+        if (!historial || historial.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:26px; color:#64748b;">No hay ejecuciones registradas con los filtros actuales.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = historial.map(h => {
+            const esAuto = (h.tipoEjecucion || '').toUpperCase() === 'AUTOMATICO';
+            const tipoBadge = esAuto
+                ? `<span style="padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700; background:#eff6ff; color:#1d4ed8;">🤖 AUTO</span>`
+                : `<span style="padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700; background:#f1f5f9; color:#475569;">👤 MANUAL</span>`;
+
+            let estBg = '#dcfce7', estFg = '#15803d';
+            if (h.estado === 'ERROR' || h.totalErrores > 0) { estBg = '#fee2e2'; estFg = '#b91c1c'; }
+            else if (h.estado === 'EN_PROCESO') { estBg = '#dbeafe'; estFg = '#1d4ed8'; }
+
+            const dur = h.duracionSegundos !== null && h.duracionSegundos !== undefined ? `${Number(h.duracionSegundos).toFixed(2)}s` : '--';
+
+            return `
+            <tr class="auto-row-clickable" onclick="abrirDetalleLoteAuto('${h.loteId}', '${escapeHtmlAuto(h.entidad)}', '${escapeHtmlAuto(h.estado)}', '${h.fechaInicio}', ${h.duracionSegundos || 0}, ${h.totalEscaneados}, ${h.totalNuevos}, ${h.totalModificados}, ${h.totalErrores}, '${escapeHtmlAuto(h.usuario || '')}')">
+                <td style="padding:10px 12px; font-weight:700; color:#0f172a;">${escapeHtmlAuto(h.entidad)}</td>
+                <td style="padding:10px 12px;">${tipoBadge}</td>
+                <td style="padding:10px 12px; color:#475569; font-variant-numeric:tabular-nums;">${formatearFechaHoraCorta(h.fechaInicio)}</td>
+                <td style="padding:10px 12px; text-align:right; font-variant-numeric:tabular-nums; color:#334155;">${dur}</td>
+                <td style="padding:10px 12px; text-align:right; font-variant-numeric:tabular-nums;">${(h.totalEscaneados || 0).toLocaleString()}</td>
+                <td style="padding:10px 12px; text-align:right; font-weight:700; color:#059669; font-variant-numeric:tabular-nums;">+${h.totalNuevos || 0}</td>
+                <td style="padding:10px 12px; text-align:right; font-weight:700; color:#2563eb; font-variant-numeric:tabular-nums;">${h.totalModificados || 0}</td>
+                <td style="padding:10px 12px; text-align:right; font-weight:800; color:${(h.totalErrores || 0) > 0 ? '#dc2626' : '#94a3b8'}; font-variant-numeric:tabular-nums;">${h.totalErrores || 0}</td>
+                <td style="padding:10px 12px;"><span style="padding:3px 9px; border-radius:999px; font-size:11px; font-weight:800; background:${estBg}; color:${estFg};">${escapeHtmlAuto(h.estado)}</span></td>
+                <td style="padding:10px 12px; text-align:center;">
+                    <span style="color:#2563eb; font-weight:700; font-size:12px;">Ver detalle →</span>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    async function toggleAutomatizacionDesdeMonitor() {
+        try {
+            const resGet = await fetch('/api/sync/config');
+            if (!resGet.ok) return;
+            const cfg = await resGet.json();
+            cfg.sincronizacionActiva = !cfg.sincronizacionActiva;
+            const resSave = await fetch('/api/sync/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cfg)
+            });
+            if (resSave.ok) {
+                mostrarToast(cfg.sincronizacionActiva ? 'Automatización Global ACTIVADA' : 'Automatización Global PAUSADA (Modo Manual)', 'success');
+                cargarMonitorAutomatizacion();
+            }
+        } catch (e) {
+            mostrarToast('Error cambiando estado de automatización', 'error');
+        }
+    }
+
+    async function forzarModuloDesdeMonitor(modulo) {
+        let url = '/api/sync/trigger?modo=todo';
+        if (modulo === 'PRODUCTOS') url = '/api/sync/productos/trigger?subModulo=TODOS';
+        else if (modulo === 'VENDEDORES') url = '/api/sync/vendedores/trigger';
+        else if (modulo === 'STOCK') url = '/api/sync/stock/trigger';
+
+        try {
+            const res = await fetch(url, { method: 'POST' });
+            const json = await res.json().catch(() => ({}));
+            if (res.ok || res.status === 202) {
+                mostrarToast(`Ejecución manual iniciada para ${modulo}`, 'success');
+                setTimeout(cargarMonitorAutomatizacion, 800);
+            } else {
+                mostrarToast(json.message || `No se pudo iniciar ${modulo}`, 'warning');
+            }
+        } catch (e) {
+            mostrarToast(`Error lanzando ${modulo}`, 'error');
+        }
+    }
+
+    async function abrirDetalleLoteAuto(loteId, entidad, estado, fechaInicio, duracion, escaneados, nuevos, modificados, errores, usuario) {
+        const backdrop = document.getElementById('autoDrawerBackdrop');
+        backdrop.classList.add('open');
+
+        document.getElementById('drawerAutoModuloBadge').textContent = entidad || 'LOTE';
+        const estBadge = document.getElementById('drawerAutoEstadoBadge');
+        estBadge.textContent = estado || 'COMPLETADO';
+        estBadge.style.background = (estado === 'ERROR' || errores > 0) ? '#fee2e2' : '#dcfce7';
+        estBadge.style.color = (estado === 'ERROR' || errores > 0) ? '#b91c1c' : '#15803d';
+
+        document.getElementById('drawerAutoTitulo').textContent = `Detalle de Ejecución · ${entidad}`;
+        document.getElementById('drawerAutoSubtitulo').textContent = `Lote: ${loteId} · Inicio: ${formatearFechaHoraCorta(fechaInicio)} · Duración: ${Number(duracion || 0).toFixed(2)}s · Usuario: ${usuario || 'SISTEMA'}`;
+
+        document.getElementById('drawerAutoKpis').innerHTML = `
+            <div style="text-align:center;"><div style="font-size:11px; color:#64748b;">Escaneados</div><div style="font-size:16px; font-weight:800;">${escaneados}</div></div>
+            <div style="text-align:center;"><div style="font-size:11px; color:#64748b;">Nuevos</div><div style="font-size:16px; font-weight:800; color:#059669;">+${nuevos}</div></div>
+            <div style="text-align:center;"><div style="font-size:11px; color:#64748b;">Modificados</div><div style="font-size:16px; font-weight:800; color:#2563eb;">${modificados}</div></div>
+            <div style="text-align:center;"><div style="font-size:11px; color:#64748b;">Errores</div><div style="font-size:16px; font-weight:800; color:${errores > 0 ? '#dc2626' : '#64748b'};">${errores}</div></div>
+            <div style="text-align:center;"><div style="font-size:11px; color:#64748b;">Duración</div><div style="font-size:16px; font-weight:800;">${Number(duracion || 0).toFixed(2)}s</div></div>
+        `;
+
+        drawerAutoNivelFiltro = '';
+        document.getElementById('drawerAutoBuscar').value = '';
+        document.querySelectorAll('#drawerAutoFilterTabs button').forEach(b => {
+            b.className = b.dataset.nivel === '' ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline';
+        });
+
+        const body = document.getElementById('drawerAutoBody');
+        body.innerHTML = `<div style="text-align:center; padding:30px; color:#64748b;">Cargando logs detallados del lote...</div>`;
+
+        try {
+            const res = await fetch(`/api/sync/logs?top=300&loteId=${encodeURIComponent(loteId)}`);
+            drawerAutoLogsCache = res.ok ? await res.json() : [];
+            renderizarDrawerLogs();
+        } catch (e) {
+            body.innerHTML = `<div style="color:#dc2626; padding:20px;">Error cargando logs del lote.</div>`;
+        }
+    }
+
+    function filtrarDrawerLogs(btn, nivel) {
+        drawerAutoNivelFiltro = nivel;
+        document.querySelectorAll('#drawerAutoFilterTabs button').forEach(b => {
+            b.className = b === btn ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline';
+        });
+        renderizarDrawerLogs();
+    }
+
+    function renderizarDrawerLogs() {
+        const body = document.getElementById('drawerAutoBody');
+        const q = (document.getElementById('drawerAutoBuscar').value || '').trim().toLowerCase();
+
+        const filtrados = (drawerAutoLogsCache || []).filter(l => {
+            if (drawerAutoNivelFiltro && (l.nivel || '').toUpperCase() !== drawerAutoNivelFiltro) return false;
+            if (q) {
+                const txt = `${l.codigo || ''} ${l.mensaje || ''} ${l.detalleTecnico || ''}`.toLowerCase();
+                if (!txt.includes(q)) return false;
+            }
+            return true;
+        });
+
+        if (filtrados.length === 0) {
+            body.innerHTML = `<div style="text-align:center; padding:32px; color:#64748b; background:#fff; border-radius:10px; border:1px dashed #cbd5e1;">No hay eventos registrados para este filtro en el lote seleccionado.</div>`;
+            return;
+        }
+
+        body.innerHTML = filtrados.map(l => {
+            const nv = (l.nivel || 'INFO').toUpperCase();
+            let bBg = '#eff6ff', bFg = '#1d4ed8', borderL = '#3b82f6';
+            if (nv === 'ERROR') { bBg = '#fee2e2'; bFg = '#b91c1c'; borderL = '#ef4444'; }
+            else if (nv === 'WARN' || nv === 'WARNING') { bBg = '#fef3c7'; bFg = '#b45309'; borderL = '#f59e0b'; }
+            else if (nv === 'SUCCESS') { bBg = '#dcfce7'; bFg = '#15803d'; borderL = '#10b981'; }
+
+            const detTec = l.detalleTecnico
+                ? `<pre style="margin:6px 0 0 0; padding:8px 10px; background:#0f172a; color:#e2e8f0; border-radius:6px; font-size:11px; overflow-x:auto; white-space:pre-wrap;">${escapeHtmlAuto(l.detalleTecnico)}</pre>`
+                : '';
+
+            return `
+            <div style="background:#fff; border:1px solid #e2e8f0; border-left:4px solid ${borderL}; border-radius:8px; padding:10px 14px; margin-bottom:8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:4px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="padding:2px 7px; border-radius:5px; font-size:10.5px; font-weight:800; background:${bBg}; color:${bFg};">${nv}</span>
+                        ${l.codigo ? `<span style="font-family:monospace; font-size:11.5px; font-weight:700; color:#334155;">${escapeHtmlAuto(l.codigo)}</span>` : ''}
+                    </div>
+                    <span style="font-size:11px; color:#94a3b8; font-variant-numeric:tabular-nums;">${formatearFechaHoraCorta(l.fecha)}</span>
+                </div>
+                <div style="font-size:12.5px; color:#1e293b;">${escapeHtmlAuto(l.mensaje)}</div>
+                ${detTec}
+            </div>`;
+        }).join('');
+    }
+
+    function cerrarDetalleLoteAuto() {
+        document.getElementById('autoDrawerBackdrop').classList.remove('open');
+    }
+
+    function escapeHtmlAuto(str) {
+        if (str === null || str === undefined) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
 </script>
 </body>
 </html>

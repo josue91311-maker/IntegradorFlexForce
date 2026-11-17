@@ -2956,5 +2956,233 @@ namespace IntegradorFlexForce.Services
             }
             return list;
         }
+
+        public async Task<AutomationMonitorDto> ObtenerMonitorAutomatizacionAsync(
+            List<AutoModuleStateDto> modulosVivos,
+            bool globalActivo,
+            DateTime? workerHeartbeat,
+            string? filtroEntidad = null,
+            string? filtroTipo = null,
+            string? filtroEstado = null,
+            CancellationToken ct = default)
+        {
+            var result = new AutomationMonitorDto
+            {
+                GlobalActivo = globalActivo,
+                HoraServidor = DateTime.Now,
+                WorkerHeartbeat = workerHeartbeat,
+                Modulos = modulosVivos
+            };
+
+            try
+            {
+                using var conn = new SqlConnection(_connectionStringForce);
+                await conn.OpenAsync(ct);
+
+                // 1. KPIs del día y estadísticas por módulo (hoy)
+                const string sqlHoy = @"
+                    SELECT 
+                        CASE 
+                            WHEN UPPER(Entidad) LIKE '%CLIENT%' OR UPPER(Entidad) LIKE '%RUTA%' OR UPPER(Entidad) LIKE '%ZONA%' THEN 'CLIENTES'
+                            WHEN UPPER(Entidad) LIKE '%PRODUCT%' OR UPPER(Entidad) LIKE '%CATALOG%' OR UPPER(Entidad) LIKE '%PRECIO%' THEN 'PRODUCTOS'
+                            WHEN UPPER(Entidad) LIKE '%VENDEDOR%' THEN 'VENDEDORES'
+                            WHEN UPPER(Entidad) LIKE '%STOCK%' THEN 'STOCK'
+                            ELSE UPPER(Entidad)
+                        END AS ModuloNorm,
+                        COUNT(*) AS Ejecuciones,
+                        SUM(CASE WHEN Estado IN ('COMPLETADO', 'EXITO') AND TotalErrores = 0 THEN 1 ELSE 0 END) AS ExitosLimpios,
+                        SUM(CASE WHEN Estado IN ('ERROR', 'CON_ERRORES', 'FALLIDO') OR TotalErrores > 0 THEN 1 ELSE 0 END) AS ConErrores,
+                        SUM(ISNULL(TotalNuevos, 0) + ISNULL(TotalModificados, 0)) AS Registros,
+                        AVG(CAST(ISNULL(DuracionSegundos, 0) AS float)) AS PromDuracion
+                    FROM dbo.sync_TransaccionLote WITH (NOLOCK)
+                    WHERE CAST(FechaInicio AS date) = CAST(GETDATE() AS date)
+                    GROUP BY 
+                        CASE 
+                            WHEN UPPER(Entidad) LIKE '%CLIENT%' OR UPPER(Entidad) LIKE '%RUTA%' OR UPPER(Entidad) LIKE '%ZONA%' THEN 'CLIENTES'
+                            WHEN UPPER(Entidad) LIKE '%PRODUCT%' OR UPPER(Entidad) LIKE '%CATALOG%' OR UPPER(Entidad) LIKE '%PRECIO%' THEN 'PRODUCTOS'
+                            WHEN UPPER(Entidad) LIKE '%VENDEDOR%' THEN 'VENDEDORES'
+                            WHEN UPPER(Entidad) LIKE '%STOCK%' THEN 'STOCK'
+                            ELSE UPPER(Entidad)
+                        END;";
+
+                double sumProm = 0;
+                int countModulosConDatos = 0;
+
+                using (var cmdHoy = new SqlCommand(sqlHoy, conn))
+                using (var r = await cmdHoy.ExecuteReaderAsync(ct))
+                {
+                    while (await r.ReadAsync(ct))
+                    {
+                        string modNorm = r.GetString(0);
+                        int ejec = r.GetInt32(1);
+                        int exitos = r.GetInt32(2);
+                        int errs = r.GetInt32(3);
+                        int regs = r.GetInt32(4);
+                        double prom = r.IsDBNull(5) ? 0 : r.GetDouble(5);
+
+                        result.TotalEjecucionesHoy += ejec;
+                        result.TotalExitosHoy += exitos;
+                        result.TotalErroresHoy += errs;
+                        result.TotalRegistrosHoy += regs;
+                        if (ejec > 0)
+                        {
+                            sumProm += prom;
+                            countModulosConDatos++;
+                        }
+
+                        var modObj = result.Modulos.FirstOrDefault(m => m.Modulo == modNorm);
+                        if (modObj != null)
+                        {
+                            modObj.EjecucionesHoy = ejec;
+                            modObj.ExitosHoy = exitos;
+                            modObj.ErroresHoy = errs;
+                        }
+                    }
+                }
+
+                result.TasaExitoPct = result.TotalEjecucionesHoy > 0
+                    ? Math.Round((double)result.TotalExitosHoy / result.TotalEjecucionesHoy * 100, 1)
+                    : 100.0;
+                result.DuracionPromedioSeg = countModulosConDatos > 0
+                    ? Math.Round(sumProm / countModulosConDatos, 2)
+                    : 0;
+
+                // 2. Último lote de cada módulo para enriquecer métricas de la tarjeta
+                const string sqlUltimos = @"
+                    WITH Ranked AS (
+                        SELECT 
+                            LoteId, Entidad, TipoEjecucion, FechaInicio, FechaFin, DuracionSegundos,
+                            TotalEscaneados, TotalNuevos, TotalModificados, TotalErrores, Estado,
+                            CASE 
+                                WHEN UPPER(Entidad) LIKE '%CLIENT%' OR UPPER(Entidad) LIKE '%RUTA%' OR UPPER(Entidad) LIKE '%ZONA%' THEN 'CLIENTES'
+                                WHEN UPPER(Entidad) LIKE '%PRODUCT%' OR UPPER(Entidad) LIKE '%CATALOG%' OR UPPER(Entidad) LIKE '%PRECIO%' THEN 'PRODUCTOS'
+                                WHEN UPPER(Entidad) LIKE '%VENDEDOR%' THEN 'VENDEDORES'
+                                WHEN UPPER(Entidad) LIKE '%STOCK%' THEN 'STOCK'
+                                ELSE UPPER(Entidad)
+                            END AS ModuloNorm,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY CASE 
+                                    WHEN UPPER(Entidad) LIKE '%CLIENT%' OR UPPER(Entidad) LIKE '%RUTA%' OR UPPER(Entidad) LIKE '%ZONA%' THEN 'CLIENTES'
+                                    WHEN UPPER(Entidad) LIKE '%PRODUCT%' OR UPPER(Entidad) LIKE '%CATALOG%' OR UPPER(Entidad) LIKE '%PRECIO%' THEN 'PRODUCTOS'
+                                    WHEN UPPER(Entidad) LIKE '%VENDEDOR%' THEN 'VENDEDORES'
+                                    WHEN UPPER(Entidad) LIKE '%STOCK%' THEN 'STOCK'
+                                    ELSE UPPER(Entidad)
+                                END
+                                ORDER BY FechaInicio DESC
+                            ) AS rn
+                        FROM dbo.sync_TransaccionLote WITH (NOLOCK)
+                    )
+                    SELECT ModuloNorm, LoteId, FechaInicio, FechaFin, DuracionSegundos, TotalEscaneados, TotalNuevos, TotalModificados, TotalErrores, Estado
+                    FROM Ranked
+                    WHERE rn = 1;";
+
+                using (var cmdUlt = new SqlCommand(sqlUltimos, conn))
+                using (var r = await cmdUlt.ExecuteReaderAsync(ct))
+                {
+                    while (await r.ReadAsync(ct))
+                    {
+                        string modNorm = r.GetString(0);
+                        var modObj = result.Modulos.FirstOrDefault(m => m.Modulo == modNorm);
+                        if (modObj != null)
+                        {
+                            modObj.UltimoLoteId = r.GetGuid(1);
+                            DateTime fIni = r.GetDateTime(2);
+                            DateTime? fFin = r.IsDBNull(3) ? null : r.GetDateTime(3);
+                            modObj.UltimaEjecucion ??= (fFin ?? fIni);
+                            modObj.UltimaDuracionSeg = r.IsDBNull(4) ? null : r.GetDecimal(4);
+                            modObj.UltimosEscaneados = r.GetInt32(5);
+                            modObj.UltimosNuevos = r.GetInt32(6);
+                            modObj.UltimosModificados = r.GetInt32(7);
+                            modObj.UltimosErrores = r.GetInt32(8);
+                            string estBd = r.GetString(9);
+                            if (modObj.UltimoResultado == "SIN_DATOS")
+                                modObj.UltimoResultado = estBd;
+                            if (!modObj.UltimoExito.HasValue && estBd == "COMPLETADO")
+                                modObj.UltimoExito = fFin ?? fIni;
+                        }
+                    }
+                }
+
+                // 3. Serie por hora del día de hoy (para gráfico de actividad)
+                var horasMap = new Dictionary<int, AutoHourlyStatDto>();
+                for (int h = 0; h < 24; h++)
+                {
+                    horasMap[h] = new AutoHourlyStatDto
+                    {
+                        Hora = h,
+                        EtiquetaHora = $"{h:00}h"
+                    };
+                }
+
+                const string sqlHoras = @"
+                    SELECT 
+                        DATEPART(HOUR, FechaInicio) AS Hora,
+                        SUM(CASE WHEN Estado IN ('COMPLETADO', 'EXITO') AND TotalErrores = 0 THEN 1 ELSE 0 END) AS Exitos,
+                        SUM(CASE WHEN Estado IN ('ERROR', 'CON_ERRORES', 'FALLIDO') OR TotalErrores > 0 THEN 1 ELSE 0 END) AS Errores,
+                        SUM(ISNULL(TotalNuevos, 0) + ISNULL(TotalModificados, 0)) AS Registros
+                    FROM dbo.sync_TransaccionLote WITH (NOLOCK)
+                    WHERE CAST(FechaInicio AS date) = CAST(GETDATE() AS date)
+                    GROUP BY DATEPART(HOUR, FechaInicio);";
+
+                using (var cmdHr = new SqlCommand(sqlHoras, conn))
+                using (var r = await cmdHr.ExecuteReaderAsync(ct))
+                {
+                    while (await r.ReadAsync(ct))
+                    {
+                        int h = r.GetInt32(0);
+                        if (horasMap.TryGetValue(h, out var item))
+                        {
+                            item.Exitos = r.GetInt32(1);
+                            item.Errores = r.GetInt32(2);
+                            item.RegistrosProcesados = r.GetInt32(3);
+                        }
+                    }
+                }
+                result.SeriePorHora = horasMap.Values.OrderBy(x => x.Hora).ToList();
+
+                // 4. Historial detallado (últimos 60 lotes filtrables)
+                const string sqlHist = @"
+                    SELECT TOP (60) ID, LoteId, Entidad, TipoEjecucion, FechaInicio, FechaFin,
+                           DuracionSegundos, TotalEscaneados, TotalNuevos, TotalModificados, TotalErrores, Estado, Usuario
+                    FROM dbo.sync_TransaccionLote WITH (NOLOCK)
+                    WHERE (@Entidad IS NULL OR UPPER(Entidad) LIKE '%' + UPPER(@Entidad) + '%')
+                      AND (@Tipo IS NULL OR UPPER(TipoEjecucion) = UPPER(@Tipo))
+                      AND (@Estado IS NULL OR UPPER(Estado) = UPPER(@Estado))
+                    ORDER BY FechaInicio DESC;";
+
+                using (var cmdHist = new SqlCommand(sqlHist, conn))
+                {
+                    cmdHist.Parameters.AddWithValue("@Entidad", string.IsNullOrWhiteSpace(filtroEntidad) ? DBNull.Value : filtroEntidad);
+                    cmdHist.Parameters.AddWithValue("@Tipo", string.IsNullOrWhiteSpace(filtroTipo) ? DBNull.Value : filtroTipo);
+                    cmdHist.Parameters.AddWithValue("@Estado", string.IsNullOrWhiteSpace(filtroEstado) ? DBNull.Value : filtroEstado);
+
+                    using var r = await cmdHist.ExecuteReaderAsync(ct);
+                    while (await r.ReadAsync(ct))
+                    {
+                        result.Historial.Add(new SyncTransaccionDto
+                        {
+                            ID = r.GetInt64(0),
+                            LoteId = r.GetGuid(1),
+                            Entidad = r.GetString(2),
+                            TipoEjecucion = r.GetString(3),
+                            FechaInicio = r.GetDateTime(4),
+                            FechaFin = r.IsDBNull(5) ? null : r.GetDateTime(5),
+                            DuracionSegundos = r.IsDBNull(6) ? null : r.GetDecimal(6),
+                            TotalEscaneados = r.GetInt32(7),
+                            TotalNuevos = r.GetInt32(8),
+                            TotalModificados = r.GetInt32(9),
+                            TotalErrores = r.GetInt32(10),
+                            Estado = r.GetString(11),
+                            Usuario = r.IsDBNull(12) ? "" : r.GetString(12)
+                        });
+                    }
+                }
+            }
+            catch (Exception ex) when (ct.IsCancellationRequested || ex is OperationCanceledException || ex.Message.Contains("cancelada por el usuario"))
+            {
+            }
+
+            return result;
+        }
     }
 }

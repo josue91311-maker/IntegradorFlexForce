@@ -16,6 +16,7 @@ namespace IntegradorFlexForce.Controllers
         private readonly SyncStockEngine _syncStockEngine;
         private readonly SyncPedidosEngine _syncPedidosEngine;
         private readonly SyncComprobantesEngine _syncComprobantesEngine;
+        private readonly SyncBackgroundWorker _backgroundWorker;
 
         public SyncApiController(
             SyncEngine syncEngine, 
@@ -23,7 +24,8 @@ namespace IntegradorFlexForce.Controllers
             SyncVendedoresEngine syncVendedoresEngine,
             SyncStockEngine syncStockEngine,
             SyncPedidosEngine syncPedidosEngine,
-            SyncComprobantesEngine syncComprobantesEngine)
+            SyncComprobantesEngine syncComprobantesEngine,
+            SyncBackgroundWorker backgroundWorker)
         {
             _syncEngine = syncEngine;
             _syncProductosEngine = syncProductosEngine;
@@ -31,6 +33,7 @@ namespace IntegradorFlexForce.Controllers
             _syncStockEngine = syncStockEngine;
             _syncPedidosEngine = syncPedidosEngine;
             _syncComprobantesEngine = syncComprobantesEngine;
+            _backgroundWorker = backgroundWorker;
         }
 
         [HttpGet("status")]
@@ -364,6 +367,31 @@ namespace IntegradorFlexForce.Controllers
 
             _ = Task.Run(() => _syncComprobantesEngine.EjecutarSubidaComprobantesAsync(req.IDsCpOrigen, CancellationToken.None));
             return Accepted(new { message = $"Subida iniciada para {req.IDsCpOrigen.Count} comprobante(s) con correlativo exacto." });
+        }
+
+        // =========================================================================
+        // MONITOR DE AUTOMATIZACIÓN (TORRE DE CONTROL EN TIEMPO REAL)
+        // =========================================================================
+
+        [HttpGet("automation/monitor")]
+        public async Task<IActionResult> GetAutomationMonitor(
+            [FromQuery] string? entidad = null,
+            [FromQuery] string? tipo = null,
+            [FromQuery] string? estado = null,
+            CancellationToken ct = default)
+        {
+            var config = await _syncEngine.CargarConfiguracionAsync(ct);
+            var modulosVivos = _backgroundWorker.ObtenerEstadoVivoModulos(config);
+            var monitor = await _syncEngine.ObtenerMonitorAutomatizacionAsync(
+                modulosVivos,
+                config.SincronizacionActiva,
+                _backgroundWorker.GetLastHeartbeat(),
+                entidad,
+                tipo,
+                estado,
+                ct);
+
+            return Ok(monitor);
         }
     }
 }
