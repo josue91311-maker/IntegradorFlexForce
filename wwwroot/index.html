@@ -4741,7 +4741,8 @@
                     </select>
                     <select id="filtroAutoEstado" onchange="cargarMonitorAutomatizacion()" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:12.5px; background:#fff;">
                         <option value="">Todos los Estados</option>
-                        <option value="COMPLETADO">Completado</option>
+                        <option value="EXITOSO">Exitoso</option>
+                        <option value="CON_ERRORES">Con Errores</option>
                         <option value="ERROR">Error</option>
                         <option value="EN_PROCESO">En Proceso</option>
                     </select>
@@ -9565,6 +9566,7 @@ async function ejecutarSincronizacion(modo) {
     let autoMonitorData = null;
     let drawerAutoLogsCache = [];
     let drawerAutoNivelFiltro = '';
+    let drawerAutoResumenActual = null;
 
     function inicializarMonitorAutomatizacion() {
         cargarMonitorAutomatizacion();
@@ -9901,11 +9903,21 @@ async function ejecutarSincronizacion(modo) {
         const backdrop = document.getElementById('autoDrawerBackdrop');
         backdrop.classList.add('open');
 
+        drawerAutoResumenActual = {
+            loteId, entidad, estado, fechaInicio, duracion,
+            escaneados: Number(escaneados || 0),
+            nuevos: Number(nuevos || 0),
+            modificados: Number(modificados || 0),
+            errores: Number(errores || 0),
+            usuario
+        };
+
         document.getElementById('drawerAutoModuloBadge').textContent = entidad || 'LOTE';
         const estBadge = document.getElementById('drawerAutoEstadoBadge');
-        estBadge.textContent = estado || 'COMPLETADO';
-        estBadge.style.background = (estado === 'ERROR' || errores > 0) ? '#fee2e2' : '#dcfce7';
-        estBadge.style.color = (estado === 'ERROR' || errores > 0) ? '#b91c1c' : '#15803d';
+        estBadge.textContent = estado || 'EXITOSO';
+        const esErr = (estado === 'ERROR' || estado === 'CON_ERRORES' || estado === 'FATAL' || Number(errores || 0) > 0);
+        estBadge.style.background = esErr ? '#fee2e2' : '#dcfce7';
+        estBadge.style.color = esErr ? '#b91c1c' : '#15803d';
 
         document.getElementById('drawerAutoTitulo').textContent = `Detalle de Ejecución · ${entidad}`;
         document.getElementById('drawerAutoSubtitulo').textContent = `Lote: ${loteId} · Inicio: ${formatearFechaHoraCorta(fechaInicio)} · Duración: ${Number(duracion || 0).toFixed(2)}s · Usuario: ${usuario || 'SISTEMA'}`;
@@ -9949,7 +9961,14 @@ async function ejecutarSincronizacion(modo) {
         const q = (document.getElementById('drawerAutoBuscar').value || '').trim().toLowerCase();
 
         const filtrados = (drawerAutoLogsCache || []).filter(l => {
-            if (drawerAutoNivelFiltro && (l.nivel || '').toUpperCase() !== drawerAutoNivelFiltro) return false;
+            const nv = (l.nivel || '').toUpperCase();
+            if (drawerAutoNivelFiltro) {
+                if (drawerAutoNivelFiltro === 'ERROR') {
+                    if (nv !== 'ERROR' && nv !== 'FATAL') return false;
+                } else if (nv !== drawerAutoNivelFiltro) {
+                    return false;
+                }
+            }
             if (q) {
                 const txt = `${l.codigo || ''} ${l.mensaje || ''} ${l.detalleTecnico || ''}`.toLowerCase();
                 if (!txt.includes(q)) return false;
@@ -9958,6 +9977,19 @@ async function ejecutarSincronizacion(modo) {
         });
 
         if (filtrados.length === 0) {
+            const r = drawerAutoResumenActual;
+            if (r && (!drawerAutoLogsCache || drawerAutoLogsCache.length === 0) && !q && (drawerAutoNivelFiltro === '' || drawerAutoNivelFiltro === 'INFO')) {
+                const sinCambios = r.nuevos === 0 && r.modificados === 0 && r.errores === 0;
+                const msgResumen = sinCambios
+                    ? `Ciclo completado al día sin diferencias pendientes: se escanearon ${r.escaneados.toLocaleString()} registros y Force ya estaba sincronizado (0 nuevos, 0 modificados, 0 errores).`
+                    : `Ciclo finalizado con ${r.escaneados.toLocaleString()} registros escaneados (+${r.nuevos} nuevos, ${r.modificados} modificados, ${r.errores} errores) en ${Number(r.duracion || 0).toFixed(2)}s.`;
+                body.innerHTML = `
+                    <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-left:4px solid #16a34a; border-radius:10px; padding:16px 18px; color:#166534;">
+                        <div style="font-weight:800; font-size:13.5px; margin-bottom:4px;">✓ Auditoría de Lote Verificada</div>
+                        <div style="font-size:12.5px; line-height:1.5;">${msgResumen}</div>
+                    </div>`;
+                return;
+            }
             body.innerHTML = `<div style="text-align:center; padding:32px; color:#64748b; background:#fff; border-radius:10px; border:1px dashed #cbd5e1;">No hay eventos registrados para este filtro en el lote seleccionado.</div>`;
             return;
         }
@@ -9965,7 +9997,7 @@ async function ejecutarSincronizacion(modo) {
         body.innerHTML = filtrados.map(l => {
             const nv = (l.nivel || 'INFO').toUpperCase();
             let bBg = '#eff6ff', bFg = '#1d4ed8', borderL = '#3b82f6';
-            if (nv === 'ERROR') { bBg = '#fee2e2'; bFg = '#b91c1c'; borderL = '#ef4444'; }
+            if (nv === 'ERROR' || nv === 'FATAL') { bBg = '#fee2e2'; bFg = '#b91c1c'; borderL = '#ef4444'; }
             else if (nv === 'WARN' || nv === 'WARNING') { bBg = '#fef3c7'; bFg = '#b45309'; borderL = '#f59e0b'; }
             else if (nv === 'SUCCESS') { bBg = '#dcfce7'; bFg = '#15803d'; borderL = '#10b981'; }
 

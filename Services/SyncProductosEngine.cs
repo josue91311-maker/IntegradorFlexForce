@@ -1143,6 +1143,8 @@ namespace IntegradorFlexForce.Services
                     transaccion.DuracionSegundos = (decimal)swTotal.Elapsed.TotalSeconds;
                     transaccion.Estado = "EXITOSO";
                     await RegistrarFinLoteAsync(transaccion, ct);
+                    await RegistrarLogAsync(loteId, transaccion.Entidad, "INFO", null, null,
+                        $"Ciclo Productos verificado al día sin diferencias ({transaccion.TotalEscaneados:N0} registros escaneados en {Math.Round(swTotal.Elapsed.TotalSeconds, 2)}s).", null, ct);
 
                     _currentStatus.UltimaEjecucion = DateTime.Now;
                     _currentStatus.UltimoLoteProcesados = 0;

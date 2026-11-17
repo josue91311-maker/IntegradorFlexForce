@@ -1005,6 +1005,8 @@ END;";
                     transaccion.DuracionSegundos = (decimal)swTotal.Elapsed.TotalSeconds;
                     transaccion.Estado = "EXITOSO";
                     await RegistrarFinLoteAsync(transaccion, ct);
+                    await RegistrarLogAsync(loteId, "VENDEDORES", "INFO", null, null,
+                        $"Ciclo Vendedores verificado al día sin diferencias ({transaccion.TotalEscaneados:N0} registros escaneados en {Math.Round(swTotal.Elapsed.TotalSeconds, 2)}s).", null, ct);
 
                     _currentStatus.UltimaEjecucion = DateTime.Now;
                     _currentStatus.UltimoLoteProcesados = 0;
@@ -1341,6 +1343,8 @@ END;";
                 transaccion.DuracionSegundos = (decimal)swTotal.Elapsed.TotalSeconds;
                 transaccion.Estado = erroresCount > 0 ? "CON_ERRORES" : "EXITOSO";
                 await RegistrarFinLoteAsync(transaccion, ct);
+                await RegistrarLogAsync(loteId, "VENDEDORES", erroresCount > 0 ? "WARN" : "INFO", null, null,
+                    $"Ciclo Vendedores finalizado en {Math.Round(swTotal.Elapsed.TotalSeconds, 2)}s: {procesados} registros procesados, {erroresCount} errores.", null, ct);
 
                 _currentStatus.UltimaEjecucion = DateTime.Now;
                 _currentStatus.UltimoLoteProcesados = procesados;

@@ -1358,6 +1358,8 @@ namespace IntegradorFlexForce.Services
                     transaccion.Estado = "EXITOSO";
 
                     await RegistrarFinLoteAsync(transaccion, ct);
+                    await RegistrarLogAsync(loteId, "CLIENTES", "INFO", null, null,
+                        $"Ciclo Clientes verificado al día sin diferencias ({transaccion.TotalEscaneados:N0} registros escaneados en {Math.Round(swTotal.Elapsed.TotalSeconds, 2)}s).", null, ct);
 
                     _currentStatus.UltimaEjecucion = DateTime.Now;
                     _currentStatus.UltimoLoteProcesados = 0;
@@ -1465,6 +1467,8 @@ namespace IntegradorFlexForce.Services
                 transaccion.Estado = erroresCount > 0 ? "CON_ERRORES" : "EXITOSO";
 
                 await RegistrarFinLoteAsync(transaccion, ct);
+                await RegistrarLogAsync(loteId, "CLIENTES", erroresCount > 0 ? "WARN" : "INFO", null, null,
+                    $"Ciclo Clientes finalizado en {Math.Round(swTotal.Elapsed.TotalSeconds, 2)}s: {transaccion.TotalNuevos} nuevos, {transaccion.TotalModificados} modificados, {zonasActualizadas} zonas, {creditosActualizados} créditos, {erroresCount} errores.", null, ct);
 
                 _currentStatus.UltimaEjecucion = DateTime.Now;
                 _currentStatus.UltimoLoteProcesados = idsPendientes.Count + zonasActualizadas + creditosActualizados;
@@ -1541,6 +1545,8 @@ namespace IntegradorFlexForce.Services
                 transaccion.Estado = errores > 0 ? "CON_ERRORES" : "EXITOSO";
 
                 await RegistrarFinLoteAsync(transaccion, ct);
+                await RegistrarLogAsync(loteId, "CLIENTES", erroresCount > 0 ? "WARN" : "INFO", null, null,
+                    $"Ciclo Clientes finalizado en {Math.Round(swTotal.Elapsed.TotalSeconds, 2)}s: {transaccion.TotalNuevos} nuevos, {transaccion.TotalModificados} modificados, {zonasActualizadas} zonas, {creditosActualizados} créditos, {erroresCount} errores.", null, ct);
 
                 _currentStatus.UltimaEjecucion = DateTime.Now;
                 _currentStatus.UltimoLoteZonasActualizadas = cambios;
@@ -2990,8 +2996,8 @@ namespace IntegradorFlexForce.Services
                             ELSE UPPER(Entidad)
                         END AS ModuloNorm,
                         COUNT(*) AS Ejecuciones,
-                        SUM(CASE WHEN Estado IN ('COMPLETADO', 'EXITO') AND TotalErrores = 0 THEN 1 ELSE 0 END) AS ExitosLimpios,
-                        SUM(CASE WHEN Estado IN ('ERROR', 'CON_ERRORES', 'FALLIDO') OR TotalErrores > 0 THEN 1 ELSE 0 END) AS ConErrores,
+                        SUM(CASE WHEN UPPER(LTRIM(RTRIM(Estado))) IN ('EXITOSO', 'COMPLETADO', 'EXITO') AND TotalErrores = 0 THEN 1 ELSE 0 END) AS ExitosLimpios,
+                        SUM(CASE WHEN UPPER(LTRIM(RTRIM(Estado))) IN ('ERROR', 'CON_ERRORES', 'FALLIDO', 'FATAL') OR TotalErrores > 0 THEN 1 ELSE 0 END) AS ConErrores,
                         SUM(ISNULL(TotalNuevos, 0) + ISNULL(TotalModificados, 0)) AS Registros,
                         AVG(CAST(ISNULL(DuracionSegundos, 0) AS float)) AS PromDuracion
                     FROM dbo.sync_TransaccionLote WITH (NOLOCK)
@@ -3097,7 +3103,7 @@ namespace IntegradorFlexForce.Services
                             string estBd = r.GetString(9);
                             if (modObj.UltimoResultado == "SIN_DATOS")
                                 modObj.UltimoResultado = estBd;
-                            if (!modObj.UltimoExito.HasValue && estBd == "COMPLETADO")
+                            if (!modObj.UltimoExito.HasValue && (estBd == "EXITOSO" || estBd == "COMPLETADO" || estBd == "EXITO"))
                                 modObj.UltimoExito = fFin ?? fIni;
                         }
                     }
@@ -3117,8 +3123,8 @@ namespace IntegradorFlexForce.Services
                 const string sqlHoras = @"
                     SELECT 
                         DATEPART(HOUR, FechaInicio) AS Hora,
-                        SUM(CASE WHEN Estado IN ('COMPLETADO', 'EXITO') AND TotalErrores = 0 THEN 1 ELSE 0 END) AS Exitos,
-                        SUM(CASE WHEN Estado IN ('ERROR', 'CON_ERRORES', 'FALLIDO') OR TotalErrores > 0 THEN 1 ELSE 0 END) AS Errores,
+                        SUM(CASE WHEN UPPER(LTRIM(RTRIM(Estado))) IN ('EXITOSO', 'COMPLETADO', 'EXITO') AND TotalErrores = 0 THEN 1 ELSE 0 END) AS Exitos,
+                        SUM(CASE WHEN UPPER(LTRIM(RTRIM(Estado))) IN ('ERROR', 'CON_ERRORES', 'FALLIDO', 'FATAL') OR TotalErrores > 0 THEN 1 ELSE 0 END) AS Errores,
                         SUM(ISNULL(TotalNuevos, 0) + ISNULL(TotalModificados, 0)) AS Registros
                     FROM dbo.sync_TransaccionLote WITH (NOLOCK)
                     WHERE CAST(FechaInicio AS date) = CAST(GETDATE() AS date)
