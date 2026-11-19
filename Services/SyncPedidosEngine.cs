@@ -895,7 +895,6 @@ namespace IntegradorFlexForce.Services
                                     SET Estado = 'ANULADO',
                                         IDCpVenta = NULL,
                                         FechaModificacion = GETDATE(),
-                                        MotivoEliminacion = 'Anulado en ERP Antiguo',
                                         DetalleAdicional = ISNULL(DetalleAdicional, '') + ' | [ANULADO EN ERP ANTIGUO]'
                                     WHERE ID = @IDPedidoForce;";
 

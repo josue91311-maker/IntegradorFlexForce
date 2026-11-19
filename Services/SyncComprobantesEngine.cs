@@ -103,6 +103,17 @@ namespace IntegradorFlexForce.Services
                 else if (filtro.TipoDocumento == "BOLETAS")
                     filtroTipoDoc = "AND tcp.IDTipoComprobantePago = 4";
 
+                // Verificar dinámicamente si dbo.Cp en digalimenta41 tiene columna Observacion para evitar errores de esquema
+                bool tieneObservacionCp = false;
+                using (var cmdCol = new SqlCommand("SELECT CASE WHEN COL_LENGTH('dbo.Cp', 'Observacion') IS NOT NULL THEN 1 ELSE 0 END;", connAntiguo))
+                {
+                    var resCol = await cmdCol.ExecuteScalarAsync(ct);
+                    tieneObservacionCp = Convert.ToInt32(resCol) == 1;
+                }
+                string exprMotivoOrigen = tieneObservacionCp
+                    ? "LTRIM(RTRIM(ISNULL(CAST(cp.Observacion AS nvarchar(500)), '')))"
+                    : "''";
+
                 string sqlCabeceras = $@"
                     SELECT 
                         cp.PKID                                          AS IDCpOrigen,
@@ -145,7 +156,7 @@ namespace IntegradorFlexForce.Services
                         CAST(ISNULL(ccp.Saldo, 0) AS decimal(18,6))      AS SaldoPendiente,
                         ccp.FechaVencimiento                             AS FechaVencimiento,
                         ccp.FechaProgramacionPago                        AS FechaProgramacionPago,
-                        ISNULL(ccp.MotivoEliminacion, '')                AS MotivoEliminacion
+                        {exprMotivoOrigen}                               AS MotivoEliminacion
                     FROM dbo.Cp cp WITH (NOLOCK)
                     INNER JOIN dbo.CpVenta cpv WITH (NOLOCK) ON cpv.PKID = cp.PKID
                     INNER JOIN dbo.TipoCp tcp WITH (NOLOCK) ON tcp.PKID = cp.IDTipoCp
@@ -861,7 +872,6 @@ namespace IntegradorFlexForce.Services
                                 const string sqlAnulCp = @"
                                     UPDATE dbo.Cp
                                     SET Anulado = 1,
-                                        HoraAnulacion = GETDATE(),
                                         Observacion = ISNULL(Observacion, '') + ' [ANULADO: ' + @Motivo + ']'
                                     WHERE ID = @IDCp;";
                                 using (var cmdAnul = new SqlCommand(sqlAnulCp, connForce, tx))
@@ -955,9 +965,7 @@ namespace IntegradorFlexForce.Services
                                             UPDATE dbo.cob_DeudaCliente
                                             SET Saldo = @Saldo,
                                                 Estado = @Estado,
-                                                IDPedido = ISNULL(@IDPedido, IDPedido),
-                                                FechaModificacion = GETDATE(),
-                                                UsuarioModificador = 'INTEGRADOR'
+                                                IDPedido = ISNULL(@IDPedido, IDPedido)
                                             WHERE IDCpVenta = @IDCpVenta AND Eliminado = 0;
                                         END
                                         ELSE IF @Saldo > 0
@@ -1365,7 +1373,6 @@ namespace IntegradorFlexForce.Services
                         BEGIN
                             UPDATE dbo.Cp
                             SET Anulado = 1,
-                                HoraAnulacion = GETDATE(),
                                 Observacion = ISNULL(Observacion, '') + ' [ANULADO Y REEMPLAZADO POR ' + @NumCpNuevo + ']'
                             WHERE ID = @IDCpAnulado;
 
