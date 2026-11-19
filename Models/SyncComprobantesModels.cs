@@ -114,11 +114,20 @@ namespace IntegradorFlexForce.Models
         // Validaciones Force
         public bool YaExisteEnForce { get; set; }
         public int? IDCpForceExistente { get; set; }
+        public bool ForceAnulado { get; set; }
+        public decimal? ForceTotal { get; set; }
+        public decimal? ForceSaldoDeuda { get; set; }
+        public string ForceEstadoDeuda { get; set; } = string.Empty;
+        public int? IDDeudaForce { get; set; }
+
+        // Operación Sincronizada: "INSERT", "UPDATE_DEUDA", "ANULAR", "SIN_CAMBIOS"
+        public string TipoOperacion { get; set; } = "INSERT";
+        public string MotivoAnulacion { get; set; } = string.Empty;
 
         // Diagnóstico / Semáforo
         public string Semaforo { get; set; } = "VERDE"; // VERDE, AZUL, AMBAR, ROJO
         public string ObservacionValidacion { get; set; } = string.Empty;
-        public bool ListoParaSubir => Semaforo == "VERDE" || Semaforo == "AMBAR";
+        public bool ListoParaSubir => (Semaforo == "VERDE" || Semaforo == "AMBAR") && TipoOperacion != "SIN_CAMBIOS";
 
         public List<ComprobanteItemAlineadoDto> Items { get; set; } = new();
     }
@@ -128,6 +137,9 @@ namespace IntegradorFlexForce.Models
         public double TiempoSegundos { get; set; }
         public int TotalEncontrados { get; set; }
         public int ListosParaSubir { get; set; }
+        public int NuevosAInsertar { get; set; }
+        public int DeudasAActualizar { get; set; }
+        public int AnulacionesPendientes { get; set; }
         public int YaExistenEnForce { get; set; }
         public int SinPedidoEnlazado { get; set; }
         public int ObservadosConError { get; set; }
@@ -161,6 +173,8 @@ namespace IntegradorFlexForce.Models
         public int ProgresoActual { get; set; }
         public int ProgresoTotal { get; set; }
         public int TotalSubidos { get; set; }
+        public int TotalActualizados { get; set; }
+        public int TotalAnulados { get; set; }
         public int TotalDeudasGeneradas { get; set; }
         public int TotalOmitidos { get; set; }
         public int TotalErrores { get; set; }

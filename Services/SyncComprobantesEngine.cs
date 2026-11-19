@@ -144,7 +144,8 @@ namespace IntegradorFlexForce.Services
                         CAST(CASE WHEN ISNULL(ccp.Credito, 0) = 1 OR ISNULL(cpv.OmitirPoliticasCredito, 0) = 1 THEN 1 ELSE 0 END AS bit) AS EsCredito,
                         CAST(ISNULL(ccp.Saldo, 0) AS decimal(18,6))      AS SaldoPendiente,
                         ccp.FechaVencimiento                             AS FechaVencimiento,
-                        ccp.FechaProgramacionPago                        AS FechaProgramacionPago
+                        ccp.FechaProgramacionPago                        AS FechaProgramacionPago,
+                        ISNULL(ccp.MotivoEliminacion, '')                AS MotivoEliminacion
                     FROM dbo.Cp cp WITH (NOLOCK)
                     INNER JOIN dbo.CpVenta cpv WITH (NOLOCK) ON cpv.PKID = cp.PKID
                     INNER JOIN dbo.TipoCp tcp WITH (NOLOCK) ON tcp.PKID = cp.IDTipoCp
@@ -212,7 +213,8 @@ namespace IntegradorFlexForce.Services
                             EsCredito = r.GetBoolean(36),
                             SaldoPendiente = r.GetDecimal(37),
                             FechaVencimiento = r.IsDBNull(38) ? null : r.GetDateTime(38),
-                            FechaProgramacionPago = r.IsDBNull(39) ? null : r.GetDateTime(39)
+                            FechaProgramacionPago = r.IsDBNull(39) ? null : r.GetDateTime(39),
+                            MotivoAnulacion = r.IsDBNull(40) ? "" : r.GetString(40)
                         };
 
                         comprobantes.Add(dto);
@@ -301,7 +303,7 @@ namespace IntegradorFlexForce.Services
             var tipoCpVentasBySerie = new Dictionary<string, (int ID, int Correlativo, int IDComprobanteTipo)>(StringComparer.OrdinalIgnoreCase);
             var pedidosForcePorOrigen = new Dictionary<int, (int IDForce, string NumeroForce, int? IDCpVenta, string EstadoForce, int? IDCatalogo, int? IDModalidadCredito)>();
             var pedidosForcePorNumero = new Dictionary<string, (int IDForce, string NumeroForce, int? IDCpVenta, string EstadoForce, int? IDCatalogo, int? IDModalidadCredito)>(StringComparer.OrdinalIgnoreCase);
-            var comprobantesForcePorNum = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var comprobantesForceInfo = new Dictionary<string, (int IDForce, bool Anulado, decimal Total, int? IDDeuda, decimal? SaldoDeuda, string EstadoDeuda)>(StringComparer.OrdinalIgnoreCase);
 
             using (var connForce = new SqlConnection(_connectionStringForce))
             {
@@ -382,15 +384,37 @@ namespace IntegradorFlexForce.Services
                     }
                 }
 
-                // Comprobantes existentes en Force para evitar duplicados
-                using (var cmd = new SqlCommand("SELECT ID, NumCp FROM dbo.Cp WITH (NOLOCK) WHERE Eliminado = 0 AND NumCp IS NOT NULL;", connForce))
+                // Comprobantes existentes en Force con estado de anulación y deuda
+                const string sqlForceCp = @"
+                    SELECT 
+                        cp.ID, 
+                        cp.NumCp, 
+                        CAST(ISNULL(cp.Anulado, 0) AS bit) AS Anulado, 
+                        CAST(ISNULL(cp.Total, 0) AS decimal(18,6)) AS Total,
+                        d.ID AS IDDeuda,
+                        CAST(ISNULL(d.Saldo, 0) AS decimal(18,6)) AS SaldoDeuda,
+                        ISNULL(d.Estado, '') AS EstadoDeuda
+                    FROM dbo.Cp cp WITH (NOLOCK)
+                    LEFT JOIN dbo.cob_DeudaCliente d WITH (NOLOCK) ON d.IDCpVenta = cp.ID AND d.Eliminado = 0
+                    WHERE cp.Eliminado = 0 AND cp.NumCp IS NOT NULL;";
+
+                using (var cmd = new SqlCommand(sqlForceCp, connForce))
                 using (var r = await cmd.ExecuteReaderAsync(ct))
                 {
                     while (await r.ReadAsync(ct))
                     {
                         string numCp = r.GetString(1).Trim();
-                        if (!string.IsNullOrEmpty(numCp) && !comprobantesForcePorNum.ContainsKey(numCp))
-                            comprobantesForcePorNum[numCp] = r.GetInt32(0);
+                        if (!string.IsNullOrEmpty(numCp) && !comprobantesForceInfo.ContainsKey(numCp))
+                        {
+                            comprobantesForceInfo[numCp] = (
+                                IDForce: r.GetInt32(0),
+                                Anulado: r.GetBoolean(2),
+                                Total: r.GetDecimal(3),
+                                IDDeuda: r.IsDBNull(4) ? null : r.GetInt32(4),
+                                SaldoDeuda: r.IsDBNull(5) ? null : r.GetDecimal(5),
+                                EstadoDeuda: r.IsDBNull(6) ? "" : r.GetString(6)
+                            );
+                        }
                     }
                 }
             }
@@ -419,10 +443,15 @@ namespace IntegradorFlexForce.Services
                 var advertencias = new List<string>();
 
                 // A. Ya existe en Force
-                if (comprobantesForcePorNum.TryGetValue(c.NumCp, out int idCpExistente))
+                if (comprobantesForceInfo.TryGetValue(c.NumCp, out var forceInfo))
                 {
                     c.YaExisteEnForce = true;
-                    c.IDCpForceExistente = idCpExistente;
+                    c.IDCpForceExistente = forceInfo.IDForce;
+                    c.ForceAnulado = forceInfo.Anulado;
+                    c.ForceTotal = forceInfo.Total;
+                    c.IDDeudaForce = forceInfo.IDDeuda;
+                    c.ForceSaldoDeuda = forceInfo.SaldoDeuda;
+                    c.ForceEstadoDeuda = forceInfo.EstadoDeuda;
                 }
 
                 // B. Cliente
@@ -508,27 +537,89 @@ namespace IntegradorFlexForce.Services
                         advertencias.Add($"Unidad #{it.IDUnidadOrigen} ({it.UnidadAbrev}) de '{it.CodigoProducto}' sin IDExtra en prd_ProductoUnidad");
                 }
 
-                // H. Semáforo
+                // H. Semáforo y Determinación de Operación (INSERT, UPDATE_DEUDA, ANULAR, SIN_CAMBIOS)
                 if (c.YaExisteEnForce)
                 {
-                    c.Semaforo = "AZUL";
-                    c.ObservacionValidacion = $"ℹ Ya existe en Force (Cp ID: {c.IDCpForceExistente}). Se omitirá para no duplicar.";
-                }
-                else if (errores.Count > 0)
-                {
-                    c.Semaforo = "ROJO";
-                    c.ObservacionValidacion = "✕ " + string.Join(" | ", errores.Distinct());
-                }
-                else if (advertencias.Count > 0)
-                {
-                    c.Semaforo = "AMBAR";
-                    c.ObservacionValidacion = "⚠ Listo (Obs: " + string.Join("; ", advertencias.Distinct()) + ")";
+                    if (c.AnuladoOrigen)
+                    {
+                        if (!c.ForceAnulado)
+                        {
+                            c.TipoOperacion = "ANULAR";
+                            c.Semaforo = "AMBAR";
+                            string mot = !string.IsNullOrWhiteSpace(c.MotivoAnulacion) ? $" (Motivo: {c.MotivoAnulacion})" : "";
+                            c.ObservacionValidacion = $"⚠ Anulado en ERP Antiguo{mot}. Listo para marcar Anulado=1 y anular deuda en Force.";
+                        }
+                        else
+                        {
+                            c.TipoOperacion = "SIN_CAMBIOS";
+                            c.Semaforo = "AZUL";
+                            c.ObservacionValidacion = $"ℹ Ya está anulado en Force (Cp ID: {c.IDCpForceExistente}). Al día.";
+                        }
+                    }
+                    else
+                    {
+                        // En origen NO está anulado. ¿Cambió el saldo de la deuda o se cobró?
+                        if (c.EsCredito)
+                        {
+                            decimal saldoOrigen = c.SaldoPendiente;
+                            decimal saldoForce = c.ForceSaldoDeuda ?? 0;
+
+                            if (c.IDDeudaForce == null && saldoOrigen > 0)
+                            {
+                                c.TipoOperacion = "UPDATE_DEUDA";
+                                c.Semaforo = "VERDE";
+                                c.ObservacionValidacion = $"✓ Deuda pendiente no registrada en Force. Listo para registrar deuda S/ {saldoOrigen:N2}.";
+                            }
+                            else if (c.IDDeudaForce != null && Math.Abs(saldoForce - saldoOrigen) > 0.01m)
+                            {
+                                c.TipoOperacion = "UPDATE_DEUDA";
+                                c.Semaforo = "VERDE";
+                                string estadoCobranza = saldoOrigen <= 0 ? "CANCELADO" : (saldoOrigen < c.Total ? "PARCIAL" : "PENDIENTE");
+                                c.ObservacionValidacion = $"✓ Cobranza en ERP Antiguo: Saldo Force S/ {saldoForce:N2} -> Nuevo Saldo S/ {saldoOrigen:N2} [{estadoCobranza}].";
+                            }
+                            else
+                            {
+                                c.TipoOperacion = "SIN_CAMBIOS";
+                                c.Semaforo = "AZUL";
+                                c.ObservacionValidacion = $"ℹ Ya existe en Force (Cp ID: {c.IDCpForceExistente}) con deuda al día (Saldo S/ {saldoForce:N2}).";
+                            }
+                        }
+                        else
+                        {
+                            c.TipoOperacion = "SIN_CAMBIOS";
+                            c.Semaforo = "AZUL";
+                            c.ObservacionValidacion = $"ℹ Ya existe en Force (Cp ID: {c.IDCpForceExistente}, Contado). Al día.";
+                        }
+                    }
                 }
                 else
                 {
-                    c.Semaforo = "VERDE";
-                    string multiTag = c.EsMulticomprobante ? $" [Comp {c.ComprobanteNumeroOrden}/{c.TotalComprobantesDelPedido}]" : "";
-                    c.ObservacionValidacion = $"✓ 100% Alineado — Enlazado a Pedido Force #{c.IDPedidoForce} (FACTURADO){multiTag}";
+                    if (c.AnuladoOrigen)
+                    {
+                        c.TipoOperacion = "SIN_CAMBIOS";
+                        c.Semaforo = "AZUL";
+                        c.ObservacionValidacion = "ℹ Comprobante anulado en origen que nunca subió a Force. Se omite.";
+                    }
+                    else
+                    {
+                        c.TipoOperacion = "INSERT";
+                        if (errores.Count > 0)
+                        {
+                            c.Semaforo = "ROJO";
+                            c.ObservacionValidacion = "✕ " + string.Join(" | ", errores.Distinct());
+                        }
+                        else if (advertencias.Count > 0)
+                        {
+                            c.Semaforo = "AMBAR";
+                            c.ObservacionValidacion = "⚠ Listo (Obs: " + string.Join("; ", advertencias.Distinct()) + ")";
+                        }
+                        else
+                        {
+                            c.Semaforo = "VERDE";
+                            string multiTag = c.EsMulticomprobante ? $" [Comp {c.ComprobanteNumeroOrden}/{c.TotalComprobantesDelPedido}]" : "";
+                            c.ObservacionValidacion = $"✓ 100% Alineado — Enlazado a Pedido Force #{c.IDPedidoForce} (FACTURADO){multiTag}";
+                        }
+                    }
                 }
             }
 
@@ -546,6 +637,9 @@ namespace IntegradorFlexForce.Services
             response.TiempoSegundos = Math.Round(sw.Elapsed.TotalSeconds, 2);
             response.TotalEncontrados = comprobantes.Count;
             response.ListosParaSubir = comprobantes.Count(x => x.ListoParaSubir);
+            response.NuevosAInsertar = comprobantes.Count(x => x.TipoOperacion == "INSERT" && x.ListoParaSubir);
+            response.DeudasAActualizar = comprobantes.Count(x => x.TipoOperacion == "UPDATE_DEUDA" && x.ListoParaSubir);
+            response.AnulacionesPendientes = comprobantes.Count(x => x.TipoOperacion == "ANULAR" && x.ListoParaSubir);
             response.YaExistenEnForce = comprobantes.Count(x => x.YaExisteEnForce);
             response.SinPedidoEnlazado = comprobantes.Count(x => !x.YaExisteEnForce && !x.IDPedidoForce.HasValue);
             response.ObservadosConError = comprobantes.Count(x => !x.YaExisteEnForce && x.Semaforo == "ROJO");
@@ -581,6 +675,8 @@ namespace IntegradorFlexForce.Services
                 _status.ProgresoActual = 0;
                 _status.ProgresoTotal = comprobantesASubir.Count;
                 _status.TotalSubidos = 0;
+                _status.TotalActualizados = 0;
+                _status.TotalAnulados = 0;
                 _status.TotalDeudasGeneradas = 0;
                 _status.TotalOmitidos = 0;
                 _status.TotalErrores = 0;
@@ -619,10 +715,10 @@ namespace IntegradorFlexForce.Services
                         _status.ProgresoActual++;
                         _status.FaseDetalle = $"Procesando comprobante {c.NumCp} ({_status.ProgresoActual}/{_status.ProgresoTotal})...";
 
-                        if (c.YaExisteEnForce)
+                        if (c.TipoOperacion == "SIN_CAMBIOS")
                         {
                             _status.TotalOmitidos++;
-                            AgregarEvento(c.IDCpOrigen, c.NumCp, "WARN", $"Omitido: Ya existe en Force (Cp ID: {c.IDCpForceExistente}).");
+                            AgregarEvento(c.IDCpOrigen, c.NumCp, "INFO", $"Omitido: Ya existe en Force y se encuentra al día (Cp ID: {c.IDCpForceExistente}).");
                             continue;
                         }
 
@@ -636,213 +732,78 @@ namespace IntegradorFlexForce.Services
                         using var tx = connForce.BeginTransaction();
                         try
                         {
-                            // 1. Auto-provisionar TipoCpVentas si la serie no existe aún
-                            int idTipoCpFinal;
-                            if (c.IDTipoCpVentaForce.HasValue && c.IDTipoCpVentaForce.Value > 0)
+                            // ESCENARIO 1: ANULACIÓN DE COMPROBANTE EN FORCE Y CANCELACIÓN DE SU DEUDA
+                            if (c.TipoOperacion == "ANULAR")
                             {
-                                idTipoCpFinal = c.IDTipoCpVentaForce.Value;
-                            }
-                            else
-                            {
-                                const string sqlEnsureTipo = @"
-                                    DECLARE @IDExistente int;
-                                    SELECT @IDExistente = ID FROM dbo.TipoCpVentas WITH (UPDLOCK, ROWLOCK) WHERE Serie = @Serie;
+                                int idCp = c.IDCpForceExistente!.Value;
+                                string mot = !string.IsNullOrWhiteSpace(c.MotivoAnulacion) ? c.MotivoAnulacion : "Anulado en ERP Antiguo";
 
-                                    IF @IDExistente IS NOT NULL
-                                    BEGIN
-                                        SELECT @IDExistente;
-                                    END
-                                    ELSE
-                                    BEGIN
-                                        INSERT INTO dbo.TipoCpVentas (
-                                            Codigo, Descripcion, Abreviacion, Numero, Serie, LongitudNumero, LongitudSerie,
-                                            NumeracionAutomatica, MaximoNumeroItems, PeriodoAnulacion, PermitirFechasFuturas, PermitirFechasPasadas,
-                                            Activo, RequiereCliente, RestringirAlmacen, FueraDeRuta, AplicaDistribucion, AplicaRedondeo,
-                                            MontoMinimo, NumeroPrecisionRedondeo, FechaCreacion, IDComprobanteTipo, IDImpuesto,
-                                            TieneImpuesto, PreciosIncluyenImpuesto
-                                        ) VALUES (
-                                            @Codigo, @Descripcion, @Abreviacion, @Numero, @Serie, 8, 4,
-                                            0, 500, 7, 0, 1,
-                                            1, 1, 0, 0, 1, 1,
-                                            0.00, 2, GETDATE(), @IDComprobanteTipo, 1,
-                                            1, 1
-                                        );
-                                        SELECT CAST(SCOPE_IDENTITY() AS int);
-                                    END";
-
-                                bool esFactura = c.IDTipoComprobantePagoOrigen == 1;
-                                using (var cmdTipo = new SqlCommand(sqlEnsureTipo, connForce, tx))
+                                const string sqlAnulCp = @"
+                                    UPDATE dbo.Cp
+                                    SET Anulado = 1,
+                                        Observacion = ISNULL(Observacion, '') + ' [ANULADO: ' + @Motivo + ']'
+                                    WHERE ID = @IDCp;";
+                                using (var cmdAnul = new SqlCommand(sqlAnulCp, connForce, tx))
                                 {
-                                    cmdTipo.Parameters.AddWithValue("@Serie", c.SerieOrigen);
-                                    cmdTipo.Parameters.AddWithValue("@Codigo", $"{(esFactura ? "FACTURA" : "BOLETA")}-{c.SerieOrigen}");
-                                    cmdTipo.Parameters.AddWithValue("@Descripcion", $"{(esFactura ? "Factura Electrónica" : "Boleta Electrónica")} {c.SerieOrigen}");
-                                    cmdTipo.Parameters.AddWithValue("@Abreviacion", esFactura ? "FAC" : "BOL");
-                                    cmdTipo.Parameters.AddWithValue("@Numero", c.CorrelativoOrigen);
-                                    cmdTipo.Parameters.AddWithValue("@IDComprobanteTipo", esFactura ? 1 : 2);
-
-                                    idTipoCpFinal = (int)(await cmdTipo.ExecuteScalarAsync(ct))!;
+                                    cmdAnul.Parameters.AddWithValue("@IDCp", idCp);
+                                    cmdAnul.Parameters.AddWithValue("@Motivo", mot);
+                                    await cmdAnul.ExecuteNonQueryAsync(ct);
                                 }
+
+                                const string sqlAnulIt = @"
+                                    UPDATE dbo.ItemCp
+                                    SET Anulado = 1
+                                    WHERE IDCp = @IDCp;";
+                                using (var cmdAnulIt = new SqlCommand(sqlAnulIt, connForce, tx))
+                                {
+                                    cmdAnulIt.Parameters.AddWithValue("@IDCp", idCp);
+                                    await cmdAnulIt.ExecuteNonQueryAsync(ct);
+                                }
+
+                                const string sqlAnulDeuda = @"
+                                    UPDATE dbo.cob_DeudaCliente
+                                    SET Eliminado = 1,
+                                        Estado = 'ANULADO',
+                                        FechaEliminacion = GETDATE(),
+                                        MotivoEliminacion = @Motivo,
+                                        UsuarioEliminacion = 0
+                                    WHERE IDCpVenta = @IDCp;";
+                                using (var cmdAnulDeuda = new SqlCommand(sqlAnulDeuda, connForce, tx))
+                                {
+                                    cmdAnulDeuda.Parameters.AddWithValue("@IDCp", idCp);
+                                    cmdAnulDeuda.Parameters.AddWithValue("@Motivo", mot);
+                                    await cmdAnulDeuda.ExecuteNonQueryAsync(ct);
+                                }
+
+                                await tx.CommitAsync(ct);
+                                _status.TotalAnulados++;
+                                c.ForceAnulado = true;
+                                c.Semaforo = "AZUL";
+                                c.TipoOperacion = "SIN_CAMBIOS";
+                                c.ObservacionValidacion = $"✓ Anulado exitosamente en Force (Cp #{idCp}). Deuda cancelada.";
+                                AgregarEvento(c.IDCpOrigen, c.NumCp, "WARN", $"⚠ Anulado en Force (Cp #{idCp}) | Motivo: {mot} | Deuda cancelada.");
                             }
-
-                            // 2. Insertar Cabecera en dbo.Cp
-                            const string sqlInsertCp = @"
-                                INSERT INTO dbo.Cp (
-                                    IDTipoCp, NumCp, NumCpContable, IDPedido, IDCliente, IDVendedor, IDSucursal, IDMoneda,
-                                    Fecha, FechaEmision, Hora, Total, SubTotal, ValorVenta, ValorAfecto, ValorInafecto, ValorExonerado, ValorDescuento,
-                                    TieneImpuesto, IDImpuesto, PreciosIncImpto, EsCredito, Anulado, Observacion, Eliminado
-                                ) VALUES (
-                                    @IDTipoCp, @NumCp, @NumCpContable, @IDPedido, @IDCliente, @IDVendedor, @IDSucursal, 1,
-                                    @Fecha, @FechaEmision, @Hora, @Total, @SubTotal, @ValorVenta, @ValorAfecto, @ValorInafecto, @ValorExonerado, @ValorDescuento,
-                                    @TieneImpuesto, 1, @PreciosIncImpto, @EsCredito, @Anulado, @Observacion, 0
-                                );
-                                SELECT CAST(SCOPE_IDENTITY() AS int);";
-
-                            int nuevoIdCp;
-                            using (var cmdCp = new SqlCommand(sqlInsertCp, connForce, tx))
+                            // ESCENARIO 2: ACTUALIZACIÓN DE SALDO DE DEUDA Y ESTADO DE COBRANZA
+                            else if (c.TipoOperacion == "UPDATE_DEUDA")
                             {
-                                cmdCp.Parameters.AddWithValue("@IDTipoCp", idTipoCpFinal);
-                                cmdCp.Parameters.AddWithValue("@NumCp", c.NumCp);
-                                cmdCp.Parameters.AddWithValue("@NumCpContable", string.IsNullOrEmpty(c.NumCpContable) ? (object)DBNull.Value : c.NumCpContable);
-                                cmdCp.Parameters.AddWithValue("@IDPedido", (object?)c.IDPedidoForce ?? DBNull.Value);
-                                cmdCp.Parameters.AddWithValue("@IDCliente", c.IDClienteForce!.Value);
-                                cmdCp.Parameters.AddWithValue("@IDVendedor", c.IDVendedorForce!.Value);
-                                cmdCp.Parameters.AddWithValue("@IDSucursal", c.IDSucursalForce ?? 5);
-                                cmdCp.Parameters.AddWithValue("@Fecha", c.Fecha);
-                                cmdCp.Parameters.AddWithValue("@FechaEmision", c.FechaEmision);
-                                cmdCp.Parameters.AddWithValue("@Hora", c.Hora);
-                                cmdCp.Parameters.AddWithValue("@Total", c.Total);
-                                cmdCp.Parameters.AddWithValue("@SubTotal", c.SubTotal);
-                                cmdCp.Parameters.AddWithValue("@ValorVenta", c.ValorVenta);
-                                cmdCp.Parameters.AddWithValue("@ValorAfecto", c.ValorAfecto);
-                                cmdCp.Parameters.AddWithValue("@ValorInafecto", c.ValorInafecto);
-                                cmdCp.Parameters.AddWithValue("@ValorExonerado", c.ValorExonerado);
-                                cmdCp.Parameters.AddWithValue("@ValorDescuento", c.ValorDescuento);
-                                cmdCp.Parameters.AddWithValue("@TieneImpuesto", c.TieneImpuesto);
-                                cmdCp.Parameters.AddWithValue("@PreciosIncImpto", c.PreciosIncImpto);
-                                cmdCp.Parameters.AddWithValue("@EsCredito", c.EsCredito);
-                                cmdCp.Parameters.AddWithValue("@Anulado", c.AnuladoOrigen);
-                                cmdCp.Parameters.AddWithValue("@Observacion", $"Migrado ERP Antiguo (PKID: {c.IDCpOrigen})");
+                                int idCp = c.IDCpForceExistente!.Value;
+                                decimal nuevoSaldo = Math.Max(0, Math.Min(c.SaldoPendiente, c.Total));
+                                string nuevoEstado = (nuevoSaldo <= 0) ? "CANCELADO" : (nuevoSaldo < c.Total ? "PARCIAL" : "PENDIENTE");
 
-                                nuevoIdCp = (int)(await cmdCp.ExecuteScalarAsync(ct))!;
-                            }
-
-                            // 3. Insertar Extensión en dbo.CpVenta
-                            const string sqlInsertCpVenta = @"
-                                INSERT INTO dbo.CpVenta (
-                                    ID, IDTipoOperacion, IDAlmacen, TipoCpInventario, EstadoEntrega, EstadoDevolucion,
-                                    EstadoEntregaDevolucion, EstadoDescuento, Direccion, DireccionEntrega, IDDireccionEntrega,
-                                    IDSUNATCatalogo51, DetraccionMN, PercepcionMN, AplicaDistribucion, OmitirPoliticasCredito
-                                ) VALUES (
-                                    @ID, 1, @IDAlmacen, 'Salida', @EstadoEntrega, 'PENDIENTE',
-                                    'PENDIENTE', 'PENDIENTE', @Direccion, @DireccionEntrega, NULL,
-                                    '6', 0, 0, 1, 0
-                                );";
-
-                            using (var cmdVenta = new SqlCommand(sqlInsertCpVenta, connForce, tx))
-                            {
-                                cmdVenta.Parameters.AddWithValue("@ID", nuevoIdCp);
-                                cmdVenta.Parameters.AddWithValue("@IDAlmacen", c.IDAlmacenForce ?? 169);
-                                cmdVenta.Parameters.AddWithValue("@EstadoEntrega", string.IsNullOrEmpty(c.EstadoEntrega) ? "PENDIENTE" : c.EstadoEntrega);
-                                cmdVenta.Parameters.AddWithValue("@Direccion", string.IsNullOrEmpty(c.DireccionFiscal) ? (object)DBNull.Value : c.DireccionFiscal);
-                                cmdVenta.Parameters.AddWithValue("@DireccionEntrega", string.IsNullOrEmpty(c.DireccionEntrega) ? (object)DBNull.Value : c.DireccionEntrega);
-
-                                await cmdVenta.ExecuteNonQueryAsync(ct);
-                            }
-
-                            // 4. Insertar Ítems en dbo.ItemCp (esquema real 192.168.2.93)
-                            const string sqlInsertItem = @"
-                                INSERT INTO dbo.ItemCp (
-                                    IDCp, Cantidad, IDProducto, IDUnidad, Factor, IDAlmacen, Descripcion,
-                                    Total, ValorUnitario, PorcentajeImpto, Inafecto, Bonificacion,
-                                    ValorAfecto, ValorVenta, SubTotal, ValorDescuento, ValorInafecto,
-                                    BonificacionManual, DescuentoPieCp, RecargoPieCp,
-                                    PorcentajePercepcion, MontoPercepcion, PorcentajeDetraccion, MontoDetraccion, ValorReferencialDetraccion,
-                                    Anulado, ValorExonerado, TotalAnticipo,
-                                    AplicaDescuentoConVale, EscalaPreferencial, DescuentoAplicado, DescuentoFijo,
-                                    IDDefinicionBonificacion, IDDefinicionDescuento, Amortizacion, IDSUNATCatalogo7, DescuentoRecargo
-                                ) VALUES (
-                                    @IDCp, @Cantidad, @IDProducto, @IDUnidad, @Factor, @IDAlmacen, @Descripcion,
-                                    @Total, @ValorUnitario, @PorcentajeImpto, @Inafecto, @Bonificacion,
-                                    @ValorAfecto, @ValorVenta, @SubTotal, @ValorDescuento, @ValorInafecto,
-                                    0, 0, 0,
-                                    0, 0, 0, 0, 0,
-                                    @Anulado, 0, 0,
-                                    0, 0, @DescuentoAplicado, 0,
-                                    NULL, NULL, 0, @IDSUNATCatalogo7, ''
-                                );";
-
-                            foreach (var it in c.Items)
-                            {
-                                if (!it.IDProductoForce.HasValue) continue;
-
-                                bool esInafecto = it.ValorInafecto > 0 && it.ValorAfecto == 0;
-                                int sunatCat7 = esInafecto ? 30 : 10;
-
-                                using var cmdIt = new SqlCommand(sqlInsertItem, connForce, tx);
-                                cmdIt.Parameters.AddWithValue("@IDCp", nuevoIdCp);
-                                cmdIt.Parameters.AddWithValue("@Cantidad", it.Cantidad);
-                                cmdIt.Parameters.AddWithValue("@IDProducto", it.IDProductoForce.Value);
-                                cmdIt.Parameters.AddWithValue("@IDUnidad", (object?)it.IDUnidadForce ?? DBNull.Value);
-                                cmdIt.Parameters.AddWithValue("@Factor", it.CantidadFactor);
-                                cmdIt.Parameters.AddWithValue("@IDAlmacen", c.IDAlmacenForce ?? 169);
-                                cmdIt.Parameters.AddWithValue("@Descripcion", it.DescripcionProducto ?? "");
-                                cmdIt.Parameters.AddWithValue("@Total", it.Total);
-                                cmdIt.Parameters.AddWithValue("@ValorUnitario", it.PrecioUnitario);
-                                cmdIt.Parameters.AddWithValue("@PorcentajeImpto", it.PorcentajeImpuesto);
-                                cmdIt.Parameters.AddWithValue("@Inafecto", esInafecto);
-                                cmdIt.Parameters.AddWithValue("@Bonificacion", it.EsBonificacion);
-                                cmdIt.Parameters.AddWithValue("@ValorAfecto", it.ValorAfecto);
-                                cmdIt.Parameters.AddWithValue("@ValorVenta", it.ValorVenta);
-                                cmdIt.Parameters.AddWithValue("@SubTotal", it.SubTotal);
-                                cmdIt.Parameters.AddWithValue("@ValorDescuento", it.ValorDescuento);
-                                cmdIt.Parameters.AddWithValue("@ValorInafecto", it.ValorInafecto);
-                                cmdIt.Parameters.AddWithValue("@Anulado", it.Anulado);
-                                cmdIt.Parameters.AddWithValue("@DescuentoAplicado", it.ValorDescuento);
-                                cmdIt.Parameters.AddWithValue("@IDSUNATCatalogo7", sunatCat7);
-
-                                await cmdIt.ExecuteNonQueryAsync(ct);
-                            }
-
-                            // 5. Enlace Bidireccional: Actualizar ped_Pedido.IDCpVenta
-                            // Regla 3.5: Guarda el primer comprobante del pedido; si ya tiene uno, se conserva el primero
-                            if (c.IDPedidoForce.HasValue && c.IDPedidoForce.Value > 0)
-                            {
-                                const string sqlUpdatePed = @"
-                                    UPDATE dbo.ped_Pedido
-                                    SET IDCpVenta = @IDCp,
-                                        Estado = 'FACTURADO'
-                                    WHERE ID = @IDPedido AND (IDCpVenta IS NULL OR IDCpVenta = 0);";
-
-                                using var cmdPed = new SqlCommand(sqlUpdatePed, connForce, tx);
-                                cmdPed.Parameters.AddWithValue("@IDCp", nuevoIdCp);
-                                cmdPed.Parameters.AddWithValue("@IDPedido", c.IDPedidoForce.Value);
-                                await cmdPed.ExecuteNonQueryAsync(ct);
-                            }
-
-                            // 6. Actualizar Correlativo en TipoCpVentas
-                            const string sqlUpdCorrelativo = @"
-                                UPDATE dbo.TipoCpVentas
-                                SET Numero = @Correlativo
-                                WHERE ID = @IDTipoCp AND ISNULL(Numero, 0) < @Correlativo;";
-
-                            using (var cmdCorr = new SqlCommand(sqlUpdCorrelativo, connForce, tx))
-                            {
-                                cmdCorr.Parameters.AddWithValue("@IDTipoCp", idTipoCpFinal);
-                                cmdCorr.Parameters.AddWithValue("@Correlativo", c.CorrelativoOrigen);
-                                await cmdCorr.ExecuteNonQueryAsync(ct);
-                            }
-
-                            // 7. Generar Deuda en dbo.cob_DeudaCliente si es a Crédito y tiene Saldo > 0
-                            bool deudaCreada = false;
-                            if (c.DebeGenerarDeuda)
-                            {
                                 DateTime fechaVenc = c.FechaVencimiento ?? c.FechaEmision;
                                 DateTime fechaProg = c.FechaProgramacionPago ?? fechaVenc;
-                                decimal saldoInsertar = Math.Min(c.SaldoPendiente, c.Total);
-                                string estadoDeuda = (saldoInsertar < c.Total) ? "PARCIAL" : "PENDIENTE";
 
-                                const string sqlInsertDeuda = @"
-                                    IF NOT EXISTS (SELECT 1 FROM dbo.cob_DeudaCliente WHERE IDCpVenta = @IDCpVenta AND Eliminado = 0)
+                                const string sqlUpdDeuda = @"
+                                    IF EXISTS (SELECT 1 FROM dbo.cob_DeudaCliente WHERE IDCpVenta = @IDCpVenta AND Eliminado = 0)
+                                    BEGIN
+                                        UPDATE dbo.cob_DeudaCliente
+                                        SET Saldo = @Saldo,
+                                            Estado = @Estado,
+                                            FechaModificacion = GETDATE(),
+                                            UsuarioModificador = 'INTEGRADOR'
+                                        WHERE IDCpVenta = @IDCpVenta AND Eliminado = 0;
+                                    END
+                                    ELSE IF @Saldo > 0
                                     BEGIN
                                         INSERT INTO dbo.cob_DeudaCliente (
                                             IDCliente, IDCatalogo, IDPedido, IDCpVenta, IDMoneda, IDModalidadCredito,
@@ -855,46 +816,300 @@ namespace IntegradorFlexForce.Services
                                             NULL, @IDVendedor, @Total, @Saldo, 0,
                                             @FechaEmision, @FechaVencimiento, @FechaProgramacionPago,
                                             'Cobrar', 1, 1, 0, 0,
-                                            @EstadoDeuda, '0', GETDATE(), 0
+                                            @Estado, '0', GETDATE(), 0
                                         );
                                     END";
 
-                                using var cmdDeuda = new SqlCommand(sqlInsertDeuda, connForce, tx);
-                                cmdDeuda.Parameters.AddWithValue("@IDCliente", c.IDClienteForce!.Value);
-                                cmdDeuda.Parameters.AddWithValue("@IDCatalogo", (object?)c.IDCatalogoForce ?? DBNull.Value);
-                                cmdDeuda.Parameters.AddWithValue("@IDPedido", (object?)c.IDPedidoForce ?? DBNull.Value);
-                                cmdDeuda.Parameters.AddWithValue("@IDCpVenta", nuevoIdCp);
-                                cmdDeuda.Parameters.AddWithValue("@IDModalidadCredito", (object?)c.IDModalidadCreditoForce ?? DBNull.Value);
-                                cmdDeuda.Parameters.AddWithValue("@IDVendedor", c.IDVendedorForce!.Value);
-                                cmdDeuda.Parameters.AddWithValue("@Total", c.Total);
-                                cmdDeuda.Parameters.AddWithValue("@Saldo", saldoInsertar);
-                                cmdDeuda.Parameters.AddWithValue("@FechaEmision", c.FechaEmision);
-                                cmdDeuda.Parameters.AddWithValue("@FechaVencimiento", fechaVenc);
-                                cmdDeuda.Parameters.AddWithValue("@FechaProgramacionPago", fechaProg);
-                                cmdDeuda.Parameters.AddWithValue("@EstadoDeuda", estadoDeuda);
+                                using (var cmdDeuda = new SqlCommand(sqlUpdDeuda, connForce, tx))
+                                {
+                                    cmdDeuda.Parameters.AddWithValue("@IDCpVenta", idCp);
+                                    cmdDeuda.Parameters.AddWithValue("@IDCliente", c.IDClienteForce ?? (object)DBNull.Value);
+                                    cmdDeuda.Parameters.AddWithValue("@IDCatalogo", (object?)c.IDCatalogoForce ?? DBNull.Value);
+                                    cmdDeuda.Parameters.AddWithValue("@IDPedido", (object?)c.IDPedidoForce ?? DBNull.Value);
+                                    cmdDeuda.Parameters.AddWithValue("@IDModalidadCredito", (object?)c.IDModalidadCreditoForce ?? DBNull.Value);
+                                    cmdDeuda.Parameters.AddWithValue("@IDVendedor", c.IDVendedorForce ?? (object)DBNull.Value);
+                                    cmdDeuda.Parameters.AddWithValue("@Total", c.Total);
+                                    cmdDeuda.Parameters.AddWithValue("@Saldo", nuevoSaldo);
+                                    cmdDeuda.Parameters.AddWithValue("@FechaEmision", c.FechaEmision);
+                                    cmdDeuda.Parameters.AddWithValue("@FechaVencimiento", fechaVenc);
+                                    cmdDeuda.Parameters.AddWithValue("@FechaProgramacionPago", fechaProg);
+                                    cmdDeuda.Parameters.AddWithValue("@Estado", nuevoEstado);
 
-                                await cmdDeuda.ExecuteNonQueryAsync(ct);
-                                deudaCreada = true;
+                                    await cmdDeuda.ExecuteNonQueryAsync(ct);
+                                }
+
+                                await tx.CommitAsync(ct);
+                                _status.TotalActualizados++;
+                                c.ForceSaldoDeuda = nuevoSaldo;
+                                c.ForceEstadoDeuda = nuevoEstado;
+                                c.Semaforo = "AZUL";
+                                c.TipoOperacion = "SIN_CAMBIOS";
+                                c.ObservacionValidacion = $"✓ Cobranza sincronizada en Force (Cp #{idCp}) | Saldo: S/ {nuevoSaldo:N2} [{nuevoEstado}].";
+                                AgregarEvento(c.IDCpOrigen, c.NumCp, "SUCCESS", $"✎ Cobranza sincronizada Cp #{idCp} ({c.NumCp}) | Saldo: S/ {nuevoSaldo:N2} [{nuevoEstado}].");
                             }
+                            // ESCENARIO 3: INSERCIÓN DE NUEVO COMPROBANTE CON CORRELATIVO Y ENLACE
+                            else
+                            {
+                                // 1. Auto-provisionar TipoCpVentas si la serie no existe aún
+                                int idTipoCpFinal;
+                                if (c.IDTipoCpVentaForce.HasValue && c.IDTipoCpVentaForce.Value > 0)
+                                {
+                                    idTipoCpFinal = c.IDTipoCpVentaForce.Value;
+                                }
+                                else
+                                {
+                                    const string sqlEnsureTipo = @"
+                                        DECLARE @IDExistente int;
+                                        SELECT @IDExistente = ID FROM dbo.TipoCpVentas WITH (UPDLOCK, ROWLOCK) WHERE Serie = @Serie;
 
-                            await tx.CommitAsync(ct);
+                                        IF @IDExistente IS NOT NULL
+                                        BEGIN
+                                            SELECT @IDExistente;
+                                        END
+                                        ELSE
+                                        BEGIN
+                                            INSERT INTO dbo.TipoCpVentas (
+                                                Codigo, Descripcion, Abreviacion, Numero, Serie, LongitudNumero, LongitudSerie,
+                                                NumeracionAutomatica, MaximoNumeroItems, PeriodoAnulacion, PermitirFechasFuturas, PermitirFechasPasadas,
+                                                Activo, RequiereCliente, RestringirAlmacen, FueraDeRuta, AplicaDistribucion, AplicaRedondeo,
+                                                MontoMinimo, NumeroPrecisionRedondeo, FechaCreacion, IDComprobanteTipo, IDImpuesto,
+                                                TieneImpuesto, PreciosIncluyenImpuesto
+                                            ) VALUES (
+                                                @Codigo, @Descripcion, @Abreviacion, @Numero, @Serie, 8, 4,
+                                                0, 500, 7, 0, 1,
+                                                1, 1, 0, 0, 1, 1,
+                                                0.00, 2, GETDATE(), @IDComprobanteTipo, 1,
+                                                1, 1
+                                            );
+                                            SELECT CAST(SCOPE_IDENTITY() AS int);
+                                        END";
 
-                            c.YaExisteEnForce = true;
-                            c.IDCpForceExistente = nuevoIdCp;
-                            c.Semaforo = "AZUL";
-                            _status.TotalSubidos++;
-                            if (deudaCreada) _status.TotalDeudasGeneradas++;
+                                    bool esFactura = c.IDTipoComprobantePagoOrigen == 1;
+                                    using (var cmdTipo = new SqlCommand(sqlEnsureTipo, connForce, tx))
+                                    {
+                                        cmdTipo.Parameters.AddWithValue("@Serie", c.SerieOrigen);
+                                        cmdTipo.Parameters.AddWithValue("@Codigo", $"{(esFactura ? "FACTURA" : "BOLETA")}-{c.SerieOrigen}");
+                                        cmdTipo.Parameters.AddWithValue("@Descripcion", $"{(esFactura ? "Factura Electrónica" : "Boleta Electrónica")} {c.SerieOrigen}");
+                                        cmdTipo.Parameters.AddWithValue("@Abreviacion", esFactura ? "FAC" : "BOL");
+                                        cmdTipo.Parameters.AddWithValue("@Numero", c.CorrelativoOrigen);
+                                        cmdTipo.Parameters.AddWithValue("@IDComprobanteTipo", esFactura ? 1 : 2);
 
-                            string multiBadge = c.EsMulticomprobante ? $" [Comp {c.ComprobanteNumeroOrden}/{c.TotalComprobantesDelPedido}]" : "";
-                            string infoEnlace = c.IDPedidoForce.HasValue ? $" | Enlazado a Pedido #{c.IDPedidoForce}{multiBadge}" : " (Sin pedido)";
-                            string infoDeuda = deudaCreada ? $" | Deuda: S/ {c.SaldoPendiente:N2}" : "";
-                            AgregarEvento(c.IDCpOrigen, c.NumCp, "SUCCESS", $"✓ Subido como Cp #{nuevoIdCp} | Total S/ {c.Total:N2}{infoEnlace}{infoDeuda}");
+                                        idTipoCpFinal = (int)(await cmdTipo.ExecuteScalarAsync(ct))!;
+                                    }
+                                }
+
+                                // 2. Insertar Cabecera en dbo.Cp
+                                const string sqlInsertCp = @"
+                                    INSERT INTO dbo.Cp (
+                                        IDTipoCp, NumCp, NumCpContable, IDPedido, IDCliente, IDVendedor, IDSucursal, IDMoneda,
+                                        Fecha, FechaEmision, Hora, Total, SubTotal, ValorVenta, ValorAfecto, ValorInafecto, ValorExonerado, ValorDescuento,
+                                        TieneImpuesto, IDImpuesto, PreciosIncImpto, EsCredito, Anulado, Observacion, Eliminado
+                                    ) VALUES (
+                                        @IDTipoCp, @NumCp, @NumCpContable, @IDPedido, @IDCliente, @IDVendedor, @IDSucursal, 1,
+                                        @Fecha, @FechaEmision, @Hora, @Total, @SubTotal, @ValorVenta, @ValorAfecto, @ValorInafecto, @ValorExonerado, @ValorDescuento,
+                                        @TieneImpuesto, 1, @PreciosIncImpto, @EsCredito, @Anulado, @Observacion, 0
+                                    );
+                                    SELECT CAST(SCOPE_IDENTITY() AS int);";
+
+                                int nuevoIdCp;
+                                using (var cmdCp = new SqlCommand(sqlInsertCp, connForce, tx))
+                                {
+                                    cmdCp.Parameters.AddWithValue("@IDTipoCp", idTipoCpFinal);
+                                    cmdCp.Parameters.AddWithValue("@NumCp", c.NumCp);
+                                    cmdCp.Parameters.AddWithValue("@NumCpContable", string.IsNullOrEmpty(c.NumCpContable) ? (object)DBNull.Value : c.NumCpContable);
+                                    cmdCp.Parameters.AddWithValue("@IDPedido", (object?)c.IDPedidoForce ?? DBNull.Value);
+                                    cmdCp.Parameters.AddWithValue("@IDCliente", c.IDClienteForce!.Value);
+                                    cmdCp.Parameters.AddWithValue("@IDVendedor", c.IDVendedorForce!.Value);
+                                    cmdCp.Parameters.AddWithValue("@IDSucursal", c.IDSucursalForce ?? 5);
+                                    cmdCp.Parameters.AddWithValue("@Fecha", c.Fecha);
+                                    cmdCp.Parameters.AddWithValue("@FechaEmision", c.FechaEmision);
+                                    cmdCp.Parameters.AddWithValue("@Hora", c.Hora);
+                                    cmdCp.Parameters.AddWithValue("@Total", c.Total);
+                                    cmdCp.Parameters.AddWithValue("@SubTotal", c.SubTotal);
+                                    cmdCp.Parameters.AddWithValue("@ValorVenta", c.ValorVenta);
+                                    cmdCp.Parameters.AddWithValue("@ValorAfecto", c.ValorAfecto);
+                                    cmdCp.Parameters.AddWithValue("@ValorInafecto", c.ValorInafecto);
+                                    cmdCp.Parameters.AddWithValue("@ValorExonerado", c.ValorExonerado);
+                                    cmdCp.Parameters.AddWithValue("@ValorDescuento", c.ValorDescuento);
+                                    cmdCp.Parameters.AddWithValue("@TieneImpuesto", c.TieneImpuesto);
+                                    cmdCp.Parameters.AddWithValue("@PreciosIncImpto", c.PreciosIncImpto);
+                                    cmdCp.Parameters.AddWithValue("@EsCredito", c.EsCredito);
+                                    cmdCp.Parameters.AddWithValue("@Anulado", c.AnuladoOrigen);
+                                    cmdCp.Parameters.AddWithValue("@Observacion", $"Migrado ERP Antiguo (PKID: {c.IDCpOrigen})");
+
+                                    nuevoIdCp = (int)(await cmdCp.ExecuteScalarAsync(ct))!;
+                                }
+
+                                // 3. Insertar Extensión en dbo.CpVenta
+                                const string sqlInsertCpVenta = @"
+                                    INSERT INTO dbo.CpVenta (
+                                        ID, IDTipoOperacion, IDAlmacen, TipoCpInventario, EstadoEntrega, EstadoDevolucion,
+                                        EstadoEntregaDevolucion, EstadoDescuento, Direccion, DireccionEntrega, IDDireccionEntrega,
+                                        IDSUNATCatalogo51, DetraccionMN, PercepcionMN, AplicaDistribucion, OmitirPoliticasCredito
+                                    ) VALUES (
+                                        @ID, 1, @IDAlmacen, 'Salida', @EstadoEntrega, 'PENDIENTE',
+                                        'PENDIENTE', 'PENDIENTE', @Direccion, @DireccionEntrega, NULL,
+                                        '6', 0, 0, 1, 0
+                                    );";
+
+                                using (var cmdVenta = new SqlCommand(sqlInsertCpVenta, connForce, tx))
+                                {
+                                    cmdVenta.Parameters.AddWithValue("@ID", nuevoIdCp);
+                                    cmdVenta.Parameters.AddWithValue("@IDAlmacen", c.IDAlmacenForce ?? 169);
+                                    cmdVenta.Parameters.AddWithValue("@EstadoEntrega", string.IsNullOrEmpty(c.EstadoEntrega) ? "PENDIENTE" : c.EstadoEntrega);
+                                    cmdVenta.Parameters.AddWithValue("@Direccion", string.IsNullOrEmpty(c.DireccionFiscal) ? (object)DBNull.Value : c.DireccionFiscal);
+                                    cmdVenta.Parameters.AddWithValue("@DireccionEntrega", string.IsNullOrEmpty(c.DireccionEntrega) ? (object)DBNull.Value : c.DireccionEntrega);
+
+                                    await cmdVenta.ExecuteNonQueryAsync(ct);
+                                }
+
+                                // 4. Insertar Ítems en dbo.ItemCp (esquema real 192.168.2.93)
+                                const string sqlInsertItem = @"
+                                    INSERT INTO dbo.ItemCp (
+                                        IDCp, Cantidad, IDProducto, IDUnidad, Factor, IDAlmacen, Descripcion,
+                                        Total, ValorUnitario, PorcentajeImpto, Inafecto, Bonificacion,
+                                        ValorAfecto, ValorVenta, SubTotal, ValorDescuento, ValorInafecto,
+                                        BonificacionManual, DescuentoPieCp, RecargoPieCp,
+                                        PorcentajePercepcion, MontoPercepcion, PorcentajeDetraccion, MontoDetraccion, ValorReferencialDetraccion,
+                                        Anulado, ValorExonerado, TotalAnticipo,
+                                        AplicaDescuentoConVale, EscalaPreferencial, DescuentoAplicado, DescuentoFijo,
+                                        IDDefinicionBonificacion, IDDefinicionDescuento, Amortizacion, IDSUNATCatalogo7, DescuentoRecargo
+                                    ) VALUES (
+                                        @IDCp, @Cantidad, @IDProducto, @IDUnidad, @Factor, @IDAlmacen, @Descripcion,
+                                        @Total, @ValorUnitario, @PorcentajeImpto, @Inafecto, @Bonificacion,
+                                        @ValorAfecto, @ValorVenta, @SubTotal, @ValorDescuento, @ValorInafecto,
+                                        0, 0, 0,
+                                        0, 0, 0, 0, 0,
+                                        @Anulado, 0, 0,
+                                        0, 0, @DescuentoAplicado, 0,
+                                        NULL, NULL, 0, @IDSUNATCatalogo7, ''
+                                    );";
+
+                                foreach (var it in c.Items)
+                                {
+                                    if (!it.IDProductoForce.HasValue) continue;
+
+                                    bool esInafecto = it.ValorInafecto > 0 && it.ValorAfecto == 0;
+                                    int sunatCat7 = esInafecto ? 30 : 10;
+
+                                    using var cmdIt = new SqlCommand(sqlInsertItem, connForce, tx);
+                                    cmdIt.Parameters.AddWithValue("@IDCp", nuevoIdCp);
+                                    cmdIt.Parameters.AddWithValue("@Cantidad", it.Cantidad);
+                                    cmdIt.Parameters.AddWithValue("@IDProducto", it.IDProductoForce.Value);
+                                    cmdIt.Parameters.AddWithValue("@IDUnidad", (object?)it.IDUnidadForce ?? DBNull.Value);
+                                    cmdIt.Parameters.AddWithValue("@Factor", it.CantidadFactor);
+                                    cmdIt.Parameters.AddWithValue("@IDAlmacen", c.IDAlmacenForce ?? 169);
+                                    cmdIt.Parameters.AddWithValue("@Descripcion", it.DescripcionProducto ?? "");
+                                    cmdIt.Parameters.AddWithValue("@Total", it.Total);
+                                    cmdIt.Parameters.AddWithValue("@ValorUnitario", it.PrecioUnitario);
+                                    cmdIt.Parameters.AddWithValue("@PorcentajeImpto", it.PorcentajeImpuesto);
+                                    cmdIt.Parameters.AddWithValue("@Inafecto", esInafecto);
+                                    cmdIt.Parameters.AddWithValue("@Bonificacion", it.EsBonificacion);
+                                    cmdIt.Parameters.AddWithValue("@ValorAfecto", it.ValorAfecto);
+                                    cmdIt.Parameters.AddWithValue("@ValorVenta", it.ValorVenta);
+                                    cmdIt.Parameters.AddWithValue("@SubTotal", it.SubTotal);
+                                    cmdIt.Parameters.AddWithValue("@ValorDescuento", it.ValorDescuento);
+                                    cmdIt.Parameters.AddWithValue("@ValorInafecto", it.ValorInafecto);
+                                    cmdIt.Parameters.AddWithValue("@Anulado", it.Anulado);
+                                    cmdIt.Parameters.AddWithValue("@DescuentoAplicado", it.ValorDescuento);
+                                    cmdIt.Parameters.AddWithValue("@IDSUNATCatalogo7", sunatCat7);
+
+                                    await cmdIt.ExecuteNonQueryAsync(ct);
+                                }
+
+                                // 5. Enlace Bidireccional: Actualizar ped_Pedido.IDCpVenta
+                                if (c.IDPedidoForce.HasValue && c.IDPedidoForce.Value > 0)
+                                {
+                                    const string sqlUpdatePed = @"
+                                        UPDATE dbo.ped_Pedido
+                                        SET IDCpVenta = @IDCp,
+                                            Estado = 'FACTURADO'
+                                        WHERE ID = @IDPedido AND (IDCpVenta IS NULL OR IDCpVenta = 0);";
+
+                                    using var cmdPed = new SqlCommand(sqlUpdatePed, connForce, tx);
+                                    cmdPed.Parameters.AddWithValue("@IDCp", nuevoIdCp);
+                                    cmdPed.Parameters.AddWithValue("@IDPedido", c.IDPedidoForce.Value);
+                                    await cmdPed.ExecuteNonQueryAsync(ct);
+                                }
+
+                                // 6. Actualizar Correlativo en TipoCpVentas
+                                const string sqlUpdCorrelativo = @"
+                                    UPDATE dbo.TipoCpVentas
+                                    SET Numero = @Correlativo
+                                    WHERE ID = @IDTipoCp AND ISNULL(Numero, 0) < @Correlativo;";
+
+                                using (var cmdCorr = new SqlCommand(sqlUpdCorrelativo, connForce, tx))
+                                {
+                                    cmdCorr.Parameters.AddWithValue("@IDTipoCp", idTipoCpFinal);
+                                    cmdCorr.Parameters.AddWithValue("@Correlativo", c.CorrelativoOrigen);
+                                    await cmdCorr.ExecuteNonQueryAsync(ct);
+                                }
+
+                                // 7. Generar Deuda en dbo.cob_DeudaCliente si es a Crédito y tiene Saldo > 0
+                                bool deudaCreada = false;
+                                if (c.DebeGenerarDeuda)
+                                {
+                                    DateTime fechaVenc = c.FechaVencimiento ?? c.FechaEmision;
+                                    DateTime fechaProg = c.FechaProgramacionPago ?? fechaVenc;
+                                    decimal saldoInsertar = Math.Min(c.SaldoPendiente, c.Total);
+                                    string estadoDeuda = (saldoInsertar < c.Total) ? "PARCIAL" : "PENDIENTE";
+
+                                    const string sqlInsertDeuda = @"
+                                        IF NOT EXISTS (SELECT 1 FROM dbo.cob_DeudaCliente WHERE IDCpVenta = @IDCpVenta AND Eliminado = 0)
+                                        BEGIN
+                                            INSERT INTO dbo.cob_DeudaCliente (
+                                                IDCliente, IDCatalogo, IDPedido, IDCpVenta, IDMoneda, IDModalidadCredito,
+                                                IDMedioPago, IDVendedor, Total, Saldo, MontoDetraccion,
+                                                FechaEmision, FechaVencimiento, FechaProgramacionPago,
+                                                TipoCp, Credito, MovSaldo, SujetoADetraccion, SujetoAPercepcion,
+                                                Estado, UsuarioCreador, FechaCreacion, Eliminado
+                                            ) VALUES (
+                                                @IDCliente, @IDCatalogo, @IDPedido, @IDCpVenta, 1, @IDModalidadCredito,
+                                                NULL, @IDVendedor, @Total, @Saldo, 0,
+                                                @FechaEmision, @FechaVencimiento, @FechaProgramacionPago,
+                                                'Cobrar', 1, 1, 0, 0,
+                                                @EstadoDeuda, '0', GETDATE(), 0
+                                            );
+                                        END";
+
+                                    using var cmdDeuda = new SqlCommand(sqlInsertDeuda, connForce, tx);
+                                    cmdDeuda.Parameters.AddWithValue("@IDCliente", c.IDClienteForce!.Value);
+                                    cmdDeuda.Parameters.AddWithValue("@IDCatalogo", (object?)c.IDCatalogoForce ?? DBNull.Value);
+                                    cmdDeuda.Parameters.AddWithValue("@IDPedido", (object?)c.IDPedidoForce ?? DBNull.Value);
+                                    cmdDeuda.Parameters.AddWithValue("@IDCpVenta", nuevoIdCp);
+                                    cmdDeuda.Parameters.AddWithValue("@IDModalidadCredito", (object?)c.IDModalidadCreditoForce ?? DBNull.Value);
+                                    cmdDeuda.Parameters.AddWithValue("@IDVendedor", c.IDVendedorForce!.Value);
+                                    cmdDeuda.Parameters.AddWithValue("@Total", c.Total);
+                                    cmdDeuda.Parameters.AddWithValue("@Saldo", saldoInsertar);
+                                    cmdDeuda.Parameters.AddWithValue("@FechaEmision", c.FechaEmision);
+                                    cmdDeuda.Parameters.AddWithValue("@FechaVencimiento", fechaVenc);
+                                    cmdDeuda.Parameters.AddWithValue("@FechaProgramacionPago", fechaProg);
+                                    cmdDeuda.Parameters.AddWithValue("@EstadoDeuda", estadoDeuda);
+
+                                    await cmdDeuda.ExecuteNonQueryAsync(ct);
+                                    deudaCreada = true;
+                                }
+
+                                await tx.CommitAsync(ct);
+
+                                c.YaExisteEnForce = true;
+                                c.IDCpForceExistente = nuevoIdCp;
+                                c.Semaforo = "AZUL";
+                                c.TipoOperacion = "SIN_CAMBIOS";
+                                _status.TotalSubidos++;
+                                if (deudaCreada) _status.TotalDeudasGeneradas++;
+
+                                string multiBadge = c.EsMulticomprobante ? $" [Comp {c.ComprobanteNumeroOrden}/{c.TotalComprobantesDelPedido}]" : "";
+                                string infoEnlace = c.IDPedidoForce.HasValue ? $" | Enlazado a Pedido #{c.IDPedidoForce}{multiBadge}" : " (Sin pedido)";
+                                string infoDeuda = deudaCreada ? $" | Deuda: S/ {c.SaldoPendiente:N2}" : "";
+                                AgregarEvento(c.IDCpOrigen, c.NumCp, "SUCCESS", $"✓ Subido como Cp #{nuevoIdCp} | Total S/ {c.Total:N2}{infoEnlace}{infoDeuda}");
+                            }
                         }
                         catch (Exception exCp)
                         {
                             await tx.RollbackAsync(ct);
                             _status.TotalErrores++;
-                            _logger.LogError(exCp, "Error al insertar comprobante {NumCp}", c.NumCp);
+                            _logger.LogError(exCp, "Error al procesar comprobante {NumCp}", c.NumCp);
                             AgregarEvento(c.IDCpOrigen, c.NumCp, "ERROR", $"Excepción SQL: {exCp.Message}");
                         }
                     }
@@ -920,7 +1135,8 @@ namespace IntegradorFlexForce.Services
                     }
                 }
 
-                _status.FaseDetalle = $"Carga finalizada. {_status.TotalSubidos} subidos, {_status.TotalOmitidos} omitidos, {_status.TotalErrores} errores.";
+                _status.FaseDetalle = $"Sincronización finalizada: {_status.TotalSubidos} subidos, {_status.TotalActualizados} cobranzas actualizadas, {_status.TotalAnulados} anulados, {_status.TotalOmitidos} omitidos, {_status.TotalErrores} errores.";
+                AgregarEvento(0, "SISTEMA", "INFO", $"Resumen final: {_status.TotalSubidos} nuevos subidos, {_status.TotalActualizados} actualizados, {_status.TotalAnulados} anulados, {_status.TotalErrores} errores.");
                 _status.EstadoActual = "COMPLETADO";
             }
             catch (Exception ex)
