@@ -214,7 +214,8 @@ namespace IntegradorFlexForce.Services
                         tel.Reintentando = intento > 1;
                         tel.IntentoActual = intento;
                         tel.MaxIntentos = maxIntentos;
-                        _logger.LogInformation("Ejecutando ciclo automático Módulo Clientes (Intento {Intento}/{Max})...", intento, maxIntentos);
+                        bool esCicloMadrugada = (config.ModoClientes == "MADRUGADA" || config.ModoClientes == "AMBOS") && EsHoraObjetivo(config.HoraMadrugadaClientes, DateTime.Now);
+                        _logger.LogInformation("Ejecutando ciclo automático Módulo Clientes (Intento {Intento}/{Max}, Madrugada={EsMad})...", intento, maxIntentos, esCicloMadrugada);
                         await _syncEngine.EjecutarSincronizacionClientesAsync("AUTOMATICO", "WORKER_SERVICE", incluirZonas: true, ct);
                         
                         _ultimaEjecucionClientes = DateTime.Now;
@@ -222,7 +223,7 @@ namespace IntegradorFlexForce.Services
                         tel.UltimoResultado = "COMPLETADO";
                         tel.UltimoError = null;
                         tel.Reintentando = false;
-                        if ((config.ModoClientes == "MADRUGADA" || config.ModoClientes == "AMBOS") && EsHoraObjetivo(config.HoraMadrugadaClientes, DateTime.Now))
+                        if (esCicloMadrugada)
                         {
                             _ultimoDiaMadrugadaClientes = DateTime.Today;
                         }
@@ -286,7 +287,8 @@ namespace IntegradorFlexForce.Services
                         tel.Reintentando = intento > 1;
                         tel.IntentoActual = intento;
                         tel.MaxIntentos = maxIntentos;
-                        _logger.LogInformation("Ejecutando ciclo automático Módulo Productos (Intento {Intento}/{Max})...", intento, maxIntentos);
+                        bool esCicloMadrugada = (config.ModoProductos == "MADRUGADA" || config.ModoProductos == "AMBOS") && EsHoraObjetivo(config.HoraMadrugadaProductos, DateTime.Now);
+                        _logger.LogInformation("Ejecutando ciclo automático Módulo Productos (Intento {Intento}/{Max}, Madrugada={EsMad})...", intento, maxIntentos, esCicloMadrugada);
                         await _syncProductosEngine.EjecutarSincronizacionProductosAsync("TODOS", "WORKER_SERVICE", ct);
 
                         _ultimaEjecucionProductos = DateTime.Now;
@@ -294,7 +296,7 @@ namespace IntegradorFlexForce.Services
                         tel.UltimoResultado = "COMPLETADO";
                         tel.UltimoError = null;
                         tel.Reintentando = false;
-                        if ((config.ModoProductos == "MADRUGADA" || config.ModoProductos == "AMBOS") && EsHoraObjetivo(config.HoraMadrugadaProductos, DateTime.Now))
+                        if (esCicloMadrugada)
                         {
                             _ultimoDiaMadrugadaProductos = DateTime.Today;
                         }
@@ -358,7 +360,8 @@ namespace IntegradorFlexForce.Services
                         tel.Reintentando = intento > 1;
                         tel.IntentoActual = intento;
                         tel.MaxIntentos = maxIntentos;
-                        _logger.LogInformation("Ejecutando ciclo automático Módulo Vendedores (Intento {Intento}/{Max})...", intento, maxIntentos);
+                        bool esCicloMadrugada = (config.ModoVendedores == "MADRUGADA" || config.ModoVendedores == "AMBOS") && EsHoraObjetivo(config.HoraMadrugadaVendedores, DateTime.Now);
+                        _logger.LogInformation("Ejecutando ciclo automático Módulo Vendedores (Intento {Intento}/{Max}, Madrugada={EsMad})...", intento, maxIntentos, esCicloMadrugada);
                         await _syncVendedoresEngine.EjecutarSincronizacionVendedoresAsync("AUTOMATICO", "WORKER_SERVICE", ct);
 
                         _ultimaEjecucionVendedores = DateTime.Now;
@@ -366,7 +369,7 @@ namespace IntegradorFlexForce.Services
                         tel.UltimoResultado = "COMPLETADO";
                         tel.UltimoError = null;
                         tel.Reintentando = false;
-                        if ((config.ModoVendedores == "MADRUGADA" || config.ModoVendedores == "AMBOS") && EsHoraObjetivo(config.HoraMadrugadaVendedores, DateTime.Now))
+                        if (esCicloMadrugada)
                         {
                             _ultimoDiaMadrugadaVendedores = DateTime.Today;
                         }
@@ -430,7 +433,8 @@ namespace IntegradorFlexForce.Services
                         tel.Reintentando = intento > 1;
                         tel.IntentoActual = intento;
                         tel.MaxIntentos = maxIntentos;
-                        _logger.LogInformation("Ejecutando ciclo automático Módulo Stock (Intento {Intento}/{Max})...", intento, maxIntentos);
+                        bool esCicloMadrugada = (config.ModoStock == "MADRUGADA" || config.ModoStock == "AMBOS") && EsHoraObjetivo(config.HoraMadrugadaStock, DateTime.Now);
+                        _logger.LogInformation("Ejecutando ciclo automático Módulo Stock (Intento {Intento}/{Max}, Madrugada={EsMad})...", intento, maxIntentos, esCicloMadrugada);
                         await _syncStockEngine.EjecutarSincronizacionStockAsync("AUTOMATICO", "WORKER_SERVICE", ct);
 
                         _ultimaEjecucionStock = DateTime.Now;
@@ -438,7 +442,7 @@ namespace IntegradorFlexForce.Services
                         tel.UltimoResultado = "COMPLETADO";
                         tel.UltimoError = null;
                         tel.Reintentando = false;
-                        if ((config.ModoStock == "MADRUGADA" || config.ModoStock == "AMBOS") && EsHoraObjetivo(config.HoraMadrugadaStock, DateTime.Now))
+                        if (esCicloMadrugada)
                         {
                             _ultimoDiaMadrugadaStock = DateTime.Today;
                         }

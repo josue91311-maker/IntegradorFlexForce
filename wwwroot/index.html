@@ -1481,14 +1481,52 @@
         /* Modo Pills */
         .btn-modo-pill {
             transition: all 0.2s ease;
+            position: relative;
+            user-select: none;
+        }
+        .btn-modo-pill:hover {
+            border-color: #94a3b8 !important;
+            background: #f1f5f9 !important;
         }
         .btn-modo-pill.active {
             background: #eff6ff !important;
             border-color: #3b82f6 !important;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
         }
-        .btn-modo-pill.active div:first-child {
+        .btn-modo-pill.active .pill-title {
             color: #1d4ed8 !important;
+        }
+        .badge-estado-pill {
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 6px;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+        }
+        .badge-estado-pill.on {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+        }
+        .badge-estado-pill.off {
+            background: #f1f5f9;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+        }
+        .banner-modo-dual {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 11.5px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
         }
 
         /* Keyframes */
@@ -4849,7 +4887,10 @@
                     Configuración independiente por módulo (Clientes vs Productos), modos de ejecución (rango horario o madrugada) y políticas de reintento ante caídas.
                 </div>
             </div>
-            <div style="display:flex; gap:10px;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                <button class="btn btn-outline btn-sm" onclick="activarAmbosTodosModulos()" style="display:flex; align-items:center; gap:6px; background:#eff6ff; border-color:#93c5fd; color:#1d4ed8; font-weight:700;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> ⚡ Activar Modo Dual en Todos
+                </button>
                 <button class="btn btn-outline btn-sm" onclick="navegarVista('hub')" style="display:flex; align-items:center; gap:6px;">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg> Volver a Inicio
                 </button>
@@ -4907,16 +4948,33 @@
 
                     <!-- Selector de Modo de Ejecución para Clientes -->
                     <div style="margin-bottom:16px;">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px;">Modo de Ejecución Automática:</label>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                            <label style="font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin:0;">Modo de Ejecución Automática:</label>
+                            <span id="badgeModoCli" style="font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:6px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;">⏱ CONTINUO</span>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:8px;">
                             <button type="button" id="btnModoCliInt" class="btn-modo-pill active" onclick="cambiarModoClientes('INTERVALO')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
-                                <div style="font-weight:700; font-size:13px; color:#0f172a;">⏱ Intervalo Periódico</div>
-                                <div style="font-size:11px; color:#64748b;">Dentro de una ventana horaria</div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div class="pill-title" style="font-weight:700; font-size:13px; color:#0f172a;">⏱ Intervalo Periódico</div>
+                                    <span id="chkBadgeCliInt" class="badge-estado-pill on">☑ ACTIVO</span>
+                                </div>
+                                <div style="font-size:11px; color:#64748b; margin-top:3px;">Carga continua en el día</div>
                             </button>
                             <button type="button" id="btnModoCliMad" class="btn-modo-pill" onclick="cambiarModoClientes('MADRUGADA')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
-                                <div style="font-weight:700; font-size:13px; color:#0f172a;">🌙 1 Vez en la Madrugada</div>
-                                <div style="font-size:11px; color:#64748b;">Ejecución nocturna desatendida</div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div class="pill-title" style="font-weight:700; font-size:13px; color:#0f172a;">🌙 1 Vez en la Madrugada</div>
+                                    <span id="chkBadgeCliMad" class="badge-estado-pill off">☐ INACTIVO</span>
+                                </div>
+                                <div style="font-size:11px; color:#64748b; margin-top:3px;">Barrido nocturno 1 vez al día</div>
                             </button>
+                        </div>
+                        <div id="bannerDualCli" class="banner-modo-dual" style="display:none;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span><strong>Modo Dual Activo:</strong> Se ejecutarán <strong>ambas</strong> opciones (sincronización continua de día + barrido de madrugada).</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#64748b;">
+                            <span>💡 Haz clic en cada opción para activarla o desactivarla.</span>
+                            <button type="button" onclick="cambiarModoClientes('AMBOS')" style="font-size:11px; font-weight:700; color:#2563eb; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:2px 8px; cursor:pointer;">⚡ Activar Ambos</button>
                         </div>
                     </div>
 
@@ -4985,16 +5043,33 @@
 
                     <!-- Selector de Modo de Ejecución para Productos -->
                     <div style="margin-bottom:16px;">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px;">Modo de Ejecución Automática:</label>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                            <label style="font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin:0;">Modo de Ejecución Automática:</label>
+                            <span id="badgeModoPrd" style="font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:6px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;">⏱ CONTINUO</span>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:8px;">
                             <button type="button" id="btnModoPrdInt" class="btn-modo-pill active" onclick="cambiarModoProductos('INTERVALO')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
-                                <div style="font-weight:700; font-size:13px; color:#0f172a;">⏱ Intervalo Periódico</div>
-                                <div style="font-size:11px; color:#64748b;">Dentro de una ventana horaria</div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div class="pill-title" style="font-weight:700; font-size:13px; color:#0f172a;">⏱ Intervalo Periódico</div>
+                                    <span id="chkBadgePrdInt" class="badge-estado-pill on">☑ ACTIVO</span>
+                                </div>
+                                <div style="font-size:11px; color:#64748b; margin-top:3px;">Carga continua en el día</div>
                             </button>
                             <button type="button" id="btnModoPrdMad" class="btn-modo-pill" onclick="cambiarModoProductos('MADRUGADA')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
-                                <div style="font-weight:700; font-size:13px; color:#0f172a;">🌙 1 Vez en la Madrugada</div>
-                                <div style="font-size:11px; color:#64748b;">Ejecución nocturna desatendida</div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div class="pill-title" style="font-weight:700; font-size:13px; color:#0f172a;">🌙 1 Vez en la Madrugada</div>
+                                    <span id="chkBadgePrdMad" class="badge-estado-pill off">☐ INACTIVO</span>
+                                </div>
+                                <div style="font-size:11px; color:#64748b; margin-top:3px;">Barrido nocturno 1 vez al día</div>
                             </button>
+                        </div>
+                        <div id="bannerDualPrd" class="banner-modo-dual" style="display:none;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span><strong>Modo Dual Activo:</strong> Se ejecutarán <strong>ambas</strong> opciones (sincronización continua de día + barrido de madrugada).</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#64748b;">
+                            <span>💡 Haz clic en cada opción para activarla o desactivarla.</span>
+                            <button type="button" onclick="cambiarModoProductos('AMBOS')" style="font-size:11px; font-weight:700; color:#2563eb; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:2px 8px; cursor:pointer;">⚡ Activar Ambos</button>
                         </div>
                     </div>
 
@@ -5063,16 +5138,33 @@
 
                     <!-- Selector de Modo de Ejecución para Vendedores -->
                     <div style="margin-bottom:16px;">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px;">Modo de Ejecución Automática:</label>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                            <label style="font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin:0;">Modo de Ejecución Automática:</label>
+                            <span id="badgeModoVend" style="font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:6px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;">⏱ CONTINUO</span>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:8px;">
                             <button type="button" id="btnModoVendInt" class="btn-modo-pill active" onclick="cambiarModoVendedores('INTERVALO')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
-                                <div style="font-weight:700; font-size:13px; color:#0f172a;">⏱ Intervalo Periódico</div>
-                                <div style="font-size:11px; color:#64748b;">Dentro de una ventana horaria</div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div class="pill-title" style="font-weight:700; font-size:13px; color:#0f172a;">⏱ Intervalo Periódico</div>
+                                    <span id="chkBadgeVendInt" class="badge-estado-pill on">☑ ACTIVO</span>
+                                </div>
+                                <div style="font-size:11px; color:#64748b; margin-top:3px;">Carga continua en el día</div>
                             </button>
                             <button type="button" id="btnModoVendMad" class="btn-modo-pill" onclick="cambiarModoVendedores('MADRUGADA')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
-                                <div style="font-weight:700; font-size:13px; color:#0f172a;">🌙 1 Vez en la Madrugada</div>
-                                <div style="font-size:11px; color:#64748b;">Ejecución nocturna desatendida</div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div class="pill-title" style="font-weight:700; font-size:13px; color:#0f172a;">🌙 1 Vez en la Madrugada</div>
+                                    <span id="chkBadgeVendMad" class="badge-estado-pill off">☐ INACTIVO</span>
+                                </div>
+                                <div style="font-size:11px; color:#64748b; margin-top:3px;">Barrido nocturno 1 vez al día</div>
                             </button>
+                        </div>
+                        <div id="bannerDualVend" class="banner-modo-dual" style="display:none;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span><strong>Modo Dual Activo:</strong> Se ejecutarán <strong>ambas</strong> opciones (sincronización continua de día + barrido de madrugada).</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#64748b;">
+                            <span>💡 Haz clic en cada opción para activarla o desactivarla.</span>
+                            <button type="button" onclick="cambiarModoVendedores('AMBOS')" style="font-size:11px; font-weight:700; color:#2563eb; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:2px 8px; cursor:pointer;">⚡ Activar Ambos</button>
                         </div>
                     </div>
 
@@ -5138,16 +5230,33 @@
 
                     <!-- Selector de Modo de Ejecución para Stock -->
                     <div style="margin-bottom:16px;">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px;">Modo de Ejecución Automática:</label>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                            <label style="font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin:0;">Modo de Ejecución Automática:</label>
+                            <span id="badgeModoStock" style="font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:6px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;">⏱ CONTINUO</span>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:8px;">
                             <button type="button" id="btnModoStockInt" class="btn-modo-pill active" onclick="cambiarModoStock('INTERVALO')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
-                                <div style="font-weight:700; font-size:13px; color:#0f172a;">⏱ Intervalo Periódico</div>
-                                <div style="font-size:11px; color:#64748b;">Dentro de una ventana horaria</div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div class="pill-title" style="font-weight:700; font-size:13px; color:#0f172a;">⏱ Intervalo Periódico</div>
+                                    <span id="chkBadgeStockInt" class="badge-estado-pill on">☑ ACTIVO</span>
+                                </div>
+                                <div style="font-size:11px; color:#64748b; margin-top:3px;">Carga continua en el día</div>
                             </button>
                             <button type="button" id="btnModoStockMad" class="btn-modo-pill" onclick="cambiarModoStock('MADRUGADA')" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; cursor:pointer; text-align:left; font-family:inherit;">
-                                <div style="font-weight:700; font-size:13px; color:#0f172a;">🌙 1 Vez en la Madrugada</div>
-                                <div style="font-size:11px; color:#64748b;">Ejecución nocturna desatendida</div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div class="pill-title" style="font-weight:700; font-size:13px; color:#0f172a;">🌙 1 Vez en la Madrugada</div>
+                                    <span id="chkBadgeStockMad" class="badge-estado-pill off">☐ INACTIVO</span>
+                                </div>
+                                <div style="font-size:11px; color:#64748b; margin-top:3px;">Barrido nocturno 1 vez al día</div>
                             </button>
+                        </div>
+                        <div id="bannerDualStock" class="banner-modo-dual" style="display:none;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span><strong>Modo Dual Activo:</strong> Se ejecutarán <strong>ambas</strong> opciones (sincronización continua de día + barrido de madrugada).</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#64748b;">
+                            <span>💡 Haz clic en cada opción para activarla o desactivarla.</span>
+                            <button type="button" onclick="cambiarModoStock('AMBOS')" style="font-size:11px; font-weight:700; color:#2563eb; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:2px 8px; cursor:pointer;">⚡ Activar Ambos</button>
                         </div>
                     </div>
 
@@ -6798,6 +6907,52 @@ async function ejecutarSincronizacion(modo) {
         }
     }
 
+    function actualizarIndicadoresModo(btnIntId, btnMadId, intOn, madOn) {
+        let modKey = '';
+        if (btnIntId.includes('Cli')) modKey = 'Cli';
+        else if (btnIntId.includes('Prd')) modKey = 'Prd';
+        else if (btnIntId.includes('Vend')) modKey = 'Vend';
+        else if (btnIntId.includes('Stock')) modKey = 'Stock';
+        if (!modKey) return;
+
+        const badgeInt = document.getElementById(`chkBadge${modKey}Int`);
+        if (badgeInt) {
+            badgeInt.className = 'badge-estado-pill ' + (intOn ? 'on' : 'off');
+            badgeInt.textContent = intOn ? '☑ ACTIVO' : '☐ INACTIVO';
+        }
+
+        const badgeMad = document.getElementById(`chkBadge${modKey}Mad`);
+        if (badgeMad) {
+            badgeMad.className = 'badge-estado-pill ' + (madOn ? 'on' : 'off');
+            badgeMad.textContent = madOn ? '☑ ACTIVO' : '☐ INACTIVO';
+        }
+
+        const badgeHeader = document.getElementById(`badgeModo${modKey}`);
+        if (badgeHeader) {
+            if (intOn && madOn) {
+                badgeHeader.style.background = '#dcfce7';
+                badgeHeader.style.color = '#15803d';
+                badgeHeader.style.border = '1px solid #86efac';
+                badgeHeader.textContent = '🚀 AMBOS ACTIVOS (CONTINUO + MADRUGADA)';
+            } else if (intOn) {
+                badgeHeader.style.background = '#eff6ff';
+                badgeHeader.style.color = '#1d4ed8';
+                badgeHeader.style.border = '1px solid #bfdbfe';
+                badgeHeader.textContent = '⏱ SOLO CONTINUO (INTERVALO)';
+            } else {
+                badgeHeader.style.background = '#faf5ff';
+                badgeHeader.style.color = '#7e22ce';
+                badgeHeader.style.border = '1px solid #d8b4fe';
+                badgeHeader.textContent = '🌙 SOLO MADRUGADA (1 VEZ AL DÍA)';
+            }
+        }
+
+        const bannerDual = document.getElementById(`bannerDual${modKey}`);
+        if (bannerDual) {
+            bannerDual.style.display = (intOn && madOn) ? 'flex' : 'none';
+        }
+    }
+
     function aplicarModoDual(btnIntId, btnMadId, pIntId, pMadId, modoOAccion, esCargaInicial = false) {
         const pInt = document.getElementById(pIntId);
         const pMad = document.getElementById(pMadId);
@@ -6824,12 +6979,18 @@ async function ejecutarSincronizacion(modo) {
                 return;
             }
             madOn = !madOn;
+        } else if (modoOAccion === 'AMBOS') {
+            intOn = true;
+            madOn = true;
+            mostrarToast('Modo Dual activado: Carga continua en el día + Madrugada.', 'info');
         }
 
         btnInt.classList.toggle('active', intOn);
         btnMad.classList.toggle('active', madOn);
         if (pInt) pInt.style.display = intOn ? 'block' : 'none';
         if (pMad) pMad.style.display = madOn ? 'block' : 'none';
+
+        actualizarIndicadoresModo(btnIntId, btnMadId, intOn, madOn);
     }
 
     function obtenerModoDual(btnIntId, btnMadId) {
@@ -6848,8 +7009,23 @@ async function ejecutarSincronizacion(modo) {
         aplicarModoDual('btnModoPrdInt', 'btnModoPrdMad', 'panelProductosIntervalo', 'panelProductosMadrugada', modo, esCargaInicial);
     }
 
+    function cambiarModoVendedores(modo, esCargaInicial = false) {
+        aplicarModoDual('btnModoVendInt', 'btnModoVendMad', 'panelVendedoresIntervalo', 'panelVendedoresMadrugada', modo, esCargaInicial);
+        if (typeof modoVendedoresActivo !== 'undefined') {
+            modoVendedoresActivo = obtenerModoDual('btnModoVendInt', 'btnModoVendMad');
+        }
+    }
+
     function cambiarModoStock(modo, esCargaInicial = false) {
         aplicarModoDual('btnModoStockInt', 'btnModoStockMad', 'panelStockIntervalo', 'panelStockMadrugada', modo, esCargaInicial);
+    }
+
+    function activarAmbosTodosModulos() {
+        cambiarModoClientes('AMBOS');
+        cambiarModoProductos('AMBOS');
+        if (typeof cambiarModoVendedores === 'function') cambiarModoVendedores('AMBOS');
+        cambiarModoStock('AMBOS');
+        mostrarToast('🚀 ¡Modo Dual activado para todos los 4 módulos! Recuerda hacer clic en "Guardar Parámetros".', 'success');
     }
 
     async function toggleModoSincronizacion() {
@@ -8227,11 +8403,6 @@ async function ejecutarSincronizacion(modo) {
         } else {
             console.log(`[${tipo.toUpperCase()}] ${mensaje}`);
         }
-    }
-
-    function cambiarModoVendedores(modo, esCargaInicial = false) {
-        aplicarModoDual('btnModoVendInt', 'btnModoVendMad', 'panelVendedoresIntervalo', 'panelVendedoresMadrugada', modo, esCargaInicial);
-        modoVendedoresActivo = obtenerModoDual('btnModoVendInt', 'btnModoVendMad');
     }
 
     async function validarDiferenciasVendedores() {
