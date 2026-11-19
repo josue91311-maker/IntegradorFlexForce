@@ -291,6 +291,53 @@ namespace IntegradorFlexForce.Services
                         }
                     }
                 }
+
+                // 2.B Detectar todos los comprobantes ANULADOS en digalimenta41 asociados a los mismos pedidos
+                // (Incluso si fueron emitidos en otra fecha o si el filtro IncluirAnulados estaba desmarcado)
+                var idsPedOrigen = comprobantes.Where(x => x.IDPedidoOrigen > 0).Select(x => x.IDPedidoOrigen).Distinct().ToList();
+                if (idsPedOrigen.Count > 0)
+                {
+                    var anuladosPorPedidoOrigen = new Dictionary<int, List<string>>();
+                    for (int i = 0; i < idsPedOrigen.Count; i += 1000)
+                    {
+                        var chunkPed = idsPedOrigen.Skip(i).Take(1000).ToList();
+                        string sqlAnuladosPed = $@"
+                            SELECT 
+                                cpr.IDCpRelacionado AS IDPedidoOrigen,
+                                LTRIM(RTRIM(ISNULL(cp.NumCp, ''))) AS NumCp
+                            FROM dbo.CpRelacionado cpr WITH (NOLOCK)
+                            INNER JOIN dbo.Cp cp WITH (NOLOCK) ON cp.PKID = cpr.IDCp
+                            INNER JOIN dbo.CpVenta cpv WITH (NOLOCK) ON cpv.PKID = cp.PKID
+                            WHERE cpr.IDCpRelacionado IN ({string.Join(",", chunkPed)})
+                              AND ISNULL(cp.Anulado, 0) = 1
+                            ORDER BY cp.PKID ASC;";
+
+                        using var cmdAnPed = new SqlCommand(sqlAnuladosPed, connAntiguo) { CommandTimeout = 120 };
+                        using var rAn = await cmdAnPed.ExecuteReaderAsync(ct);
+                        while (await rAn.ReadAsync(ct))
+                        {
+                            int idPedOrig = rAn.GetInt32(0);
+                            string numAnul = rAn.GetString(1);
+                            if (string.IsNullOrEmpty(numAnul)) continue;
+                            if (!anuladosPorPedidoOrigen.TryGetValue(idPedOrig, out var listAn))
+                            {
+                                listAn = new List<string>();
+                                anuladosPorPedidoOrigen[idPedOrig] = listAn;
+                            }
+                            if (!listAn.Contains(numAnul, StringComparer.OrdinalIgnoreCase))
+                                listAn.Add(numAnul);
+                        }
+                    }
+
+                    foreach (var c in comprobantes)
+                    {
+                        if (!c.AnuladoOrigen && c.IDPedidoOrigen > 0 && anuladosPorPedidoOrigen.TryGetValue(c.IDPedidoOrigen, out var prevAnulados) && prevAnulados.Count > 0)
+                        {
+                            c.EsReemplazoDeAnulado = true;
+                            c.ComprobantesAnuladosDelPedido = string.Join(", ", prevAnulados);
+                        }
+                    }
+                }
             }
 
             // 3. Cargar Equivalencias desde Force (BDForceGVD)
@@ -303,7 +350,8 @@ namespace IntegradorFlexForce.Services
             var tipoCpVentasBySerie = new Dictionary<string, (int ID, int Correlativo, int IDComprobanteTipo)>(StringComparer.OrdinalIgnoreCase);
             var pedidosForcePorOrigen = new Dictionary<int, (int IDForce, string NumeroForce, int? IDCpVenta, string EstadoForce, int? IDCatalogo, int? IDModalidadCredito)>();
             var pedidosForcePorNumero = new Dictionary<string, (int IDForce, string NumeroForce, int? IDCpVenta, string EstadoForce, int? IDCatalogo, int? IDModalidadCredito)>(StringComparer.OrdinalIgnoreCase);
-            var comprobantesForceInfo = new Dictionary<string, (int IDForce, bool Anulado, decimal Total, int? IDDeuda, decimal? SaldoDeuda, string EstadoDeuda)>(StringComparer.OrdinalIgnoreCase);
+            var comprobantesForceInfo = new Dictionary<string, (int IDForce, bool Anulado, decimal Total, int? IDPedido, int? IDDeuda, decimal? SaldoDeuda, string EstadoDeuda)>(StringComparer.OrdinalIgnoreCase);
+            var cpPorIdForce = new Dictionary<int, (string NumCp, bool Anulado, int? IDPedido)>();
 
             using (var connForce = new SqlConnection(_connectionStringForce))
             {
@@ -384,13 +432,14 @@ namespace IntegradorFlexForce.Services
                     }
                 }
 
-                // Comprobantes existentes en Force con estado de anulación y deuda
+                // Comprobantes existentes en Force con estado de anulación, pedido vinculado y deuda
                 const string sqlForceCp = @"
                     SELECT 
                         cp.ID, 
                         cp.NumCp, 
                         CAST(ISNULL(cp.Anulado, 0) AS bit) AS Anulado, 
                         CAST(ISNULL(cp.Total, 0) AS decimal(18,6)) AS Total,
+                        cp.IDPedido,
                         d.ID AS IDDeuda,
                         CAST(ISNULL(d.Saldo, 0) AS decimal(18,6)) AS SaldoDeuda,
                         ISNULL(d.Estado, '') AS EstadoDeuda
@@ -403,25 +452,33 @@ namespace IntegradorFlexForce.Services
                 {
                     while (await r.ReadAsync(ct))
                     {
+                        int idCpF = r.GetInt32(0);
                         string numCp = r.GetString(1).Trim();
+                        bool anulF = r.GetBoolean(2);
+                        decimal totF = r.GetDecimal(3);
+                        int? idPedF = r.IsDBNull(4) ? null : r.GetInt32(4);
+
+                        cpPorIdForce[idCpF] = (numCp, anulF, idPedF);
+
                         if (!string.IsNullOrEmpty(numCp) && !comprobantesForceInfo.ContainsKey(numCp))
                         {
                             comprobantesForceInfo[numCp] = (
-                                IDForce: r.GetInt32(0),
-                                Anulado: r.GetBoolean(2),
-                                Total: r.GetDecimal(3),
-                                IDDeuda: r.IsDBNull(4) ? null : r.GetInt32(4),
-                                SaldoDeuda: r.IsDBNull(5) ? null : r.GetDecimal(5),
-                                EstadoDeuda: r.IsDBNull(6) ? "" : r.GetString(6)
+                                IDForce: idCpF,
+                                Anulado: anulF,
+                                Total: totF,
+                                IDPedido: idPedF,
+                                IDDeuda: r.IsDBNull(5) ? null : r.GetInt32(5),
+                                SaldoDeuda: r.IsDBNull(6) ? null : r.GetDecimal(6),
+                                EstadoDeuda: r.IsDBNull(7) ? "" : r.GetString(7)
                             );
                         }
                     }
                 }
             }
 
-            // Detección de Multi-comprobante por pedido origen (un pedido con 2 o más comprobantes)
+            // Detección de Multi-comprobante VIGENTE por pedido origen (solo comprobantes NO anulados)
             var gruposPorPedido = comprobantes
-                .Where(c => c.IDPedidoOrigen > 0)
+                .Where(c => c.IDPedidoOrigen > 0 && !c.AnuladoOrigen)
                 .GroupBy(c => c.IDPedidoOrigen)
                 .ToDictionary(g => g.Key, g => g.OrderBy(x => x.IDCpOrigen).ToList());
 
@@ -447,6 +504,7 @@ namespace IntegradorFlexForce.Services
                 {
                     c.YaExisteEnForce = true;
                     c.IDCpForceExistente = forceInfo.IDForce;
+                    c.ForceIDPedido = forceInfo.IDPedido;
                     c.ForceAnulado = forceInfo.Anulado;
                     c.ForceTotal = forceInfo.Total;
                     c.IDDeudaForce = forceInfo.IDDeuda;
@@ -489,6 +547,7 @@ namespace IntegradorFlexForce.Services
                 }
 
                 // F. Pedido Relacionado (Búsqueda en pedidos subidos a Force)
+                int? idCpVentaActualPedidoForce = null;
                 if (c.IDPedidoOrigen > 0 && pedidosForcePorOrigen.TryGetValue(c.IDPedidoOrigen, out var pedF))
                 {
                     c.IDPedidoForce = pedF.IDForce;
@@ -496,6 +555,7 @@ namespace IntegradorFlexForce.Services
                     c.EstadoPedidoForce = pedF.EstadoForce;
                     c.IDCatalogoForce = pedF.IDCatalogo;
                     c.IDModalidadCreditoForce = pedF.IDModalidadCredito;
+                    idCpVentaActualPedidoForce = pedF.IDCpVenta;
                 }
                 else if (!string.IsNullOrEmpty(c.NumPedidoOrigen) && pedidosForcePorNumero.TryGetValue(c.NumPedidoOrigen, out var pedFNum))
                 {
@@ -504,6 +564,7 @@ namespace IntegradorFlexForce.Services
                     c.EstadoPedidoForce = pedFNum.EstadoForce;
                     c.IDCatalogoForce = pedFNum.IDCatalogo;
                     c.IDModalidadCreditoForce = pedFNum.IDModalidadCredito;
+                    idCpVentaActualPedidoForce = pedFNum.IDCpVenta;
                 }
                 else
                 {
@@ -515,12 +576,20 @@ namespace IntegradorFlexForce.Services
 
                 if (c.IDPedidoForce.HasValue && !string.Equals(c.EstadoPedidoForce, "FACTURADO", StringComparison.OrdinalIgnoreCase))
                 {
-                    advertencias.Add($"Pedido #{c.IDPedidoForce} en Force está en estado '{c.EstadoPedidoForce}' (no FACTURADO)");
+                    if (!c.AnuladoOrigen)
+                        advertencias.Add($"Pedido #{c.IDPedidoForce} en Force está en '{c.EstadoPedidoForce}' (pasará a FACTURADO al enlazar comprobante)");
+                    else
+                        advertencias.Add($"Pedido #{c.IDPedidoForce} en Force está en estado '{c.EstadoPedidoForce}'");
+                }
+
+                if (c.EsReemplazoDeAnulado)
+                {
+                    advertencias.Add($"🔄 Reemplaza a Cp anulado ({c.ComprobantesAnuladosDelPedido}) del Pedido #{c.IDPedidoForce ?? c.IDPedidoOrigen}");
                 }
 
                 if (c.EsMulticomprobante)
                 {
-                    advertencias.Add($"Multi-comprobante: #{c.ComprobanteNumeroOrden} de {c.TotalComprobantesDelPedido} del pedido #{c.IDPedidoForce ?? c.IDPedidoOrigen}");
+                    advertencias.Add($"Multi-comprobante vigente: #{c.ComprobanteNumeroOrden} de {c.TotalComprobantesDelPedido} del pedido #{c.IDPedidoForce ?? c.IDPedidoOrigen}");
                 }
 
                 // G. Validar Ítems
@@ -537,7 +606,36 @@ namespace IntegradorFlexForce.Services
                         advertencias.Add($"Unidad #{it.IDUnidadOrigen} ({it.UnidadAbrev}) de '{it.CodigoProducto}' sin IDExtra en prd_ProductoUnidad");
                 }
 
-                // H. Semáforo y Determinación de Operación (INSERT, UPDATE_DEUDA, ANULAR, SIN_CAMBIOS)
+                // Verificar si el pedido en Force tiene su enlace roto o apuntando a un comprobante anulado
+                bool necesitaReenlacePedido = false;
+                if (!c.AnuladoOrigen && c.IDPedidoForce.HasValue)
+                {
+                    bool cpSinIdPedido = c.YaExisteEnForce && c.ForceIDPedido != c.IDPedidoForce;
+                    bool pedidoSinCpVigente = !idCpVentaActualPedidoForce.HasValue || idCpVentaActualPedidoForce.Value == 0 ||
+                                              (cpPorIdForce.TryGetValue(idCpVentaActualPedidoForce.Value, out var cpVinc) && cpVinc.Anulado);
+                    bool pedidoNoFacturado = !string.Equals(c.EstadoPedidoForce, "FACTURADO", StringComparison.OrdinalIgnoreCase);
+
+                    // También verificar si algún comprobante anulado previo de este pedido sigue activo (Anulado=0) en Force
+                    bool tieneAnuladoPrevioActivoEnForce = false;
+                    if (c.EsReemplazoDeAnulado && !string.IsNullOrWhiteSpace(c.ComprobantesAnuladosDelPedido))
+                    {
+                        foreach (var numPrev in c.ComprobantesAnuladosDelPedido.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                        {
+                            if (comprobantesForceInfo.TryGetValue(numPrev, out var infoPrev) && !infoPrev.Anulado)
+                            {
+                                tieneAnuladoPrevioActivoEnForce = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (cpSinIdPedido || pedidoSinCpVigente || pedidoNoFacturado || tieneAnuladoPrevioActivoEnForce)
+                    {
+                        necesitaReenlacePedido = true;
+                    }
+                }
+
+                // H. Semáforo y Determinación de Operación (INSERT, UPDATE_DEUDA, REENLAZAR_PEDIDO, ANULAR, SIN_CAMBIOS)
                 if (c.YaExisteEnForce)
                 {
                     if (c.AnuladoOrigen)
@@ -547,7 +645,7 @@ namespace IntegradorFlexForce.Services
                             c.TipoOperacion = "ANULAR";
                             c.Semaforo = "AMBAR";
                             string mot = !string.IsNullOrWhiteSpace(c.MotivoAnulacion) ? $" (Motivo: {c.MotivoAnulacion})" : "";
-                            c.ObservacionValidacion = $"⚠ Anulado en ERP Antiguo{mot}. Listo para marcar Anulado=1 y anular deuda en Force.";
+                            c.ObservacionValidacion = $"⚠ Anulado en ERP Antiguo{mot}. Listo para marcar Anulado=1, cancelar deuda y desenlazar del pedido en Force.";
                         }
                         else
                         {
@@ -558,7 +656,10 @@ namespace IntegradorFlexForce.Services
                     }
                     else
                     {
-                        // En origen NO está anulado. ¿Cambió el saldo de la deuda o se cobró?
+                        // En origen NO está anulado. ¿Cambió el saldo de la deuda o requiere re-enlazar pedido por reemplazo de anulado?
+                        bool requiereUpdateDeuda = false;
+                        string msgDeuda = "";
+
                         if (c.EsCredito)
                         {
                             decimal saldoOrigen = c.SaldoPendiente;
@@ -566,29 +667,37 @@ namespace IntegradorFlexForce.Services
 
                             if (c.IDDeudaForce == null && saldoOrigen > 0)
                             {
-                                c.TipoOperacion = "UPDATE_DEUDA";
-                                c.Semaforo = "VERDE";
-                                c.ObservacionValidacion = $"✓ Deuda pendiente no registrada en Force. Listo para registrar deuda S/ {saldoOrigen:N2}.";
+                                requiereUpdateDeuda = true;
+                                msgDeuda = $"✓ Deuda pendiente no registrada en Force. Listo para registrar deuda S/ {saldoOrigen:N2}.";
                             }
                             else if (c.IDDeudaForce != null && Math.Abs(saldoForce - saldoOrigen) > 0.01m)
                             {
-                                c.TipoOperacion = "UPDATE_DEUDA";
-                                c.Semaforo = "VERDE";
+                                requiereUpdateDeuda = true;
                                 string estadoCobranza = saldoOrigen <= 0 ? "CANCELADO" : (saldoOrigen < c.Total ? "PARCIAL" : "PENDIENTE");
-                                c.ObservacionValidacion = $"✓ Cobranza en ERP Antiguo: Saldo Force S/ {saldoForce:N2} -> Nuevo Saldo S/ {saldoOrigen:N2} [{estadoCobranza}].";
+                                msgDeuda = $"✓ Cobranza en ERP Antiguo: Saldo Force S/ {saldoForce:N2} -> Nuevo Saldo S/ {saldoOrigen:N2} [{estadoCobranza}].";
                             }
-                            else
-                            {
-                                c.TipoOperacion = "SIN_CAMBIOS";
-                                c.Semaforo = "AZUL";
-                                c.ObservacionValidacion = $"ℹ Ya existe en Force (Cp ID: {c.IDCpForceExistente}) con deuda al día (Saldo S/ {saldoForce:N2}).";
-                            }
+                        }
+
+                        if (requiereUpdateDeuda)
+                        {
+                            c.TipoOperacion = "UPDATE_DEUDA";
+                            c.Semaforo = "VERDE";
+                            string extraReenlace = necesitaReenlacePedido ? $" Además re-enlazará Pedido #{c.IDPedidoForce}." : "";
+                            c.ObservacionValidacion = msgDeuda + extraReenlace;
+                        }
+                        else if (necesitaReenlacePedido)
+                        {
+                            c.TipoOperacion = "REENLAZAR_PEDIDO";
+                            c.Semaforo = "VERDE";
+                            string reempTxt = c.EsReemplazoDeAnulado ? $" (reemplazando a {c.ComprobantesAnuladosDelPedido})" : "";
+                            c.ObservacionValidacion = $"✓ Re-enlazar con Pedido Force #{c.IDPedidoForce}{reempTxt} y actualizar IDCpVenta vigente.";
                         }
                         else
                         {
                             c.TipoOperacion = "SIN_CAMBIOS";
                             c.Semaforo = "AZUL";
-                            c.ObservacionValidacion = $"ℹ Ya existe en Force (Cp ID: {c.IDCpForceExistente}, Contado). Al día.";
+                            string infoCred = c.EsCredito ? $" con deuda al día (Saldo S/ {(c.ForceSaldoDeuda ?? 0):N2})" : " (Contado)";
+                            c.ObservacionValidacion = $"ℹ Ya existe en Force (Cp ID: {c.IDCpForceExistente}){infoCred}. Al día.";
                         }
                     }
                 }
@@ -617,17 +726,24 @@ namespace IntegradorFlexForce.Services
                         {
                             c.Semaforo = "VERDE";
                             string multiTag = c.EsMulticomprobante ? $" [Comp {c.ComprobanteNumeroOrden}/{c.TotalComprobantesDelPedido}]" : "";
-                            c.ObservacionValidacion = $"✓ 100% Alineado — Enlazado a Pedido Force #{c.IDPedidoForce} (FACTURADO){multiTag}";
+                            string reempTag = c.EsReemplazoDeAnulado ? $" [🔄 Reemplaza a {c.ComprobantesAnuladosDelPedido}]" : "";
+                            c.ObservacionValidacion = $"✓ 100% Alineado — Enlazado a Pedido Force #{c.IDPedidoForce} (FACTURADO){multiTag}{reempTag}";
                         }
                     }
                 }
             }
 
-            // Si el filtro exige detectar solo comprobantes de pedidos que ya estén FACTURADOS en Force
+            // Si el filtro exige comprobantes con Pedido en Force:
+            // Incluye pedidos FACTURADO, o PENDIENTE (ej. cuando se anularon sus comprobantes previos y tiene nuevos de reemplazo), o anulaciones pendientes en Force.
             if (filtro.SoloPedidosFacturadosEnForce)
             {
                 comprobantes = comprobantes
-                    .Where(c => c.IDPedidoForce.HasValue && string.Equals(c.EstadoPedidoForce, "FACTURADO", StringComparison.OrdinalIgnoreCase))
+                    .Where(c =>
+                        (c.IDPedidoForce.HasValue && (
+                            string.Equals(c.EstadoPedidoForce, "FACTURADO", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(c.EstadoPedidoForce, "PENDIENTE", StringComparison.OrdinalIgnoreCase) ||
+                            c.TipoOperacion == "ANULAR")) ||
+                        c.TipoOperacion == "ANULAR")
                     .ToList();
             }
 
@@ -638,8 +754,9 @@ namespace IntegradorFlexForce.Services
             response.TotalEncontrados = comprobantes.Count;
             response.ListosParaSubir = comprobantes.Count(x => x.ListoParaSubir);
             response.NuevosAInsertar = comprobantes.Count(x => x.TipoOperacion == "INSERT" && x.ListoParaSubir);
-            response.DeudasAActualizar = comprobantes.Count(x => x.TipoOperacion == "UPDATE_DEUDA" && x.ListoParaSubir);
+            response.DeudasAActualizar = comprobantes.Count(x => (x.TipoOperacion == "UPDATE_DEUDA" || x.TipoOperacion == "REENLAZAR_PEDIDO") && x.ListoParaSubir);
             response.AnulacionesPendientes = comprobantes.Count(x => x.TipoOperacion == "ANULAR" && x.ListoParaSubir);
+            response.ReemplazosDeAnulados = comprobantes.Count(x => x.EsReemplazoDeAnulado);
             response.YaExistenEnForce = comprobantes.Count(x => x.YaExisteEnForce);
             response.SinPedidoEnlazado = comprobantes.Count(x => !x.YaExisteEnForce && !x.IDPedidoForce.HasValue);
             response.ObservadosConError = comprobantes.Count(x => !x.YaExisteEnForce && x.Semaforo == "ROJO");
@@ -666,8 +783,11 @@ namespace IntegradorFlexForce.Services
 
             try
             {
+                // Ordenar para que PRIMERO se ejecuten las ANULACIONES (liberando IDCpVenta de pedidos) y LUEGO las INSERCIONES/REEMPLAZOS
                 var comprobantesASubir = _ultimoAnalisis
                     .Where(c => idsCpOrigen.Contains(c.IDCpOrigen))
+                    .OrderBy(c => c.TipoOperacion == "ANULAR" ? 0 : (c.TipoOperacion == "INSERT" ? 1 : 2))
+                    .ThenBy(c => c.IDCpOrigen)
                     .ToList();
 
                 _status.IsRunning = true;
@@ -732,7 +852,7 @@ namespace IntegradorFlexForce.Services
                         using var tx = connForce.BeginTransaction();
                         try
                         {
-                            // ESCENARIO 1: ANULACIÓN DE COMPROBANTE EN FORCE Y CANCELACIÓN DE SU DEUDA
+                            // ESCENARIO 1: ANULACIÓN DE COMPROBANTE EN FORCE, CANCELACIÓN DE DEUDA Y REAJUSTE DE PEDIDO
                             if (c.TipoOperacion == "ANULAR")
                             {
                                 int idCp = c.IDCpForceExistente!.Value;
@@ -741,6 +861,7 @@ namespace IntegradorFlexForce.Services
                                 const string sqlAnulCp = @"
                                     UPDATE dbo.Cp
                                     SET Anulado = 1,
+                                        HoraAnulacion = GETDATE(),
                                         Observacion = ISNULL(Observacion, '') + ' [ANULADO: ' + @Motivo + ']'
                                     WHERE ID = @IDCp;";
                                 using (var cmdAnul = new SqlCommand(sqlAnulCp, connForce, tx))
@@ -775,77 +896,130 @@ namespace IntegradorFlexForce.Services
                                     await cmdAnulDeuda.ExecuteNonQueryAsync(ct);
                                 }
 
+                                // Si el comprobante anulado estaba vinculado a un pedido en Force, actualizar el vínculo del pedido:
+                                // Si queda otro comprobante vigente en ese pedido, asignar ese; si no queda ninguno, limpiar IDCpVenta y pasar a PENDIENTE.
+                                int? idPedAsociado = c.IDPedidoForce ?? c.ForceIDPedido;
+                                if (idPedAsociado.HasValue && idPedAsociado.Value > 0)
+                                {
+                                    const string sqlReajustarPed = @"
+                                        DECLARE @PrimerCpActivo int;
+                                        SELECT TOP 1 @PrimerCpActivo = ID
+                                        FROM dbo.Cp
+                                        WHERE IDPedido = @IDPedido AND ISNULL(Anulado, 0) = 0 AND ISNULL(Eliminado, 0) = 0
+                                        ORDER BY ID ASC;
+
+                                        IF @PrimerCpActivo IS NOT NULL
+                                        BEGIN
+                                            UPDATE dbo.ped_Pedido
+                                            SET IDCpVenta = @PrimerCpActivo,
+                                                Estado = 'FACTURADO',
+                                                FechaModificacion = GETDATE()
+                                            WHERE ID = @IDPedido;
+                                        END
+                                        ELSE
+                                        BEGIN
+                                            UPDATE dbo.ped_Pedido
+                                            SET IDCpVenta = NULL,
+                                                Estado = CASE WHEN Estado = 'ANULADO' THEN 'ANULADO' ELSE 'PENDIENTE' END,
+                                                FechaModificacion = GETDATE()
+                                            WHERE ID = @IDPedido;
+                                        END";
+                                    using var cmdReajPed = new SqlCommand(sqlReajustarPed, connForce, tx);
+                                    cmdReajPed.Parameters.AddWithValue("@IDPedido", idPedAsociado.Value);
+                                    await cmdReajPed.ExecuteNonQueryAsync(ct);
+                                }
+
                                 await tx.CommitAsync(ct);
                                 _status.TotalAnulados++;
                                 c.ForceAnulado = true;
                                 c.Semaforo = "AZUL";
                                 c.TipoOperacion = "SIN_CAMBIOS";
-                                c.ObservacionValidacion = $"✓ Anulado exitosamente en Force (Cp #{idCp}). Deuda cancelada.";
+                                c.ObservacionValidacion = $"✓ Anulado exitosamente en Force (Cp #{idCp}). Deuda cancelada y pedido actualizado.";
                                 AgregarEvento(c.IDCpOrigen, c.NumCp, "WARN", $"⚠ Anulado en Force (Cp #{idCp}) | Motivo: {mot} | Deuda cancelada.");
                             }
-                            // ESCENARIO 2: ACTUALIZACIÓN DE SALDO DE DEUDA Y ESTADO DE COBRANZA
-                            else if (c.TipoOperacion == "UPDATE_DEUDA")
+                            // ESCENARIO 2: ACTUALIZACIÓN DE DEUDA Y/O RE-ENLACE CON PEDIDO (POR REEMPLAZO DE COMPROBANTE ANULADO)
+                            else if (c.TipoOperacion == "UPDATE_DEUDA" || c.TipoOperacion == "REENLAZAR_PEDIDO")
                             {
                                 int idCp = c.IDCpForceExistente!.Value;
                                 decimal nuevoSaldo = Math.Max(0, Math.Min(c.SaldoPendiente, c.Total));
                                 string nuevoEstado = (nuevoSaldo <= 0) ? "CANCELADO" : (nuevoSaldo < c.Total ? "PARCIAL" : "PENDIENTE");
 
-                                DateTime fechaVenc = c.FechaVencimiento ?? c.FechaEmision;
-                                DateTime fechaProg = c.FechaProgramacionPago ?? fechaVenc;
-
-                                const string sqlUpdDeuda = @"
-                                    IF EXISTS (SELECT 1 FROM dbo.cob_DeudaCliente WHERE IDCpVenta = @IDCpVenta AND Eliminado = 0)
-                                    BEGIN
-                                        UPDATE dbo.cob_DeudaCliente
-                                        SET Saldo = @Saldo,
-                                            Estado = @Estado,
-                                            FechaModificacion = GETDATE(),
-                                            UsuarioModificador = 'INTEGRADOR'
-                                        WHERE IDCpVenta = @IDCpVenta AND Eliminado = 0;
-                                    END
-                                    ELSE IF @Saldo > 0
-                                    BEGIN
-                                        INSERT INTO dbo.cob_DeudaCliente (
-                                            IDCliente, IDCatalogo, IDPedido, IDCpVenta, IDMoneda, IDModalidadCredito,
-                                            IDMedioPago, IDVendedor, Total, Saldo, MontoDetraccion,
-                                            FechaEmision, FechaVencimiento, FechaProgramacionPago,
-                                            TipoCp, Credito, MovSaldo, SujetoADetraccion, SujetoAPercepcion,
-                                            Estado, UsuarioCreador, FechaCreacion, Eliminado
-                                        ) VALUES (
-                                            @IDCliente, @IDCatalogo, @IDPedido, @IDCpVenta, 1, @IDModalidadCredito,
-                                            NULL, @IDVendedor, @Total, @Saldo, 0,
-                                            @FechaEmision, @FechaVencimiento, @FechaProgramacionPago,
-                                            'Cobrar', 1, 1, 0, 0,
-                                            @Estado, '0', GETDATE(), 0
-                                        );
-                                    END";
-
-                                using (var cmdDeuda = new SqlCommand(sqlUpdDeuda, connForce, tx))
+                                if (c.EsCredito)
                                 {
-                                    cmdDeuda.Parameters.AddWithValue("@IDCpVenta", idCp);
-                                    cmdDeuda.Parameters.AddWithValue("@IDCliente", c.IDClienteForce ?? (object)DBNull.Value);
-                                    cmdDeuda.Parameters.AddWithValue("@IDCatalogo", (object?)c.IDCatalogoForce ?? DBNull.Value);
-                                    cmdDeuda.Parameters.AddWithValue("@IDPedido", (object?)c.IDPedidoForce ?? DBNull.Value);
-                                    cmdDeuda.Parameters.AddWithValue("@IDModalidadCredito", (object?)c.IDModalidadCreditoForce ?? DBNull.Value);
-                                    cmdDeuda.Parameters.AddWithValue("@IDVendedor", c.IDVendedorForce ?? (object)DBNull.Value);
-                                    cmdDeuda.Parameters.AddWithValue("@Total", c.Total);
-                                    cmdDeuda.Parameters.AddWithValue("@Saldo", nuevoSaldo);
-                                    cmdDeuda.Parameters.AddWithValue("@FechaEmision", c.FechaEmision);
-                                    cmdDeuda.Parameters.AddWithValue("@FechaVencimiento", fechaVenc);
-                                    cmdDeuda.Parameters.AddWithValue("@FechaProgramacionPago", fechaProg);
-                                    cmdDeuda.Parameters.AddWithValue("@Estado", nuevoEstado);
+                                    DateTime fechaVenc = c.FechaVencimiento ?? c.FechaEmision;
+                                    DateTime fechaProg = c.FechaProgramacionPago ?? fechaVenc;
 
-                                    await cmdDeuda.ExecuteNonQueryAsync(ct);
+                                    const string sqlUpdDeuda = @"
+                                        IF EXISTS (SELECT 1 FROM dbo.cob_DeudaCliente WHERE IDCpVenta = @IDCpVenta AND Eliminado = 0)
+                                        BEGIN
+                                            UPDATE dbo.cob_DeudaCliente
+                                            SET Saldo = @Saldo,
+                                                Estado = @Estado,
+                                                IDPedido = ISNULL(@IDPedido, IDPedido),
+                                                FechaModificacion = GETDATE(),
+                                                UsuarioModificador = 'INTEGRADOR'
+                                            WHERE IDCpVenta = @IDCpVenta AND Eliminado = 0;
+                                        END
+                                        ELSE IF @Saldo > 0
+                                        BEGIN
+                                            INSERT INTO dbo.cob_DeudaCliente (
+                                                IDCliente, IDCatalogo, IDPedido, IDCpVenta, IDMoneda, IDModalidadCredito,
+                                                IDMedioPago, IDVendedor, Total, Saldo, MontoDetraccion,
+                                                FechaEmision, FechaVencimiento, FechaProgramacionPago,
+                                                TipoCp, Credito, MovSaldo, SujetoADetraccion, SujetoAPercepcion,
+                                                Estado, UsuarioCreador, FechaCreacion, Eliminado
+                                            ) VALUES (
+                                                @IDCliente, @IDCatalogo, @IDPedido, @IDCpVenta, 1, @IDModalidadCredito,
+                                                NULL, @IDVendedor, @Total, @Saldo, 0,
+                                                @FechaEmision, @FechaVencimiento, @FechaProgramacionPago,
+                                                'Cobrar', 1, 1, 0, 0,
+                                                @Estado, '0', GETDATE(), 0
+                                            );
+                                        END";
+
+                                    using (var cmdDeuda = new SqlCommand(sqlUpdDeuda, connForce, tx))
+                                    {
+                                        cmdDeuda.Parameters.AddWithValue("@IDCpVenta", idCp);
+                                        cmdDeuda.Parameters.AddWithValue("@IDCliente", c.IDClienteForce ?? (object)DBNull.Value);
+                                        cmdDeuda.Parameters.AddWithValue("@IDCatalogo", (object?)c.IDCatalogoForce ?? DBNull.Value);
+                                        cmdDeuda.Parameters.AddWithValue("@IDPedido", (object?)c.IDPedidoForce ?? DBNull.Value);
+                                        cmdDeuda.Parameters.AddWithValue("@IDModalidadCredito", (object?)c.IDModalidadCreditoForce ?? DBNull.Value);
+                                        cmdDeuda.Parameters.AddWithValue("@IDVendedor", c.IDVendedorForce ?? (object)DBNull.Value);
+                                        cmdDeuda.Parameters.AddWithValue("@Total", c.Total);
+                                        cmdDeuda.Parameters.AddWithValue("@Saldo", nuevoSaldo);
+                                        cmdDeuda.Parameters.AddWithValue("@FechaEmision", c.FechaEmision);
+                                        cmdDeuda.Parameters.AddWithValue("@FechaVencimiento", fechaVenc);
+                                        cmdDeuda.Parameters.AddWithValue("@FechaProgramacionPago", fechaProg);
+                                        cmdDeuda.Parameters.AddWithValue("@Estado", nuevoEstado);
+
+                                        await cmdDeuda.ExecuteNonQueryAsync(ct);
+                                    }
+                                }
+
+                                // Si tiene pedido en Force, asegurar enlace bidireccional y anular en Force cualquier comprobante previo anulado de ese pedido
+                                if (c.IDPedidoForce.HasValue && c.IDPedidoForce.Value > 0)
+                                {
+                                    await SincronizarEnlacePedidoYAnuladosPreviosAsync(connForce, tx, c, idCp, ct);
                                 }
 
                                 await tx.CommitAsync(ct);
                                 _status.TotalActualizados++;
                                 c.ForceSaldoDeuda = nuevoSaldo;
                                 c.ForceEstadoDeuda = nuevoEstado;
+                                c.ForceIDPedido = c.IDPedidoForce;
                                 c.Semaforo = "AZUL";
+                                string opRealizada = c.TipoOperacion;
                                 c.TipoOperacion = "SIN_CAMBIOS";
-                                c.ObservacionValidacion = $"✓ Cobranza sincronizada en Force (Cp #{idCp}) | Saldo: S/ {nuevoSaldo:N2} [{nuevoEstado}].";
-                                AgregarEvento(c.IDCpOrigen, c.NumCp, "SUCCESS", $"✎ Cobranza sincronizada Cp #{idCp} ({c.NumCp}) | Saldo: S/ {nuevoSaldo:N2} [{nuevoEstado}].");
+                                if (opRealizada == "REENLAZAR_PEDIDO")
+                                {
+                                    c.ObservacionValidacion = $"✓ Enlazado correctamente a Pedido Force #{c.IDPedidoForce} (Cp #{idCp}).";
+                                    AgregarEvento(c.IDCpOrigen, c.NumCp, "SUCCESS", $"🔗 Re-enlazado Cp #{idCp} ({c.NumCp}) con Pedido Force #{c.IDPedidoForce}.");
+                                }
+                                else
+                                {
+                                    c.ObservacionValidacion = $"✓ Cobranza sincronizada en Force (Cp #{idCp}) | Saldo: S/ {nuevoSaldo:N2} [{nuevoEstado}].";
+                                    AgregarEvento(c.IDCpOrigen, c.NumCp, "SUCCESS", $"✎ Cobranza sincronizada Cp #{idCp} ({c.NumCp}) | Saldo: S/ {nuevoSaldo:N2} [{nuevoEstado}].");
+                                }
                             }
                             // ESCENARIO 3: INSERCIÓN DE NUEVO COMPROBANTE CON CORRELATIVO Y ENLACE
                             else
@@ -1017,19 +1191,10 @@ namespace IntegradorFlexForce.Services
                                     await cmdIt.ExecuteNonQueryAsync(ct);
                                 }
 
-                                // 5. Enlace Bidireccional: Actualizar ped_Pedido.IDCpVenta
+                                // 5. Enlace Bidireccional: Actualizar ped_Pedido.IDCpVenta y anular comprobantes previos reemplazados
                                 if (c.IDPedidoForce.HasValue && c.IDPedidoForce.Value > 0)
                                 {
-                                    const string sqlUpdatePed = @"
-                                        UPDATE dbo.ped_Pedido
-                                        SET IDCpVenta = @IDCp,
-                                            Estado = 'FACTURADO'
-                                        WHERE ID = @IDPedido AND (IDCpVenta IS NULL OR IDCpVenta = 0);";
-
-                                    using var cmdPed = new SqlCommand(sqlUpdatePed, connForce, tx);
-                                    cmdPed.Parameters.AddWithValue("@IDCp", nuevoIdCp);
-                                    cmdPed.Parameters.AddWithValue("@IDPedido", c.IDPedidoForce.Value);
-                                    await cmdPed.ExecuteNonQueryAsync(ct);
+                                    await SincronizarEnlacePedidoYAnuladosPreviosAsync(connForce, tx, c, nuevoIdCp, ct);
                                 }
 
                                 // 6. Actualizar Correlativo en TipoCpVentas
@@ -1094,13 +1259,15 @@ namespace IntegradorFlexForce.Services
 
                                 c.YaExisteEnForce = true;
                                 c.IDCpForceExistente = nuevoIdCp;
+                                c.ForceIDPedido = c.IDPedidoForce;
                                 c.Semaforo = "AZUL";
                                 c.TipoOperacion = "SIN_CAMBIOS";
                                 _status.TotalSubidos++;
                                 if (deudaCreada) _status.TotalDeudasGeneradas++;
 
                                 string multiBadge = c.EsMulticomprobante ? $" [Comp {c.ComprobanteNumeroOrden}/{c.TotalComprobantesDelPedido}]" : "";
-                                string infoEnlace = c.IDPedidoForce.HasValue ? $" | Enlazado a Pedido #{c.IDPedidoForce}{multiBadge}" : " (Sin pedido)";
+                                string reempBadge = c.EsReemplazoDeAnulado ? $" [🔄 Reemplazó a {c.ComprobantesAnuladosDelPedido}]" : "";
+                                string infoEnlace = c.IDPedidoForce.HasValue ? $" | Enlazado a Pedido #{c.IDPedidoForce}{multiBadge}{reempBadge}" : " (Sin pedido)";
                                 string infoDeuda = deudaCreada ? $" | Deuda: S/ {c.SaldoPendiente:N2}" : "";
                                 AgregarEvento(c.IDCpOrigen, c.NumCp, "SUCCESS", $"✓ Subido como Cp #{nuevoIdCp} | Total S/ {c.Total:N2}{infoEnlace}{infoDeuda}");
                             }
@@ -1135,7 +1302,7 @@ namespace IntegradorFlexForce.Services
                     }
                 }
 
-                _status.FaseDetalle = $"Sincronización finalizada: {_status.TotalSubidos} subidos, {_status.TotalActualizados} cobranzas actualizadas, {_status.TotalAnulados} anulados, {_status.TotalOmitidos} omitidos, {_status.TotalErrores} errores.";
+                _status.FaseDetalle = $"Sincronización finalizada: {_status.TotalSubidos} subidos, {_status.TotalActualizados} cobranzas/enlaces actualizados, {_status.TotalAnulados} anulados, {_status.TotalOmitidos} omitidos, {_status.TotalErrores} errores.";
                 AgregarEvento(0, "SISTEMA", "INFO", $"Resumen final: {_status.TotalSubidos} nuevos subidos, {_status.TotalActualizados} actualizados, {_status.TotalAnulados} anulados, {_status.TotalErrores} errores.");
                 _status.EstadoActual = "COMPLETADO";
             }
@@ -1150,6 +1317,100 @@ namespace IntegradorFlexForce.Services
             {
                 _status.IsRunning = false;
                 _execLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// Garantiza el enlace bidireccional Cp.IDPedido <-> ped_Pedido.IDCpVenta.
+        /// Si el pedido tenía comprobantes previos anulados en el ERP Antiguo (incluso de otras fechas),
+        /// los marca como Anulado=1 en Force, cancela su deuda en cob_DeudaCliente y asigna el primer comprobante vigente a ped_Pedido.IDCpVenta.
+        /// </summary>
+        private async Task SincronizarEnlacePedidoYAnuladosPreviosAsync(
+            SqlConnection connForce,
+            SqlTransaction tx,
+            ComprobanteAlineadoDto c,
+            int idCpActualForce,
+            CancellationToken ct)
+        {
+            int idPedidoForce = c.IDPedidoForce!.Value;
+
+            // 1. Asegurar que este comprobante tenga asignado IDPedido en dbo.Cp
+            const string sqlLinkCp = @"
+                UPDATE dbo.Cp
+                SET IDPedido = @IDPedido
+                WHERE ID = @IDCp AND (IDPedido IS NULL OR IDPedido <> @IDPedido);";
+            using (var cmdLinkCp = new SqlCommand(sqlLinkCp, connForce, tx))
+            {
+                cmdLinkCp.Parameters.AddWithValue("@IDPedido", idPedidoForce);
+                cmdLinkCp.Parameters.AddWithValue("@IDCp", idCpActualForce);
+                await cmdLinkCp.ExecuteNonQueryAsync(ct);
+            }
+
+            // 2. Si este comprobante reemplaza a comprobantes anulados previos del mismo pedido,
+            // asegurar que dichos comprobantes anulados estén marcados como Anulado=1 y su deuda cancelada en Force
+            if (c.EsReemplazoDeAnulado && !string.IsNullOrWhiteSpace(c.ComprobantesAnuladosDelPedido))
+            {
+                var numsAnulados = c.ComprobantesAnuladosDelPedido
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                foreach (var numAnul in numsAnulados)
+                {
+                    const string sqlAnularPrevio = @"
+                        DECLARE @IDCpAnulado int;
+                        SELECT TOP 1 @IDCpAnulado = ID
+                        FROM dbo.Cp
+                        WHERE NumCp = @NumCpAnulado AND ISNULL(Eliminado, 0) = 0 AND ISNULL(Anulado, 0) = 0;
+
+                        IF @IDCpAnulado IS NOT NULL
+                        BEGIN
+                            UPDATE dbo.Cp
+                            SET Anulado = 1,
+                                HoraAnulacion = GETDATE(),
+                                Observacion = ISNULL(Observacion, '') + ' [ANULADO Y REEMPLAZADO POR ' + @NumCpNuevo + ']'
+                            WHERE ID = @IDCpAnulado;
+
+                            UPDATE dbo.ItemCp
+                            SET Anulado = 1
+                            WHERE IDCp = @IDCpAnulado;
+
+                            UPDATE dbo.cob_DeudaCliente
+                            SET Eliminado = 1,
+                                Estado = 'ANULADO',
+                                FechaEliminacion = GETDATE(),
+                                MotivoEliminacion = 'Anulado y reemplazado por ' + @NumCpNuevo,
+                                UsuarioEliminacion = 0
+                            WHERE IDCpVenta = @IDCpAnulado AND ISNULL(Eliminado, 0) = 0;
+                        END";
+
+                    using var cmdAnPrev = new SqlCommand(sqlAnularPrevio, connForce, tx);
+                    cmdAnPrev.Parameters.AddWithValue("@NumCpAnulado", numAnul);
+                    cmdAnPrev.Parameters.AddWithValue("@NumCpNuevo", c.NumCp);
+                    await cmdAnPrev.ExecuteNonQueryAsync(ct);
+                }
+            }
+
+            // 3. Actualizar ped_Pedido.IDCpVenta apuntando siempre al PRIMER comprobante VIGENTE (Anulado = 0) del pedido
+            // y asegurando que el estado del pedido sea FACTURADO
+            const string sqlUpdatePed = @"
+                DECLARE @PrimerCpVigente int;
+                SELECT TOP 1 @PrimerCpVigente = ID
+                FROM dbo.Cp
+                WHERE IDPedido = @IDPedido
+                  AND ISNULL(Anulado, 0) = 0
+                  AND ISNULL(Eliminado, 0) = 0
+                ORDER BY ID ASC;
+
+                UPDATE dbo.ped_Pedido
+                SET IDCpVenta = ISNULL(@PrimerCpVigente, @IDCp),
+                    Estado = 'FACTURADO',
+                    FechaModificacion = GETDATE()
+                WHERE ID = @IDPedido;";
+
+            using (var cmdPed = new SqlCommand(sqlUpdatePed, connForce, tx))
+            {
+                cmdPed.Parameters.AddWithValue("@IDCp", idCpActualForce);
+                cmdPed.Parameters.AddWithValue("@IDPedido", idPedidoForce);
+                await cmdPed.ExecuteNonQueryAsync(ct);
             }
         }
     }

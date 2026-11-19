@@ -115,12 +115,23 @@ namespace IntegradorFlexForce.Models
         public string EstadoFacturacionOrigen { get; set; } = "PENDIENTE"; // PENDIENTE, TOTAL, PARCIAL, ANULADO
         public string EstadoForceMapeado { get; set; } = "PENDIENTE";      // PENDIENTE, FACTURADO, ANULADO
 
-        // Control Idempotencia y Diagnóstico
+        // Control Idempotencia, Estado en Force y Comprobantes Asociados
         public bool YaExisteEnForce { get; set; }
         public int? IDPedidoForceExistente { get; set; }
+        public string ForceEstadoActual { get; set; } = "";
+        public decimal? ForceTotalActual { get; set; }
+        public int? ForceIDCpVentaActual { get; set; }
+
+        // Comprobantes detectados en ERP Antiguo para este pedido
+        public List<string> ComprobantesActivosOrigen { get; set; } = new();
+        public List<string> ComprobantesAnuladosOrigen { get; set; } = new();
+        public bool TieneReemplazoComprobantes => ComprobantesActivosOrigen.Count > 0 && ComprobantesAnuladosOrigen.Count > 0;
+
+        // Operación: "INSERT", "ACTUALIZAR", "ANULAR", "SIN_CAMBIOS"
+        public string TipoOperacion { get; set; } = "INSERT";
         public string Semaforo { get; set; } = "VERDE"; // VERDE, AMBAR, AZUL, ROJO
         public string ObservacionValidacion { get; set; } = "";
-        public bool ListoParaSubir => !YaExisteEnForce && Semaforo != "ROJO";
+        public bool ListoParaSubir => (Semaforo == "VERDE" || Semaforo == "AMBAR") && TipoOperacion != "SIN_CAMBIOS";
 
         public List<PedidoItemAlineadoDto> Items { get; set; } = new();
     }
@@ -131,6 +142,9 @@ namespace IntegradorFlexForce.Models
         public double TiempoSegundos { get; set; }
         public int TotalEncontrados { get; set; }
         public int ListosParaSubir { get; set; }
+        public int NuevosAInsertar { get; set; }
+        public int PedidosAActualizar { get; set; }
+        public int AnulacionesPendientes { get; set; }
         public int YaExistenEnForce { get; set; }
         public int ObservadosConError { get; set; }
         public int Anulados { get; set; }
@@ -163,6 +177,8 @@ namespace IntegradorFlexForce.Models
         public int ProgresoTotal { get; set; }
         public double Porcentaje => ProgresoTotal > 0 ? Math.Round((double)ProgresoActual / ProgresoTotal * 100, 1) : 0;
         public int TotalSubidos { get; set; }
+        public int TotalActualizados { get; set; }
+        public int TotalAnulados { get; set; }
         public int TotalOmitidos { get; set; }
         public int TotalErrores { get; set; }
         public bool StockProtegidoConfirmado { get; set; }

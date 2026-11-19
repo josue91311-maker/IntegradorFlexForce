@@ -337,6 +337,52 @@ namespace IntegradorFlexForce.Services
                         if (itemsPorPedido.TryGetValue(idPed, out var listIt))
                             listIt.Add(itemDto);
                     }
+
+                    // Extraer comprobantes activos y anulados asociados a estos pedidos en digalimenta41
+                    // para detectar reemplazos de comprobantes anulados por nuevos comprobantes
+                    var dictPedidos = pedidos.ToDictionary(p => p.IDPedidoOrigen);
+                    string sqlCpsPedido = $@"
+                        SELECT 
+                            cpr.IDCpRelacionado AS IDPedidoOrigen,
+                            LTRIM(RTRIM(ISNULL(cpv.NumCp, ''))) AS NumCp,
+                            CAST(ISNULL(cpv.Anulado, 0) AS bit) AS Anulado
+                        FROM dbo.CpRelacionado cpr WITH (NOLOCK)
+                        INNER JOIN dbo.Cp cpv WITH (NOLOCK) ON cpv.PKID = cpr.IDCp
+                        INNER JOIN dbo.CpVenta v WITH (NOLOCK) ON v.PKID = cpv.PKID
+                        WHERE cpr.IDCpRelacionado IN ({idsList})
+                        ORDER BY cpv.PKID ASC;";
+
+                    using (var cmdCps = new SqlCommand(sqlCpsPedido, connAntiguo) { CommandTimeout = 120 })
+                    using (var rCp = await cmdCps.ExecuteReaderAsync(ct))
+                    {
+                        while (await rCp.ReadAsync(ct))
+                        {
+                            int idPedOrig = rCp.GetInt32(0);
+                            string numCp = rCp.GetString(1);
+                            bool anul = rCp.GetBoolean(2);
+                            if (string.IsNullOrEmpty(numCp) || !dictPedidos.TryGetValue(idPedOrig, out var pDto)) continue;
+
+                            if (anul)
+                            {
+                                if (!pDto.ComprobantesAnuladosOrigen.Contains(numCp, StringComparer.OrdinalIgnoreCase))
+                                    pDto.ComprobantesAnuladosOrigen.Add(numCp);
+                            }
+                            else
+                            {
+                                if (!pDto.ComprobantesActivosOrigen.Contains(numCp, StringComparer.OrdinalIgnoreCase))
+                                    pDto.ComprobantesActivosOrigen.Add(numCp);
+                            }
+                        }
+                    }
+
+                    // Ajustar EstadoForceMapeado según comprobantes vigentes reales si no está anulado
+                    foreach (var p in pedidos)
+                    {
+                        if (!p.AnuladoOrigen && p.ComprobantesActivosOrigen.Count > 0)
+                        {
+                            p.EstadoForceMapeado = "FACTURADO";
+                        }
+                    }
                 }
             }
 
@@ -354,8 +400,8 @@ namespace IntegradorFlexForce.Services
             var catForceByExtra = new Dictionary<int, int>();
             var listaPrecioByCat = new Dictionary<int, int>();
             var rutaByVend = new Dictionary<int, int>();
-            var existentesPorMovilId = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            var existentesPorNumero = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var existentesPorMovilId = new Dictionary<string, (int IDForce, string Estado, decimal Total, int? IDCpVenta)>(StringComparer.OrdinalIgnoreCase);
+            var existentesPorNumero = new Dictionary<string, (int IDForce, string Estado, decimal Total, int? IDCpVenta)>(StringComparer.OrdinalIgnoreCase);
 
             int defaultListaPrecio = 6;
             int defaultMedioPagoContado = 1;
@@ -465,8 +511,18 @@ namespace IntegradorFlexForce.Services
                         defaultModalidadCredito = Convert.ToInt32(resMod);
                 }
 
-                // Pedidos ya existentes en Force (idempotencia por PedidoMovilID o Numero)
-                using (var cmd = new SqlCommand("SELECT ID, LTRIM(RTRIM(ISNULL(PedidoMovilID, ''))), LTRIM(RTRIM(ISNULL(Numero, ''))) FROM dbo.ped_Pedido WITH (NOLOCK) WHERE Eliminado = 0;", connForce))
+                // Pedidos ya existentes en Force (idempotencia por PedidoMovilID o Numero y su estado actual)
+                const string sqlForcePed = @"
+                    SELECT 
+                        ID, 
+                        LTRIM(RTRIM(ISNULL(PedidoMovilID, ''))), 
+                        LTRIM(RTRIM(ISNULL(Numero, ''))),
+                        UPPER(LTRIM(RTRIM(ISNULL(Estado, 'PENDIENTE')))),
+                        CAST(ISNULL(Total, 0) AS decimal(18,6)),
+                        IDCpVenta
+                    FROM dbo.ped_Pedido WITH (NOLOCK) 
+                    WHERE Eliminado = 0;";
+                using (var cmd = new SqlCommand(sqlForcePed, connForce))
                 using (var r = await cmd.ExecuteReaderAsync(ct))
                 {
                     while (await r.ReadAsync(ct))
@@ -474,8 +530,13 @@ namespace IntegradorFlexForce.Services
                         int idF = r.GetInt32(0);
                         string mov = r.GetString(1);
                         string num = r.GetString(2);
-                        if (!string.IsNullOrEmpty(mov)) existentesPorMovilId[mov] = idF;
-                        if (!string.IsNullOrEmpty(num)) existentesPorNumero[num] = idF;
+                        string est = r.GetString(3);
+                        decimal tot = r.GetDecimal(4);
+                        int? idCpV = r.IsDBNull(5) ? null : r.GetInt32(5);
+
+                        var info = (idF, est, tot, idCpV);
+                        if (!string.IsNullOrEmpty(mov)) existentesPorMovilId[mov] = info;
+                        if (!string.IsNullOrEmpty(num)) existentesPorNumero[num] = info;
                     }
                 }
             }
@@ -613,42 +674,103 @@ namespace IntegradorFlexForce.Services
 
                 // 7. Validar Idempotencia (Si ya existe en Force)
                 string movilKey = $"MIG-ERP-{p.IDPedidoOrigen}";
-                if (existentesPorMovilId.TryGetValue(movilKey, out int idExistente))
+                if (existentesPorMovilId.TryGetValue(movilKey, out var infoMov))
                 {
                     p.YaExisteEnForce = true;
-                    p.IDPedidoForceExistente = idExistente;
+                    p.IDPedidoForceExistente = infoMov.IDForce;
+                    p.ForceEstadoActual = infoMov.Estado;
+                    p.ForceTotalActual = infoMov.Total;
+                    p.ForceIDCpVentaActual = infoMov.IDCpVenta;
                 }
-                else if (!string.IsNullOrEmpty(p.NumPedidoOrigen) && existentesPorNumero.TryGetValue(p.NumPedidoOrigen, out int idExistNum))
+                else if (!string.IsNullOrEmpty(p.NumPedidoOrigen) && existentesPorNumero.TryGetValue(p.NumPedidoOrigen, out var infoNum))
                 {
                     p.YaExisteEnForce = true;
-                    p.IDPedidoForceExistente = idExistNum;
+                    p.IDPedidoForceExistente = infoNum.IDForce;
+                    p.ForceEstadoActual = infoNum.Estado;
+                    p.ForceTotalActual = infoNum.Total;
+                    p.ForceIDCpVentaActual = infoNum.IDCpVenta;
                 }
 
-                // 8. Definir Semáforo y Observación Final
+                if (p.TieneReemplazoComprobantes)
+                {
+                    advertencias.Add($"🔄 Comprobante(s) vigente(s): {string.Join(", ", p.ComprobantesActivosOrigen)} (reemplazó a anulado: {string.Join(", ", p.ComprobantesAnuladosOrigen)})");
+                }
+
+                // 8. Definir Semáforo, TipoOperacion y Observación Final
                 if (p.YaExisteEnForce)
                 {
-                    p.Semaforo = "AZUL";
-                    p.ObservacionValidacion = $"ℹ Ya existe en Force (ID: {p.IDPedidoForceExistente}). Se omitirá para no duplicar.";
-                }
-                else if (erroresMaestros.Count > 0)
-                {
-                    p.Semaforo = "ROJO";
-                    p.ObservacionValidacion = "✕ " + string.Join(" | ", erroresMaestros);
-                }
-                else
-                {
-                    if (p.EstadoFacturacionOrigen == "PARCIAL")
-                        advertencias.Add("Estado ERP: PARCIAL (comprobante parcial/rechazado), entrará como PENDIENTE");
-
-                    if (advertencias.Count > 0)
+                    if (p.AnuladoOrigen)
                     {
-                        p.Semaforo = "AMBAR";
-                        p.ObservacionValidacion = "⚠ Listo (Obs: " + string.Join("; ", advertencias) + ")";
+                        if (!string.Equals(p.ForceEstadoActual, "ANULADO", StringComparison.OrdinalIgnoreCase))
+                        {
+                            p.TipoOperacion = "ANULAR";
+                            p.Semaforo = "AMBAR";
+                            p.ObservacionValidacion = $"⚠ Pedido ANULADO en ERP Antiguo (En Force está '{p.ForceEstadoActual}'). Listo para anular en Force sin afectar stock.";
+                        }
+                        else
+                        {
+                            p.TipoOperacion = "SIN_CAMBIOS";
+                            p.Semaforo = "AZUL";
+                            p.ObservacionValidacion = $"ℹ Ya está anulado en Force (ID: {p.IDPedidoForceExistente}). Al día.";
+                        }
                     }
                     else
                     {
-                        p.Semaforo = "VERDE";
-                        p.ObservacionValidacion = "✓ Maestros 100% alineados — Listo para subir sin tocar stock";
+                        bool cambioEstado = !string.Equals(p.ForceEstadoActual, p.EstadoForceMapeado, StringComparison.OrdinalIgnoreCase);
+                        bool cambioTotal = Math.Abs((p.ForceTotalActual ?? 0) - p.Total) > 0.01m;
+
+                        if (cambioEstado || cambioTotal)
+                        {
+                            p.TipoOperacion = "ACTUALIZAR";
+                            p.Semaforo = "VERDE";
+                            string reempTxt = p.TieneReemplazoComprobantes
+                                ? $" | 🔄 Cp: {string.Join(", ", p.ComprobantesActivosOrigen)} (anulado: {string.Join(", ", p.ComprobantesAnuladosOrigen)})"
+                                : "";
+                            p.ObservacionValidacion = $"✓ Cambio detectado: Force [{p.ForceEstadoActual}, S/ {(p.ForceTotalActual ?? 0):N2}] ➔ Actual [{p.EstadoForceMapeado}, S/ {p.Total:N2}]{reempTxt}. Listo para actualizar sin tocar stock.";
+                        }
+                        else
+                        {
+                            p.TipoOperacion = "SIN_CAMBIOS";
+                            p.Semaforo = "AZUL";
+                            string reempTxt = p.TieneReemplazoComprobantes
+                                ? $" | 🔄 Cp vigente: {string.Join(", ", p.ComprobantesActivosOrigen)} (reemplazó a {string.Join(", ", p.ComprobantesAnuladosOrigen)}; el enlace se actualiza en Módulo Comprobantes)"
+                                : "";
+                            p.ObservacionValidacion = $"ℹ Ya existe en Force (ID: {p.IDPedidoForceExistente} | Estado: {p.ForceEstadoActual}){reempTxt}. Al día.";
+                        }
+                    }
+                }
+                else
+                {
+                    if (p.AnuladoOrigen)
+                    {
+                        p.TipoOperacion = "SIN_CAMBIOS";
+                        p.Semaforo = "AZUL";
+                        p.ObservacionValidacion = "ℹ Pedido anulado en origen que nunca subió a Force. Se omite.";
+                    }
+                    else
+                    {
+                        p.TipoOperacion = "INSERT";
+                        if (erroresMaestros.Count > 0)
+                        {
+                            p.Semaforo = "ROJO";
+                            p.ObservacionValidacion = "✕ " + string.Join(" | ", erroresMaestros);
+                        }
+                        else
+                        {
+                            if (p.EstadoFacturacionOrigen == "PARCIAL" && p.ComprobantesActivosOrigen.Count == 0)
+                                advertencias.Add("Estado ERP: PARCIAL (sin comprobante vigente), entrará como PENDIENTE");
+
+                            if (advertencias.Count > 0)
+                            {
+                                p.Semaforo = "AMBAR";
+                                p.ObservacionValidacion = "⚠ Listo (Obs: " + string.Join("; ", advertencias) + ")";
+                            }
+                            else
+                            {
+                                p.Semaforo = "VERDE";
+                                p.ObservacionValidacion = "✓ Maestros 100% alineados — Listo para subir sin tocar stock";
+                            }
+                        }
                     }
                 }
             }
@@ -659,10 +781,13 @@ namespace IntegradorFlexForce.Services
             response.TiempoSegundos = Math.Round(sw.Elapsed.TotalSeconds, 2);
             response.TotalEncontrados = pedidos.Count;
             response.ListosParaSubir = pedidos.Count(x => x.ListoParaSubir);
+            response.NuevosAInsertar = pedidos.Count(x => x.TipoOperacion == "INSERT" && x.ListoParaSubir);
+            response.PedidosAActualizar = pedidos.Count(x => x.TipoOperacion == "ACTUALIZAR" && x.ListoParaSubir);
+            response.AnulacionesPendientes = pedidos.Count(x => x.TipoOperacion == "ANULAR" && x.ListoParaSubir);
             response.YaExistenEnForce = pedidos.Count(x => x.YaExisteEnForce);
             response.ObservadosConError = pedidos.Count(x => !x.YaExisteEnForce && x.Semaforo == "ROJO");
             response.Anulados = pedidos.Count(x => x.AnuladoOrigen);
-            response.FacturadosTotal = pedidos.Count(x => !x.AnuladoOrigen && x.EstadoFacturacionOrigen == "TOTAL");
+            response.FacturadosTotal = pedidos.Count(x => !x.AnuladoOrigen && x.EstadoForceMapeado == "FACTURADO");
             response.Pendientes = pedidos.Count(x => !x.AnuladoOrigen && x.EstadoFacturacionOrigen == "PENDIENTE");
             response.Parciales = pedidos.Count(x => !x.AnuladoOrigen && x.EstadoFacturacionOrigen == "PARCIAL");
             response.Pedidos = pedidos;
@@ -671,13 +796,13 @@ namespace IntegradorFlexForce.Services
         }
 
         // =========================================================================
-        // 3. SUBIR PEDIDOS A FORCE CON PROTECCIÓN ABSOLUTA DE STOCK (TRIGGER OFF)
+        // 3. SINCRONIZAR PEDIDOS EN FORCE CON PROTECCIÓN ABSOLUTA DE STOCK (TRIGGER OFF)
         // =========================================================================
         public async Task EjecutarSubidaPedidosAsync(List<int> idsPedidosOrigen, CancellationToken ct = default)
         {
             if (!await _execLock.WaitAsync(0, ct))
             {
-                _logger.LogWarning("Ya existe una subida de pedidos en curso.");
+                _logger.LogWarning("Ya existe una sincronización de pedidos en curso.");
                 return;
             }
 
@@ -692,6 +817,8 @@ namespace IntegradorFlexForce.Services
                 _status.ProgresoActual = 0;
                 _status.ProgresoTotal = pedidosASubir.Count;
                 _status.TotalSubidos = 0;
+                _status.TotalActualizados = 0;
+                _status.TotalAnulados = 0;
                 _status.TotalOmitidos = 0;
                 _status.TotalErrores = 0;
                 _status.StockProtegidoConfirmado = false;
@@ -742,10 +869,10 @@ namespace IntegradorFlexForce.Services
                         _status.ProgresoActual++;
                         _status.FaseDetalle = $"Procesando pedido {p.NumPedidoOrigen} ({_status.ProgresoActual}/{_status.ProgresoTotal})...";
 
-                        if (p.YaExisteEnForce)
+                        if (p.TipoOperacion == "SIN_CAMBIOS")
                         {
                             _status.TotalOmitidos++;
-                            AgregarEvento(p.IDPedidoOrigen, p.NumPedidoOrigen, "WARN", $"Omitido: Ya existe en Force (ID: {p.IDPedidoForceExistente}).");
+                            AgregarEvento(p.IDPedidoOrigen, p.NumPedidoOrigen, "INFO", $"Omitido: Ya existe en Force y se encuentra al día (ID: {p.IDPedidoForceExistente}).");
                             continue;
                         }
 
@@ -759,147 +886,240 @@ namespace IntegradorFlexForce.Services
                         using var tx = connForce.BeginTransaction();
                         try
                         {
-                            string movilId = $"MIG-ERP-{p.IDPedidoOrigen}";
-
-                            // Verificar concurrencia por si se insertó justo antes
-                            using (var cmdChk = new SqlCommand("SELECT TOP 1 ID FROM dbo.ped_Pedido WITH (NOLOCK) WHERE PedidoMovilID = @MovilId OR (Numero = @Numero AND Eliminado = 0);", connForce, tx))
+                            // ESCENARIO 1: ANULAR PEDIDO EN FORCE SIN AFECTAR STOCK
+                            if (p.TipoOperacion == "ANULAR")
                             {
-                                cmdChk.Parameters.AddWithValue("@MovilId", movilId);
-                                cmdChk.Parameters.AddWithValue("@Numero", p.NumPedidoOrigen);
-                                var exist = await cmdChk.ExecuteScalarAsync(ct);
-                                if (exist != null && exist != DBNull.Value)
+                                int idForce = p.IDPedidoForceExistente!.Value;
+                                const string sqlAnularPed = @"
+                                    UPDATE dbo.ped_Pedido
+                                    SET Estado = 'ANULADO',
+                                        IDCpVenta = NULL,
+                                        FechaModificacion = GETDATE(),
+                                        MotivoEliminacion = 'Anulado en ERP Antiguo',
+                                        DetalleAdicional = ISNULL(DetalleAdicional, '') + ' | [ANULADO EN ERP ANTIGUO]'
+                                    WHERE ID = @IDPedidoForce;";
+
+                                using (var cmdAnul = new SqlCommand(sqlAnularPed, connForce, tx))
                                 {
-                                    tx.Rollback();
-                                    _status.TotalOmitidos++;
-                                    AgregarEvento(p.IDPedidoOrigen, p.NumPedidoOrigen, "WARN", $"Omitido: Ya registrado en Force (ID: {exist}).");
-                                    continue;
+                                    cmdAnul.Parameters.AddWithValue("@IDPedidoForce", idForce);
+                                    await cmdAnul.ExecuteNonQueryAsync(ct);
                                 }
+
+                                tx.Commit();
+                                p.ForceEstadoActual = "ANULADO";
+                                p.Semaforo = "AZUL";
+                                p.TipoOperacion = "SIN_CAMBIOS";
+                                p.ObservacionValidacion = $"✓ Anulado exitosamente en Force (ID: {idForce}) | Stock intacto.";
+                                _status.TotalAnulados++;
+                                AgregarEvento(p.IDPedidoOrigen, p.NumPedidoOrigen, "WARN", $"⚠ Pedido anulado en Force (ID #{idForce}) | Stock intacto.");
                             }
-
-                            const string sqlInsertCab = @"
-                                INSERT INTO dbo.ped_Pedido (
-                                    PedidoMovilID, Numero, IDCliente, IDVendedor, IDAlmacen, IDSucursal,
-                                    IDListaPrecio, IDCatalogo, IDMedioPago, IDModalidadCredito,
-                                    FechaEmision, FechaEntrega,
-                                    TieneCredito, TieneBonificacion, ConBonificacion,
-                                    Cantidad, SubTotal, TotalDescuento, TotalCredito, TotalContado, Total,
-                                    Estado, CodigoPromocion, DetalleAdicional,
-                                    UsuarioCreador, FechaCreacion, FechaModificacion, Eliminado,
-                                    IDTipoCpPedido, IDRuta,
-                                    TieneImpuesto, TotalImpuesto, ValorAfecto, ValorInafecto, TotalPercepcion, TotalICB
-                                )
-                                VALUES (
-                                    @PedidoMovilID, @Numero, @IDCliente, @IDVendedor, @IDAlmacen, @IDSucursal,
-                                    @IDListaPrecio, @IDCatalogo, @IDMedioPago, @IDModalidadCredito,
-                                    @FechaEmision, @FechaEntrega,
-                                    @TieneCredito, @TieneBonificacion, @TieneBonificacion,
-                                    @Cantidad, @SubTotal, @TotalDescuento, @TotalCredito, @TotalContado, @Total,
-                                    @Estado, NULL, @DetalleAdicional,
-                                    16, GETDATE(), GETDATE(), 0,
-                                    @IDTipoCpPedido, @IDRuta,
-                                    @TieneImpuesto, @TotalImpuesto, @ValorAfecto, @ValorInafecto, @TotalPercepcion, 0
-                                );
-                                SELECT CAST(SCOPE_IDENTITY() AS int);";
-
-                            bool tieneBonifPed = p.Items.Any(it => it.EsBonificacion);
-                            decimal totalDescPed = p.TotalDescuento > 0 ? p.TotalDescuento : p.Items.Sum(it => it.Descuento);
-
-                            int nuevoIdPedido;
-                            using (var cmdCab = new SqlCommand(sqlInsertCab, connForce, tx))
+                            // ESCENARIO 2: ACTUALIZAR ESTADO / MONTOS DE PEDIDO EXISTENTE EN FORCE SIN AFECTAR STOCK
+                            else if (p.TipoOperacion == "ACTUALIZAR")
                             {
-                                cmdCab.Parameters.AddWithValue("@PedidoMovilID", movilId);
-                                cmdCab.Parameters.AddWithValue("@Numero", p.NumPedidoOrigen);
-                                cmdCab.Parameters.AddWithValue("@IDCliente", p.IDClienteForce!.Value);
-                                cmdCab.Parameters.AddWithValue("@IDVendedor", p.IDVendedorForce!.Value);
-                                cmdCab.Parameters.AddWithValue("@IDAlmacen", p.IDAlmacenForce!.Value);
-                                cmdCab.Parameters.AddWithValue("@IDSucursal", p.IDSucursalForce!.Value);
-                                cmdCab.Parameters.AddWithValue("@IDListaPrecio", p.IDListaPrecioForce ?? 6);
-                                cmdCab.Parameters.AddWithValue("@IDCatalogo", p.IDCatalogoForce!.Value);
-                                cmdCab.Parameters.AddWithValue("@IDMedioPago", (object?)p.IDMedioPagoForce ?? DBNull.Value);
-                                cmdCab.Parameters.AddWithValue("@IDModalidadCredito", (object?)p.IDModalidadCreditoForce ?? DBNull.Value);
-                                cmdCab.Parameters.AddWithValue("@FechaEmision", p.FechaEmision);
-                                cmdCab.Parameters.AddWithValue("@FechaEntrega", (object?)p.FechaEntrega ?? DBNull.Value);
-                                cmdCab.Parameters.AddWithValue("@TieneCredito", p.TieneCredito);
-                                cmdCab.Parameters.AddWithValue("@TieneBonificacion", tieneBonifPed);
-                                cmdCab.Parameters.AddWithValue("@Cantidad", p.CantidadTotal);
-                                cmdCab.Parameters.AddWithValue("@SubTotal", p.SubTotal);
-                                cmdCab.Parameters.AddWithValue("@TotalDescuento", totalDescPed);
-                                cmdCab.Parameters.AddWithValue("@TotalCredito", p.TotalCredito);
-                                cmdCab.Parameters.AddWithValue("@TotalContado", p.TotalContado);
-                                cmdCab.Parameters.AddWithValue("@Total", p.Total);
-                                cmdCab.Parameters.AddWithValue("@Estado", p.EstadoForceMapeado);
-                                cmdCab.Parameters.AddWithValue("@DetalleAdicional", $"Migrado ERP Antiguo (PKID: {p.IDPedidoOrigen} | EstFact: {p.EstadoFacturacionOrigen})");
-                                cmdCab.Parameters.AddWithValue("@IDTipoCpPedido", p.IDTipoCpPedidoForce!.Value);
-                                cmdCab.Parameters.AddWithValue("@IDRuta", (object?)p.IDRutaForce ?? DBNull.Value);
-                                cmdCab.Parameters.AddWithValue("@TieneImpuesto", p.TieneImpuesto);
-                                cmdCab.Parameters.AddWithValue("@TotalImpuesto", p.TotalImpuesto);
-                                cmdCab.Parameters.AddWithValue("@ValorAfecto", p.ValorAfecto);
-                                cmdCab.Parameters.AddWithValue("@ValorInafecto", p.ValorInafecto);
-                                cmdCab.Parameters.AddWithValue("@TotalPercepcion", p.TotalPercepcion);
+                                int idForce = p.IDPedidoForceExistente!.Value;
+                                bool tieneBonifPed = p.Items.Any(it => it.EsBonificacion);
+                                decimal totalDescPed = p.TotalDescuento > 0 ? p.TotalDescuento : p.Items.Sum(it => it.Descuento);
 
-                                nuevoIdPedido = (int)(await cmdCab.ExecuteScalarAsync(ct))!;
+                                const string sqlUpdPed = @"
+                                    UPDATE dbo.ped_Pedido
+                                    SET Estado = @Estado,
+                                        TieneCredito = @TieneCredito,
+                                        TieneBonificacion = @TieneBonificacion,
+                                        ConBonificacion = @TieneBonificacion,
+                                        Cantidad = @Cantidad,
+                                        SubTotal = @SubTotal,
+                                        TotalDescuento = @TotalDescuento,
+                                        TotalCredito = @TotalCredito,
+                                        TotalContado = @TotalContado,
+                                        Total = @Total,
+                                        TieneImpuesto = @TieneImpuesto,
+                                        TotalImpuesto = @TotalImpuesto,
+                                        ValorAfecto = @ValorAfecto,
+                                        ValorInafecto = @ValorInafecto,
+                                        TotalPercepcion = @TotalPercepcion,
+                                        IDCpVenta = CASE WHEN @Estado = 'PENDIENTE' THEN NULL ELSE IDCpVenta END,
+                                        FechaModificacion = GETDATE(),
+                                        DetalleAdicional = @DetalleAdicional
+                                    WHERE ID = @IDPedidoForce;";
+
+                                using (var cmdUpd = new SqlCommand(sqlUpdPed, connForce, tx))
+                                {
+                                    cmdUpd.Parameters.AddWithValue("@IDPedidoForce", idForce);
+                                    cmdUpd.Parameters.AddWithValue("@Estado", p.EstadoForceMapeado);
+                                    cmdUpd.Parameters.AddWithValue("@TieneCredito", p.TieneCredito);
+                                    cmdUpd.Parameters.AddWithValue("@TieneBonificacion", tieneBonifPed);
+                                    cmdUpd.Parameters.AddWithValue("@Cantidad", p.CantidadTotal);
+                                    cmdUpd.Parameters.AddWithValue("@SubTotal", p.SubTotal);
+                                    cmdUpd.Parameters.AddWithValue("@TotalDescuento", totalDescPed);
+                                    cmdUpd.Parameters.AddWithValue("@TotalCredito", p.TotalCredito);
+                                    cmdUpd.Parameters.AddWithValue("@TotalContado", p.TotalContado);
+                                    cmdUpd.Parameters.AddWithValue("@Total", p.Total);
+                                    cmdUpd.Parameters.AddWithValue("@TieneImpuesto", p.TieneImpuesto);
+                                    cmdUpd.Parameters.AddWithValue("@TotalImpuesto", p.TotalImpuesto);
+                                    cmdUpd.Parameters.AddWithValue("@ValorAfecto", p.ValorAfecto);
+                                    cmdUpd.Parameters.AddWithValue("@ValorInafecto", p.ValorInafecto);
+                                    cmdUpd.Parameters.AddWithValue("@TotalPercepcion", p.TotalPercepcion);
+                                    cmdUpd.Parameters.AddWithValue("@DetalleAdicional", $"Sincronizado ERP Antiguo (PKID: {p.IDPedidoOrigen} | EstFact: {p.EstadoFacturacionOrigen})");
+                                    await cmdUpd.ExecuteNonQueryAsync(ct);
+                                }
+
+                                tx.Commit();
+                                p.ForceEstadoActual = p.EstadoForceMapeado;
+                                p.ForceTotalActual = p.Total;
+                                p.Semaforo = "AZUL";
+                                p.TipoOperacion = "SIN_CAMBIOS";
+                                p.ObservacionValidacion = $"✓ Actualizado en Force (ID: {idForce} | Estado: {p.EstadoForceMapeado}) | Stock intacto.";
+                                _status.TotalActualizados++;
+                                AgregarEvento(p.IDPedidoOrigen, p.NumPedidoOrigen, "OK", $"✎ Pedido actualizado en Force (ID #{idForce}) | Estado: {p.EstadoForceMapeado} | Total S/ {p.Total:N2} | Stock Intacto.");
                             }
-
-                            const string sqlInsertItem = @"
-                                INSERT INTO dbo.ped_PedidoItem (
-                                    IDPedido, IDProducto, IDUnidad, Cantidad, CantidadFactor,
-                                    Precio, PrecioNeto, PrecioConImpuesto, Descuento, DescuentoAcumulado,
-                                    SubTotal, SubTotalNeto, SubTotalConImpuesto, Total,
-                                    TieneImpuesto, PorcentajeImpuesto, MontoImpuesto, ValorAfecto, ValorInafecto,
-                                    IDSUNATCatalogo7, MontoPercepcion, Credito, EsBonificacion, IDBonificacion, Eliminado
-                                )
-                                VALUES (
-                                    @IDPedido, @IDProducto, @IDUnidad, @Cantidad, @CantidadFactor,
-                                    @Precio, @PrecioNeto, @PrecioConImpuesto, @Descuento, @Descuento,
-                                    @SubTotal, @SubTotalNeto, @SubTotalConImpuesto, @Total,
-                                    @TieneImpuesto, @PorcentajeImpuesto, @MontoImpuesto, @ValorAfecto, @ValorInafecto,
-                                    @IDSUNATCatalogo7, @MontoPercepcion, @Credito, @EsBonificacion, NULL, 0
-                                );";
-
-                            foreach (var it in p.Items)
+                            // ESCENARIO 3: INSERTAR NUEVO PEDIDO EN FORCE SIN AFECTAR STOCK
+                            else
                             {
-                                using var cmdIt = new SqlCommand(sqlInsertItem, connForce, tx);
-                                cmdIt.Parameters.AddWithValue("@IDPedido", nuevoIdPedido);
-                                cmdIt.Parameters.AddWithValue("@IDProducto", it.IDProductoForce!.Value);
-                                cmdIt.Parameters.AddWithValue("@IDUnidad", it.IDUnidadForce!.Value);
-                                cmdIt.Parameters.AddWithValue("@Cantidad", it.Cantidad);
-                                cmdIt.Parameters.AddWithValue("@CantidadFactor", it.CantidadFactor);
-                                cmdIt.Parameters.AddWithValue("@Precio", it.PrecioUnitario);
-                                cmdIt.Parameters.AddWithValue("@PrecioNeto", it.PrecioNeto);
-                                cmdIt.Parameters.AddWithValue("@PrecioConImpuesto", it.PrecioConImpuesto);
-                                cmdIt.Parameters.AddWithValue("@Descuento", it.Descuento);
-                                cmdIt.Parameters.AddWithValue("@SubTotal", it.SubTotal);
-                                cmdIt.Parameters.AddWithValue("@SubTotalNeto", it.SubTotalNeto);
-                                cmdIt.Parameters.AddWithValue("@SubTotalConImpuesto", it.Total);
-                                cmdIt.Parameters.AddWithValue("@Total", it.Total);
-                                cmdIt.Parameters.AddWithValue("@TieneImpuesto", it.TieneImpuesto);
-                                cmdIt.Parameters.AddWithValue("@PorcentajeImpuesto", it.PorcentajeImpuesto);
-                                cmdIt.Parameters.AddWithValue("@MontoImpuesto", it.MontoImpuesto);
-                                cmdIt.Parameters.AddWithValue("@ValorAfecto", it.ValorAfecto);
-                                cmdIt.Parameters.AddWithValue("@ValorInafecto", it.ValorInafecto);
-                                cmdIt.Parameters.AddWithValue("@IDSUNATCatalogo7", sunatCat7Gravado);
-                                cmdIt.Parameters.AddWithValue("@MontoPercepcion", it.MontoPercepcion);
-                                cmdIt.Parameters.AddWithValue("@Credito", it.Credito);
-                                cmdIt.Parameters.AddWithValue("@EsBonificacion", it.EsBonificacion);
+                                string movilId = $"MIG-ERP-{p.IDPedidoOrigen}";
 
-                                await cmdIt.ExecuteNonQueryAsync(ct);
+                                // Verificar concurrencia por si se insertó justo antes
+                                using (var cmdChk = new SqlCommand("SELECT TOP 1 ID FROM dbo.ped_Pedido WITH (NOLOCK) WHERE PedidoMovilID = @MovilId OR (Numero = @Numero AND Eliminado = 0);", connForce, tx))
+                                {
+                                    cmdChk.Parameters.AddWithValue("@MovilId", movilId);
+                                    cmdChk.Parameters.AddWithValue("@Numero", p.NumPedidoOrigen);
+                                    var exist = await cmdChk.ExecuteScalarAsync(ct);
+                                    if (exist != null && exist != DBNull.Value)
+                                    {
+                                        tx.Rollback();
+                                        _status.TotalOmitidos++;
+                                        AgregarEvento(p.IDPedidoOrigen, p.NumPedidoOrigen, "WARN", $"Omitido: Ya registrado en Force (ID: {exist}).");
+                                        continue;
+                                    }
+                                }
+
+                                const string sqlInsertCab = @"
+                                    INSERT INTO dbo.ped_Pedido (
+                                        PedidoMovilID, Numero, IDCliente, IDVendedor, IDAlmacen, IDSucursal,
+                                        IDListaPrecio, IDCatalogo, IDMedioPago, IDModalidadCredito,
+                                        FechaEmision, FechaEntrega,
+                                        TieneCredito, TieneBonificacion, ConBonificacion,
+                                        Cantidad, SubTotal, TotalDescuento, TotalCredito, TotalContado, Total,
+                                        Estado, CodigoPromocion, DetalleAdicional,
+                                        UsuarioCreador, FechaCreacion, FechaModificacion, Eliminado,
+                                        IDTipoCpPedido, IDRuta,
+                                        TieneImpuesto, TotalImpuesto, ValorAfecto, ValorInafecto, TotalPercepcion, TotalICB
+                                    )
+                                    VALUES (
+                                        @PedidoMovilID, @Numero, @IDCliente, @IDVendedor, @IDAlmacen, @IDSucursal,
+                                        @IDListaPrecio, @IDCatalogo, @IDMedioPago, @IDModalidadCredito,
+                                        @FechaEmision, @FechaEntrega,
+                                        @TieneCredito, @TieneBonificacion, @TieneBonificacion,
+                                        @Cantidad, @SubTotal, @TotalDescuento, @TotalCredito, @TotalContado, @Total,
+                                        @Estado, NULL, @DetalleAdicional,
+                                        16, GETDATE(), GETDATE(), 0,
+                                        @IDTipoCpPedido, @IDRuta,
+                                        @TieneImpuesto, @TotalImpuesto, @ValorAfecto, @ValorInafecto, @TotalPercepcion, 0
+                                    );
+                                    SELECT CAST(SCOPE_IDENTITY() AS int);";
+
+                                bool tieneBonifPed = p.Items.Any(it => it.EsBonificacion);
+                                decimal totalDescPed = p.TotalDescuento > 0 ? p.TotalDescuento : p.Items.Sum(it => it.Descuento);
+
+                                int nuevoIdPedido;
+                                using (var cmdCab = new SqlCommand(sqlInsertCab, connForce, tx))
+                                {
+                                    cmdCab.Parameters.AddWithValue("@PedidoMovilID", movilId);
+                                    cmdCab.Parameters.AddWithValue("@Numero", p.NumPedidoOrigen);
+                                    cmdCab.Parameters.AddWithValue("@IDCliente", p.IDClienteForce!.Value);
+                                    cmdCab.Parameters.AddWithValue("@IDVendedor", p.IDVendedorForce!.Value);
+                                    cmdCab.Parameters.AddWithValue("@IDAlmacen", p.IDAlmacenForce!.Value);
+                                    cmdCab.Parameters.AddWithValue("@IDSucursal", p.IDSucursalForce!.Value);
+                                    cmdCab.Parameters.AddWithValue("@IDListaPrecio", p.IDListaPrecioForce ?? 6);
+                                    cmdCab.Parameters.AddWithValue("@IDCatalogo", p.IDCatalogoForce!.Value);
+                                    cmdCab.Parameters.AddWithValue("@IDMedioPago", (object?)p.IDMedioPagoForce ?? DBNull.Value);
+                                    cmdCab.Parameters.AddWithValue("@IDModalidadCredito", (object?)p.IDModalidadCreditoForce ?? DBNull.Value);
+                                    cmdCab.Parameters.AddWithValue("@FechaEmision", p.FechaEmision);
+                                    cmdCab.Parameters.AddWithValue("@FechaEntrega", (object?)p.FechaEntrega ?? DBNull.Value);
+                                    cmdCab.Parameters.AddWithValue("@TieneCredito", p.TieneCredito);
+                                    cmdCab.Parameters.AddWithValue("@TieneBonificacion", tieneBonifPed);
+                                    cmdCab.Parameters.AddWithValue("@Cantidad", p.CantidadTotal);
+                                    cmdCab.Parameters.AddWithValue("@SubTotal", p.SubTotal);
+                                    cmdCab.Parameters.AddWithValue("@TotalDescuento", totalDescPed);
+                                    cmdCab.Parameters.AddWithValue("@TotalCredito", p.TotalCredito);
+                                    cmdCab.Parameters.AddWithValue("@TotalContado", p.TotalContado);
+                                    cmdCab.Parameters.AddWithValue("@Total", p.Total);
+                                    cmdCab.Parameters.AddWithValue("@Estado", p.EstadoForceMapeado);
+                                    cmdCab.Parameters.AddWithValue("@DetalleAdicional", $"Migrado ERP Antiguo (PKID: {p.IDPedidoOrigen} | EstFact: {p.EstadoFacturacionOrigen})");
+                                    cmdCab.Parameters.AddWithValue("@IDTipoCpPedido", p.IDTipoCpPedidoForce!.Value);
+                                    cmdCab.Parameters.AddWithValue("@IDRuta", (object?)p.IDRutaForce ?? DBNull.Value);
+                                    cmdCab.Parameters.AddWithValue("@TieneImpuesto", p.TieneImpuesto);
+                                    cmdCab.Parameters.AddWithValue("@TotalImpuesto", p.TotalImpuesto);
+                                    cmdCab.Parameters.AddWithValue("@ValorAfecto", p.ValorAfecto);
+                                    cmdCab.Parameters.AddWithValue("@ValorInafecto", p.ValorInafecto);
+                                    cmdCab.Parameters.AddWithValue("@TotalPercepcion", p.TotalPercepcion);
+
+                                    nuevoIdPedido = (int)(await cmdCab.ExecuteScalarAsync(ct))!;
+                                }
+
+                                const string sqlInsertItem = @"
+                                    INSERT INTO dbo.ped_PedidoItem (
+                                        IDPedido, IDProducto, IDUnidad, Cantidad, CantidadFactor,
+                                        Precio, PrecioNeto, PrecioConImpuesto, Descuento, DescuentoAcumulado,
+                                        SubTotal, SubTotalNeto, SubTotalConImpuesto, Total,
+                                        TieneImpuesto, PorcentajeImpuesto, MontoImpuesto, ValorAfecto, ValorInafecto,
+                                        IDSUNATCatalogo7, MontoPercepcion, Credito, EsBonificacion, IDBonificacion, Eliminado
+                                    )
+                                    VALUES (
+                                        @IDPedido, @IDProducto, @IDUnidad, @Cantidad, @CantidadFactor,
+                                        @Precio, @PrecioNeto, @PrecioConImpuesto, @Descuento, @Descuento,
+                                        @SubTotal, @SubTotalNeto, @SubTotalConImpuesto, @Total,
+                                        @TieneImpuesto, @PorcentajeImpuesto, @MontoImpuesto, @ValorAfecto, @ValorInafecto,
+                                        @IDSUNATCatalogo7, @MontoPercepcion, @Credito, @EsBonificacion, NULL, 0
+                                    );";
+
+                                foreach (var it in p.Items)
+                                {
+                                    using var cmdIt = new SqlCommand(sqlInsertItem, connForce, tx);
+                                    cmdIt.Parameters.AddWithValue("@IDPedido", nuevoIdPedido);
+                                    cmdIt.Parameters.AddWithValue("@IDProducto", it.IDProductoForce!.Value);
+                                    cmdIt.Parameters.AddWithValue("@IDUnidad", it.IDUnidadForce!.Value);
+                                    cmdIt.Parameters.AddWithValue("@Cantidad", it.Cantidad);
+                                    cmdIt.Parameters.AddWithValue("@CantidadFactor", it.CantidadFactor);
+                                    cmdIt.Parameters.AddWithValue("@Precio", it.PrecioUnitario);
+                                    cmdIt.Parameters.AddWithValue("@PrecioNeto", it.PrecioNeto);
+                                    cmdIt.Parameters.AddWithValue("@PrecioConImpuesto", it.PrecioConImpuesto);
+                                    cmdIt.Parameters.AddWithValue("@Descuento", it.Descuento);
+                                    cmdIt.Parameters.AddWithValue("@SubTotal", it.SubTotal);
+                                    cmdIt.Parameters.AddWithValue("@SubTotalNeto", it.SubTotalNeto);
+                                    cmdIt.Parameters.AddWithValue("@SubTotalConImpuesto", it.Total);
+                                    cmdIt.Parameters.AddWithValue("@Total", it.Total);
+                                    cmdIt.Parameters.AddWithValue("@TieneImpuesto", it.TieneImpuesto);
+                                    cmdIt.Parameters.AddWithValue("@PorcentajeImpuesto", it.PorcentajeImpuesto);
+                                    cmdIt.Parameters.AddWithValue("@MontoImpuesto", it.MontoImpuesto);
+                                    cmdIt.Parameters.AddWithValue("@ValorAfecto", it.ValorAfecto);
+                                    cmdIt.Parameters.AddWithValue("@ValorInafecto", it.ValorInafecto);
+                                    cmdIt.Parameters.AddWithValue("@IDSUNATCatalogo7", sunatCat7Gravado);
+                                    cmdIt.Parameters.AddWithValue("@MontoPercepcion", it.MontoPercepcion);
+                                    cmdIt.Parameters.AddWithValue("@Credito", it.Credito);
+                                    cmdIt.Parameters.AddWithValue("@EsBonificacion", it.EsBonificacion);
+
+                                    await cmdIt.ExecuteNonQueryAsync(ct);
+                                }
+
+                                tx.Commit();
+                                p.YaExisteEnForce = true;
+                                p.IDPedidoForceExistente = nuevoIdPedido;
+                                p.ForceEstadoActual = p.EstadoForceMapeado;
+                                p.ForceTotalActual = p.Total;
+                                p.Semaforo = "AZUL";
+                                p.TipoOperacion = "SIN_CAMBIOS";
+                                p.ObservacionValidacion = $"✓ Subido hoy a Force (ID: {nuevoIdPedido})";
+
+                                _status.TotalSubidos++;
+                                AgregarEvento(p.IDPedidoOrigen, p.NumPedidoOrigen, "OK", $"✓ Subido como Force ID #{nuevoIdPedido} | Estado: {p.EstadoForceMapeado} | {p.Items.Count} ítems | Stock Intacto.");
                             }
-
-                            tx.Commit();
-                            p.YaExisteEnForce = true;
-                            p.IDPedidoForceExistente = nuevoIdPedido;
-                            p.Semaforo = "AZUL";
-                            p.ObservacionValidacion = $"✓ Subido hoy a Force (ID: {nuevoIdPedido})";
-
-                            _status.TotalSubidos++;
-                            AgregarEvento(p.IDPedidoOrigen, p.NumPedidoOrigen, "OK", $"✓ Subido como Force ID #{nuevoIdPedido} | Estado: {p.EstadoForceMapeado} | {p.Items.Count} ítems | Stock Intacto.");
                         }
                         catch (Exception exPed)
                         {
                             try { tx.Rollback(); } catch { }
                             _status.TotalErrores++;
-                            AgregarEvento(p.IDPedidoOrigen, p.NumPedidoOrigen, "ERROR", $"Error al insertar: {exPed.Message}");
-                            _logger.LogError(exPed, "Error insertando pedido origen {ID}", p.IDPedidoOrigen);
+                            AgregarEvento(p.IDPedidoOrigen, p.NumPedidoOrigen, "ERROR", $"Error al procesar pedido: {exPed.Message}");
+                            _logger.LogError(exPed, "Error procesando pedido origen {ID}", p.IDPedidoOrigen);
                         }
                     }
                 }
@@ -926,7 +1146,7 @@ namespace IntegradorFlexForce.Services
                 }
 
                 _status.EstadoActual = "COMPLETADO";
-                _status.FaseDetalle = $"Carga finalizada: {_status.TotalSubidos} subidos, {_status.TotalOmitidos} omitidos, {_status.TotalErrores} errores (Stock Intacto).";
+                _status.FaseDetalle = $"Sincronización finalizada: {_status.TotalSubidos} nuevos, {_status.TotalActualizados} actualizados, {_status.TotalAnulados} anulados, {_status.TotalOmitidos} omitidos, {_status.TotalErrores} errores (Stock Intacto).";
             }
             finally
             {

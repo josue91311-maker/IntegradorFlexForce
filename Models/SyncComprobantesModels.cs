@@ -114,13 +114,18 @@ namespace IntegradorFlexForce.Models
         // Validaciones Force
         public bool YaExisteEnForce { get; set; }
         public int? IDCpForceExistente { get; set; }
+        public int? ForceIDPedido { get; set; }
         public bool ForceAnulado { get; set; }
         public decimal? ForceTotal { get; set; }
         public decimal? ForceSaldoDeuda { get; set; }
         public string ForceEstadoDeuda { get; set; } = string.Empty;
         public int? IDDeudaForce { get; set; }
 
-        // Operación Sincronizada: "INSERT", "UPDATE_DEUDA", "ANULAR", "SIN_CAMBIOS"
+        // Detección de reemplazo de comprobantes anulados en el mismo pedido
+        public bool EsReemplazoDeAnulado { get; set; }
+        public string ComprobantesAnuladosDelPedido { get; set; } = string.Empty;
+
+        // Operación Sincronizada: "INSERT", "UPDATE_DEUDA", "REENLAZAR_PEDIDO", "ANULAR", "SIN_CAMBIOS"
         public string TipoOperacion { get; set; } = "INSERT";
         public string MotivoAnulacion { get; set; } = string.Empty;
 
@@ -140,6 +145,7 @@ namespace IntegradorFlexForce.Models
         public int NuevosAInsertar { get; set; }
         public int DeudasAActualizar { get; set; }
         public int AnulacionesPendientes { get; set; }
+        public int ReemplazosDeAnulados { get; set; }
         public int YaExistenEnForce { get; set; }
         public int SinPedidoEnlazado { get; set; }
         public int ObservadosConError { get; set; }

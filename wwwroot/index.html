@@ -4104,8 +4104,8 @@
                     <span style="background:rgba(16,185,129,0.2); border:1px solid rgba(16,185,129,0.5); color:#6ee7b7; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:800; letter-spacing:0.5px;">🔒 STOCK BLINDADO (TRIGGERS OFF EN CARGA)</span>
                     <span style="background:rgba(255,255,255,0.12); color:#e2e8f0; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:600;">ERP Antiguo ➔ Force Distribución</span>
                 </div>
-                <h2 style="font-size:22px; font-weight:800; margin:0; letter-spacing:-0.3px;">Módulo de Migración y Alineación de Pedidos</h2>
-                <p style="margin:4px 0 0; font-size:13px; color:#cbd5e1;">Filtra por vendedor y rango de fechas, valida equivalencias de maestros (IDExtra / TipoPedido) y sube pedidos sin alterar el inventario.</p>
+                <h2 style="font-size:22px; font-weight:800; margin:0; letter-spacing:-0.3px;">Módulo de Sincronización Integral de Pedidos</h2>
+                <p style="margin:4px 0 0; font-size:13px; color:#cbd5e1;">Sincroniza pedidos desde digalimenta41 hacia BDForceGVD: <strong>alta de nuevos pedidos</strong>, <strong>actualización de estados/montos</strong> y <strong>anulaciones</strong>, con protección total de stock (triggers desactivados). El enlace con comprobantes (incluyendo reemplazos de anulados) se gestiona automáticamente al sincronizar Comprobantes.</p>
             </div>
             <div style="text-align:right;">
                 <div class="relojLiveModule" style="font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:700; color:#93c5fd;">--:--:--</div>
@@ -4172,31 +4172,41 @@
         </div>
 
         <!-- TARJETAS KPI DE PRE-VISUALIZACIÓN -->
-        <div id="kpiGridPedidos" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:14px; margin-bottom:18px;">
+        <div id="kpiGridPedidos" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:18px;">
             <div class="white-card" style="padding:14px 16px; border-left:4px solid #3b82f6;">
                 <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Total Encontrados</div>
-                <div id="kpiPedTotal" style="font-size:24px; font-weight:800; color:var(--text-dark); margin-top:4px;">0</div>
+                <div id="kpiPedTotal" style="font-size:22px; font-weight:800; color:var(--text-dark); margin-top:4px;">0</div>
                 <div id="kpiPedEstadosBreakdown" style="font-size:11px; color:var(--text-muted); margin-top:2px;">Pend: 0 | Tot: 0 | Anul: 0</div>
             </div>
             <div class="white-card" style="padding:14px 16px; border-left:4px solid #10b981;">
-                <div style="font-size:11px; font-weight:700; color:#059669; text-transform:uppercase;">✓ Listos para Subir</div>
-                <div id="kpiPedListos" style="font-size:24px; font-weight:800; color:#059669; margin-top:4px;">0</div>
-                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Maestros 100% homologados</div>
+                <div style="font-size:11px; font-weight:700; color:#059669; text-transform:uppercase;">✓ Listos a Sincronizar</div>
+                <div id="kpiPedListos" style="font-size:22px; font-weight:800; color:#059669; margin-top:4px;">0</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Acciones pendientes</div>
+            </div>
+            <div class="white-card" style="padding:14px 16px; border-left:4px solid #10b981; background:#f0fdf4;">
+                <div style="font-size:11px; font-weight:700; color:#15803d; text-transform:uppercase;">🟢 Nuevos a Insertar</div>
+                <div id="kpiPedNuevos" style="font-size:22px; font-weight:800; color:#15803d; margin-top:4px;">0</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Altas en Force</div>
+            </div>
+            <div class="white-card" style="padding:14px 16px; border-left:4px solid #3b82f6; background:#eff6ff;">
+                <div style="font-size:11px; font-weight:700; color:#1d4ed8; text-transform:uppercase;">🔵 Por Actualizar</div>
+                <div id="kpiPedActualizar" style="font-size:22px; font-weight:800; color:#1d4ed8; margin-top:4px;">0</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Cambio Estado / Monto</div>
+            </div>
+            <div class="white-card" style="padding:14px 16px; border-left:4px solid #ef4444; background:#fef2f2;">
+                <div style="font-size:11px; font-weight:700; color:#b91c1c; text-transform:uppercase;">🔴 Por Anular</div>
+                <div id="kpiPedAnular" style="font-size:22px; font-weight:800; color:#b91c1c; margin-top:4px;">0</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Anulados en Origen</div>
             </div>
             <div class="white-card" style="padding:14px 16px; border-left:4px solid #6366f1;">
-                <div style="font-size:11px; font-weight:700; color:#4f46e5; text-transform:uppercase;">ℹ Ya en Force</div>
-                <div id="kpiPedExistentes" style="font-size:24px; font-weight:800; color:#4f46e5; margin-top:4px;">0</div>
-                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Omitidos (Idempotencia)</div>
+                <div style="font-size:11px; font-weight:700; color:#4f46e5; text-transform:uppercase;">⚪ Al Día en Force</div>
+                <div id="kpiPedExistentes" style="font-size:22px; font-weight:800; color:#4f46e5; margin-top:4px;">0</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Sin cambios</div>
             </div>
             <div class="white-card" style="padding:14px 16px; border-left:4px solid #ef4444;">
-                <div style="font-size:11px; font-weight:700; color:#dc2626; text-transform:uppercase;">✕ Observados</div>
-                <div id="kpiPedErrores" style="font-size:24px; font-weight:800; color:#dc2626; margin-top:4px;">0</div>
-                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Falta maestro en Force</div>
-            </div>
-            <div class="white-card" style="padding:14px 16px; border-left:4px solid #f59e0b;">
-                <div style="font-size:11px; font-weight:700; color:#d97706; text-transform:uppercase;">Subidos Hoy</div>
-                <div id="kpiPedSubidos" style="font-size:24px; font-weight:800; color:#d97706; margin-top:4px;">0</div>
-                <div id="kpiPedStockLock" style="font-size:11px; color:#059669; font-weight:700; margin-top:2px;">🔒 Stock Intacto</div>
+                <div style="font-size:11px; font-weight:700; color:#dc2626; text-transform:uppercase;">✕ Con Error</div>
+                <div id="kpiPedErrores" style="font-size:22px; font-weight:800; color:#dc2626; margin-top:4px;">0</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Falta maestro</div>
             </div>
         </div>
 
@@ -4222,18 +4232,21 @@
             <div class="card-header-clean" style="flex-wrap:wrap; gap:12px;">
                 <div>
                     <h2 style="font-size:16px;">2. Alineación de Pedidos y Validación de Maestros</h2>
-                    <div style="font-size:12px; color:var(--text-muted);">Revisa fila por fila si el Cliente, Vendedor, TipoCpPedido, Almacén y Productos coinciden antes de subir</div>
+                    <div style="font-size:12px; color:var(--text-muted);">Revisa nuevos pedidos, cambios de estado y anulaciones antes de sincronizar en Force</div>
                 </div>
                 <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                     <input type="text" id="txtBuscarTablaPedidos" class="input-control" placeholder="Buscar por Nº pedido o cliente..." oninput="renderTablaPedidos()" style="width:220px;">
                     <select id="selFiltroSemaforoPedidos" class="select-control" onchange="renderTablaPedidos()">
-                        <option value="">Todos los semáforos</option>
-                        <option value="LISTOS">✓ Listos para subir (Verde/Ámbar)</option>
-                        <option value="ROJO">✕ Con error de maestros (Rojo)</option>
-                        <option value="AZUL">ℹ Ya existen en Force (Azul)</option>
+                        <option value="">Todos los Pedidos</option>
+                        <option value="LISTOS">🟢🟡 Listos para Sincronizar</option>
+                        <option value="OP_INSERT">🟢 Solo Nuevos a Insertar</option>
+                        <option value="OP_ACTUALIZAR">🔵 Solo Cambios de Estado / Monto</option>
+                        <option value="OP_ANULAR">🔴 Solo Anulaciones Pendientes</option>
+                        <option value="OP_SIN_CAMBIOS">⚪ Solo Al Día (Sin Cambios)</option>
+                        <option value="ROJO">✕ Con Error de Maestros (Rojo)</option>
                     </select>
                     <button id="btnSubirPedidosSeleccionados" class="btn btn-primary" onclick="subirPedidosSeleccionados()" disabled style="background:linear-gradient(90deg, #059669, #10b981); border:none; font-weight:800; padding:10px 18px; box-shadow:0 4px 12px rgba(16,185,129,0.3);">
-                        ⚡ 2. Subir Seleccionados (Stock Blindado)
+                        ⚡ 2. Sincronizar Seleccionados (Stock Blindado)
                     </button>
                 </div>
             </div>
@@ -4243,21 +4256,22 @@
                     <thead>
                         <tr>
                             <th style="width:36px; text-align:center;"><input type="checkbox" id="chkAllPedidosReady" onchange="toggleSelectAllPedidosReady(this.checked)" title="Seleccionar todos los listos"></th>
+                            <th>Operación</th>
                             <th>Nº Pedido Antiguo</th>
                             <th>Fecha Emisión</th>
                             <th>Cliente (PKID ➔ IDForce)</th>
                             <th>Vendedor / TipoPedido Force</th>
-                            <th>Almacén / Catálogo</th>
+                            <th>Comprobantes en Origen</th>
                             <th class="num">Ítems</th>
                             <th class="num">Total S/</th>
                             <th>Estado ERP Viejo</th>
                             <th>Estado Force</th>
-                            <th>Diagnóstico / Observación de Maestros</th>
+                            <th>Diagnóstico / Observación</th>
                         </tr>
                     </thead>
                     <tbody id="tblPedidosAlineados">
                         <tr>
-                            <td colspan="11" style="text-align:center; padding:36px; color:var(--text-muted);">
+                            <td colspan="12" style="text-align:center; padding:36px; color:var(--text-muted);">
                                 Selecciona el vendedor y rango de fechas arriba y haz clic en <strong>«1. Consultar y Alinear Maestros»</strong>.
                             </td>
                         </tr>
@@ -8909,7 +8923,7 @@ async function ejecutarSincronizacion(modo) {
             pedidosAnalisisCache = data.pedidos || [];
             pedidosIdsSeleccionados.clear();
 
-            // Preseleccionar automáticamente los listos para subir
+            // Preseleccionar automáticamente los listos para sincronizar (INSERT, ACTUALIZAR, ANULAR)
             pedidosAnalisisCache.forEach(p => {
                 if (p.listoParaSubir) pedidosIdsSeleccionados.add(p.idPedidoOrigen);
             });
@@ -8917,11 +8931,14 @@ async function ejecutarSincronizacion(modo) {
             document.getElementById('kpiPedTotal').textContent = data.totalEncontrados;
             document.getElementById('kpiPedEstadosBreakdown').textContent = `Pend: ${data.pendientes} | Tot: ${data.facturadosTotal} | Parc: ${data.parciales} | Anul: ${data.anulados}`;
             document.getElementById('kpiPedListos').textContent = data.listosParaSubir;
+            if (document.getElementById('kpiPedNuevos')) document.getElementById('kpiPedNuevos').textContent = data.nuevosAInsertar || 0;
+            if (document.getElementById('kpiPedActualizar')) document.getElementById('kpiPedActualizar').textContent = data.pedidosAActualizar || 0;
+            if (document.getElementById('kpiPedAnular')) document.getElementById('kpiPedAnular').textContent = data.anulacionesPendientes || 0;
             document.getElementById('kpiPedExistentes').textContent = data.yaExistenEnForce;
             document.getElementById('kpiPedErrores').textContent = data.observadosConError;
 
             renderTablaPedidos();
-            mostrarToast(`Consulta completada en ${data.tiempoSegundos}s: ${data.totalEncontrados} pedidos encontrados.`, 'success');
+            mostrarToast(`Diagnóstico completado en ${data.tiempoSegundos}s: ${data.nuevosAInsertar || 0} nuevos, ${data.pedidosAActualizar || 0} a actualizar, ${data.anulacionesPendientes || 0} a anular.`, 'success');
         } catch (err) {
             mostrarToast('Error consultando pedidos: ' + err.message, 'error');
         } finally {
@@ -8937,17 +8954,21 @@ async function ejecutarSincronizacion(modo) {
 
         const filtrados = pedidosAnalisisCache.filter(p => {
             if (filtroSem === 'LISTOS' && !p.listoParaSubir) return false;
+            if (filtroSem === 'OP_INSERT' && p.tipoOperacion !== 'INSERT') return false;
+            if (filtroSem === 'OP_ACTUALIZAR' && p.tipoOperacion !== 'ACTUALIZAR') return false;
+            if (filtroSem === 'OP_ANULAR' && p.tipoOperacion !== 'ANULAR') return false;
+            if (filtroSem === 'OP_SIN_CAMBIOS' && p.tipoOperacion !== 'SIN_CAMBIOS') return false;
             if (filtroSem === 'ROJO' && p.semaforo !== 'ROJO') return false;
             if (filtroSem === 'AZUL' && p.semaforo !== 'AZUL') return false;
             if (q) {
-                const hay = `${p.numPedidoOrigen} ${p.codigoCliente} ${p.nombreCliente} ${p.codigoVendedor} ${p.nombreVendedor}`.toLowerCase();
+                const hay = `${p.numPedidoOrigen} ${p.codigoCliente} ${p.nombreCliente} ${p.codigoVendedor} ${p.nombreVendedor} ${(p.comprobantesActivosOrigen || []).join(' ')} ${(p.comprobantesAnuladosOrigen || []).join(' ')}`.toLowerCase();
                 if (!hay.includes(q)) return false;
             }
             return true;
         });
 
         if (filtrados.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:28px; color:var(--text-muted);">No hay pedidos para mostrar con los filtros actuales.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:28px; color:var(--text-muted);">No hay pedidos para mostrar con los filtros actuales.</td></tr>`;
             actualizarBotonSubirPedidos();
             return;
         }
@@ -8956,6 +8977,18 @@ async function ejecutarSincronizacion(modo) {
             const puedeSel = p.listoParaSubir;
             const checked = pedidosIdsSeleccionados.has(p.idPedidoOrigen) ? 'checked' : '';
             const fEmision = new Date(p.fechaEmision).toLocaleDateString('es-PE', { day:'2-digit', month:'2-digit', year:'numeric' });
+
+            // Badge Operación
+            let badgeOp = '';
+            if (p.tipoOperacion === 'INSERT') {
+                badgeOp = `<span style="background:#dcfce7; color:#15803d; padding:2px 7px; border-radius:4px; font-weight:800; font-size:10px; border:1px solid #86efac;">🟢 NUEVO</span>`;
+            } else if (p.tipoOperacion === 'ACTUALIZAR') {
+                badgeOp = `<span style="background:#dbeafe; color:#1e40af; padding:2px 7px; border-radius:4px; font-weight:800; font-size:10px; border:1px solid #93c5fd;">🔵 ACTUALIZAR</span>`;
+            } else if (p.tipoOperacion === 'ANULAR') {
+                badgeOp = `<span style="background:#fee2e2; color:#b91c1c; padding:2px 7px; border-radius:4px; font-weight:800; font-size:10px; border:1px solid #fca5a5;">🔴 ANULAR</span>`;
+            } else {
+                badgeOp = `<span style="background:#f1f5f9; color:#64748b; padding:2px 7px; border-radius:4px; font-weight:700; font-size:10px; border:1px solid #cbd5e1;">⚪ AL DÍA</span>`;
+            }
 
             // Badges Cliente y Vendedor
             const cliBadge = p.idClienteForce
@@ -8966,6 +8999,21 @@ async function ejecutarSincronizacion(modo) {
                 ? `<span style="background:#e0edff; color:#1d4ed8; padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:700;">${p.serieTipoPedidoForce} (${p.idTipoCpPedidoForce})</span>`
                 : `<span style="background:#fee2e2; color:#dc2626; padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:700;">Sin TipoPedido</span>`;
 
+            // Comprobantes en Origen (Activos y Anulados / Reemplazos)
+            let cpsHtml = `<span style="color:#94a3b8; font-size:11px;">Sin comprobante</span>`;
+            const activos = p.comprobantesActivosOrigen || [];
+            const anulados = p.comprobantesAnuladosOrigen || [];
+            if (activos.length > 0 && anulados.length > 0) {
+                cpsHtml = `
+                    <div style="font-size:11px; color:#059669; font-weight:800;">✓ ${activos.join(', ')}</div>
+                    <div style="font-size:10px; color:#b45309; font-weight:700;">🔄 Reemplazó a: <span style="text-decoration:line-through; color:#dc2626;">${anulados.join(', ')}</span></div>
+                `;
+            } else if (activos.length > 0) {
+                cpsHtml = `<div style="font-size:11px; color:#059669; font-weight:700;">✓ ${activos.join(', ')}</div>`;
+            } else if (anulados.length > 0) {
+                cpsHtml = `<div style="font-size:10.5px; color:#dc2626; font-weight:700;">✕ Anulado(s): ${anulados.join(', ')}</div>`;
+            }
+
             // Estado ERP Viejo
             let estViejoColor = '#f59e0b'; let estViejoBg = '#fef3c7';
             if (p.estadoFacturacionOrigen === 'TOTAL') { estViejoColor = '#059669'; estViejoBg = '#dcfce7'; }
@@ -8975,22 +9023,23 @@ async function ejecutarSincronizacion(modo) {
             // Estado Force Mapeado
             let estForceBg = '#fef3c7'; let estForceCol = '#b45309';
             if (p.estadoForceMapeado === 'FACTURADO') { estForceBg = '#dcfce7'; estForceCol = '#047857'; }
-            else if (p.estadoForceMapeado === 'ANULADO') { estForceBg = '#e2e8f0'; estForceCol = '#334155'; }
+            else if (p.estadoForceMapeado === 'ANULADO') { estForceBg = '#fee2e2'; estForceCol = '#b91c1c'; }
 
             // Semáforo Diagnóstico
             let semBg = '#dcfce7'; let semCol = '#166534';
             if (p.semaforo === 'ROJO') { semBg = '#fee2e2'; semCol = '#991b1b'; }
             else if (p.semaforo === 'AMBAR') { semBg = '#fef3c7'; semCol = '#92400e'; }
-            else if (p.semaforo === 'AZUL') { semBg = '#e0e7ff'; semCol = '#3730a3'; }
+            else if (p.semaforo === 'AZUL') { semBg = '#f1f5f9'; semCol = '#475569'; }
 
             return `
-                <tr>
+                <tr style="${p.tipoOperacion === 'SIN_CAMBIOS' ? 'background:#f8fafc; opacity:0.86;' : (p.tipoOperacion === 'ACTUALIZAR' ? 'background:#f0f9ff;' : (p.tipoOperacion === 'ANULAR' ? 'background:#fff1f2;' : ''))}">
                     <td style="text-align:center;">
                         <input type="checkbox" ${checked} ${puedeSel ? '' : 'disabled'} onchange="toggleSelectPedido(${p.idPedidoOrigen}, this.checked)">
                     </td>
+                    <td>${badgeOp}</td>
                     <td>
                         <div style="font-weight:800; color:#0f172a;">${p.numPedidoOrigen}</div>
-                        <div style="font-size:10.5px; color:var(--text-muted);">PKID: ${p.idPedidoOrigen}</div>
+                        <div style="font-size:10.5px; color:var(--text-muted);">PKID: ${p.idPedidoOrigen}${p.idPedidoForceExistente ? ` ➔ Force #${p.idPedidoForceExistente}` : ''}</div>
                     </td>
                     <td style="font-size:12px;">${fEmision}</td>
                     <td>
@@ -9001,10 +9050,7 @@ async function ejecutarSincronizacion(modo) {
                         <div style="font-weight:600; font-size:12px;">${p.codigoVendedor} - ${p.nombreVendedor}</div>
                         <div style="margin-top:2px;">${tipoBadge}</div>
                     </td>
-                    <td style="font-size:11.5px;">
-                        <div>Alm: <strong>${p.idAlmacenForce ?? '✕'}</strong> (${p.almacenNombre || '-'})</div>
-                        <div style="color:var(--text-muted);">Cat: <strong>${p.idCatalogoForce ?? '✕'}</strong> | LP: <strong>${p.idListaPrecioForce ?? '-'}</strong></div>
-                    </td>
+                    <td>${cpsHtml}</td>
                     <td class="num">
                         <button class="btn btn-outline btn-sm" onclick="abrirModalItemsPedido(${p.idPedidoOrigen})" style="padding:3px 9px; font-size:11.5px; font-weight:700;">
                             ${p.items.length} ítem(s) 🔍
@@ -9047,8 +9093,8 @@ async function ejecutarSincronizacion(modo) {
         const count = pedidosIdsSeleccionados.size;
         btn.disabled = count === 0;
         btn.innerHTML = count > 0
-            ? `⚡ 2. Subir ${count} Pedido(s) (Stock Blindado)`
-            : `⚡ 2. Subir Seleccionados (Stock Blindado)`;
+            ? `⚡ 2. Sincronizar (${count}) Pedido(s) (Stock Blindado)`
+            : `⚡ 2. Sincronizar Seleccionados (Stock Blindado)`;
     }
 
     function abrirModalItemsPedido(idPedidoOrigen) {
@@ -9083,11 +9129,24 @@ async function ejecutarSincronizacion(modo) {
     async function subirPedidosSeleccionados() {
         const ids = Array.from(pedidosIdsSeleccionados);
         if (ids.length === 0) {
-            mostrarToast('Seleccione al menos un pedido listo para subir.', 'error');
+            mostrarToast('Seleccione al menos un pedido listo para sincronizar.', 'error');
             return;
         }
 
-        if (!confirm(`¿Confirmas subir ${ids.length} pedido(s) a Force Distribución?\n\n🔒 Los triggers de stock se deshabilitarán durante la inserción para que el inventario NO sea alterado.`)) {
+        const seleccionados = pedidosAnalisisCache.filter(p => pedidosIdsSeleccionados.has(p.idPedidoOrigen));
+        const nuevos = seleccionados.filter(p => p.tipoOperacion === 'INSERT').length;
+        const actualizar = seleccionados.filter(p => p.tipoOperacion === 'ACTUALIZAR').length;
+        const anular = seleccionados.filter(p => p.tipoOperacion === 'ANULAR').length;
+
+        const msg = [
+            `¿Confirmas sincronizar ${ids.length} pedido(s) en BDForceGVD (192.168.2.93)?\n`,
+            nuevos > 0 ? `  • 🟢 ${nuevos} Pedido(s) nuevo(s) a insertar` : '',
+            actualizar > 0 ? `  • 🔵 ${actualizar} Pedido(s) a actualizar (cambio de estado o monto)` : '',
+            anular > 0 ? `  • 🔴 ${anular} Pedido(s) a anular` : '',
+            `\n🔒 Los triggers de stock se deshabilitarán durante toda la operación para que el inventario NO sea alterado.`
+        ].filter(Boolean).join('\n');
+
+        if (!confirm(msg)) {
             return;
         }
 
@@ -9101,11 +9160,11 @@ async function ejecutarSincronizacion(modo) {
 
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({}));
-                throw new Error(err.message || 'No se pudo iniciar la carga');
+                throw new Error(err.message || 'No se pudo iniciar la sincronización');
             }
 
             pedidosEstabaCorriendo = true;
-            mostrarToast(`Subida de ${ids.length} pedido(s) iniciada con protección de stock.`, 'success');
+            mostrarToast(`Sincronización de ${ids.length} pedido(s) iniciada con protección de stock.`, 'success');
             cargarEstadoPedidos();
         } catch (err) {
             mostrarToast('Error: ' + err.message, 'error');
@@ -9126,9 +9185,11 @@ async function ejecutarSincronizacion(modo) {
             }
 
             document.getElementById('lblPedidoFaseDetalle').textContent = s.faseDetalle || '';
-            document.getElementById('lblPedidoProgresoTexto').textContent = `${s.progresoActual} / ${s.progresoTotal} pedidos procesados (${s.porcentaje}%) | Subidos: ${s.totalSubidos} | Omitidos: ${s.totalOmitidos} | Errores: ${s.totalErrores}`;
+            const actStr = (s.totalActualizados > 0) ? ` | Actualizados: ${s.totalActualizados}` : '';
+            const anulStr = (s.totalAnulados > 0) ? ` | Anulados: ${s.totalAnulados}` : '';
+            document.getElementById('lblPedidoProgresoTexto').textContent = `${s.progresoActual} / ${s.progresoTotal} pedidos procesados (${s.porcentaje}%) | Nuevos: ${s.totalSubidos}${actStr}${anulStr} | Omitidos: ${s.totalOmitidos} | Errores: ${s.totalErrores}`;
             document.getElementById('barraProgresoPedidos').style.width = `${s.porcentaje}%`;
-            document.getElementById('kpiPedSubidos').textContent = s.totalSubidos;
+            if (document.getElementById('kpiPedSubidos')) document.getElementById('kpiPedSubidos').textContent = s.totalSubidos;
 
             const badge = document.getElementById('badgePedidoEstadoLive');
             badge.textContent = s.isRunning ? 'EJECUTANDO (STOCK LOCK)' : s.estadoActual;
@@ -9150,7 +9211,7 @@ async function ejecutarSincronizacion(modo) {
             if (pedidosEstabaCorriendo && !s.isRunning) {
                 pedidosEstabaCorriendo = false;
                 renderTablaPedidos();
-                mostrarToast(`Proceso finalizado: ${s.totalSubidos} pedido(s) subidos sin alterar stock.`, 'success');
+                mostrarToast(`Proceso finalizado: ${s.totalSubidos} nuevos, ${s.totalActualizados || 0} actualizados, ${s.totalAnulados || 0} anulados (Stock intacto).`, 'success');
             }
             pedidosEstabaCorriendo = s.isRunning;
         } catch (e) { }
@@ -9315,7 +9376,7 @@ async function ejecutarSincronizacion(modo) {
         const filtrados = comprobantesAnalizadosCache.filter(c => {
             if (semaforoFiltro === 'LISTOS' && !c.listoParaSubir) return false;
             if (semaforoFiltro === 'OP_INSERT' && c.tipoOperacion !== 'INSERT') return false;
-            if (semaforoFiltro === 'OP_UPDATE' && c.tipoOperacion !== 'UPDATE_DEUDA') return false;
+            if (semaforoFiltro === 'OP_UPDATE' && c.tipoOperacion !== 'UPDATE_DEUDA' && c.tipoOperacion !== 'REENLAZAR_PEDIDO') return false;
             if (semaforoFiltro === 'OP_ANULAR' && c.tipoOperacion !== 'ANULAR') return false;
             if (semaforoFiltro === 'OP_SIN_CAMBIOS' && c.tipoOperacion !== 'SIN_CAMBIOS') return false;
             if (semaforoFiltro === 'ROJO' && c.semaforo !== 'ROJO') return false;
@@ -9324,7 +9385,7 @@ async function ejecutarSincronizacion(modo) {
                 const matchNum = (c.numCp || '').toLowerCase().includes(q);
                 const matchCli = (c.codigoCliente || '').toLowerCase().includes(q) || (c.nombreCliente || '').toLowerCase().includes(q);
                 const matchVend = (c.codigoVendedor || '').toLowerCase().includes(q) || (c.nombreVendedor || '').toLowerCase().includes(q);
-                const matchPed = (c.numPedidoOrigen || '').toLowerCase().includes(q) || (c.numPedidoForce || '').toLowerCase().includes(q);
+                const matchPed = (c.numPedidoOrigen || '').toLowerCase().includes(q) || (c.numPedidoForce || '').toLowerCase().includes(q) || (c.comprobantesAnuladosDelPedido || '').toLowerCase().includes(q);
                 if (!matchNum && !matchCli && !matchVend && !matchPed) return false;
             }
             return true;
@@ -9353,6 +9414,8 @@ async function ejecutarSincronizacion(modo) {
                 badgeOp = `<span style="background:#dcfce7; color:#15803d; padding:2px 7px; border-radius:4px; font-weight:800; font-size:10px; border:1px solid #86efac;">🟢 NUEVO</span>`;
             } else if (c.tipoOperacion === 'UPDATE_DEUDA') {
                 badgeOp = `<span style="background:#dbeafe; color:#1e40af; padding:2px 7px; border-radius:4px; font-weight:800; font-size:10px; border:1px solid #93c5fd;">🔵 ACT. DEUDA</span>`;
+            } else if (c.tipoOperacion === 'REENLAZAR_PEDIDO') {
+                badgeOp = `<span style="background:#e0e7ff; color:#3730a3; padding:2px 7px; border-radius:4px; font-weight:800; font-size:10px; border:1px solid #a5b4fc;">🔗 REENLAZAR PED.</span>`;
             } else if (c.tipoOperacion === 'ANULAR') {
                 badgeOp = `<span style="background:#fee2e2; color:#b91c1c; padding:2px 7px; border-radius:4px; font-weight:800; font-size:10px; border:1px solid #fca5a5;">🔴 ANULAR</span>`;
             } else {
@@ -9369,7 +9432,10 @@ async function ejecutarSincronizacion(modo) {
             let pedHtml = '';
             if (c.idPedidoForce) {
                 const multiTag = c.esMulticomprobante
-                    ? `<span style="background:#dbeafe; color:#1e40af; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:800;" title="Este pedido tiene ${c.totalComprobantesDelPedido} comprobantes asociados">Comp ${c.comprobanteNumeroOrden}/${c.totalComprobantesDelPedido}</span>`
+                    ? `<span style="background:#dbeafe; color:#1e40af; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:800;" title="Este pedido tiene ${c.totalComprobantesDelPedido} comprobantes vigentes asociados">Comp ${c.comprobanteNumeroOrden}/${c.totalComprobantesDelPedido}</span>`
+                    : '';
+                const reempTag = c.esReemplazoDeAnulado
+                    ? `<div style="font-size:10px; color:#b45309; font-weight:700; margin-top:2px;">🔄 Reemplazó a: <span style="text-decoration:line-through; color:#dc2626;">${c.comprobantesAnuladosDelPedido}</span></div>`
                     : '';
                 pedHtml = `
                     <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
@@ -9377,6 +9443,7 @@ async function ejecutarSincronizacion(modo) {
                         <span style="background:#dcfce7; color:#166534; padding:1px 5px; border-radius:3px; font-size:9.5px; font-weight:700;">${c.estadoPedidoForce || 'FACTURADO'}</span>
                         ${multiTag}
                     </div>
+                    ${reempTag}
                 `;
             } else if (c.numPedidoOrigen) {
                 pedHtml = `<span style="color:#d97706; font-size:11px;">Orig: ${c.numPedidoOrigen} (No subido o no FACTURADO)</span>`;
@@ -9407,7 +9474,7 @@ async function ejecutarSincronizacion(modo) {
             }
 
             return `
-                <tr style="${c.tipoOperacion === 'SIN_CAMBIOS' ? 'background:#f8fafc; opacity:0.85;' : (c.tipoOperacion === 'UPDATE_DEUDA' ? 'background:#f0f9ff;' : (c.tipoOperacion === 'ANULAR' ? 'background:#fff1f2;' : ''))}">
+                <tr style="${c.tipoOperacion === 'SIN_CAMBIOS' ? 'background:#f8fafc; opacity:0.85;' : ((c.tipoOperacion === 'UPDATE_DEUDA' || c.tipoOperacion === 'REENLAZAR_PEDIDO') ? 'background:#f0f9ff;' : (c.tipoOperacion === 'ANULAR' ? 'background:#fff1f2;' : ''))}">
                     <td style="text-align:center;">
                         <input type="checkbox" ${chk} ${dis} onchange="toggleSeleccionarComprobante(${c.idCpOrigen}, this.checked)">
                     </td>
