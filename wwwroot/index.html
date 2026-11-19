@@ -9664,33 +9664,6 @@ async function ejecutarSincronizacion(modo) {
         } catch (e) { }
     }
 
-            const badge = document.getElementById('badgeCpEstadoLive');
-            badge.textContent = s.isRunning ? 'EJECUTANDO' : s.estadoActual;
-            badge.style.background = s.isRunning ? '#dbeafe' : '#dcfce7';
-            badge.style.color = s.isRunning ? '#1d4ed8' : '#059669';
-
-            const consola = document.getElementById('consolaEventosCp');
-            if (s.eventosRecientes && s.eventosRecientes.length > 0) {
-                consola.innerHTML = s.eventosRecientes.map(ev => {
-                    let col = '#94a3b8';
-                    if (ev.tipo === 'SUCCESS') col = '#4ade80';
-                    else if (ev.tipo === 'WARN') col = '#fbbf24';
-                    else if (ev.tipo === 'ERROR') col = '#f87171';
-                    else if (ev.tipo === 'INFO') col = '#60a5fa';
-                    const horaStr = (ev.timestamp || '').substring(11, 19) || '';
-                    return `<div style="color:${col};">[${horaStr}] [${ev.numCp}] ${ev.mensaje}</div>`;
-                }).join('');
-            }
-
-            if (comprobantesEstabaCorriendo && !s.isRunning) {
-                comprobantesEstabaCorriendo = false;
-                renderTablaComprobantes();
-                mostrarToast(`Proceso finalizado: ${s.totalSubidos} comprobante(s) subidos a Force.`, 'success');
-            }
-            comprobantesEstabaCorriendo = s.isRunning;
-        } catch (e) { }
-    }
-
     setInterval(() => { cargarEstado(); cargarEstadoProductos(); cargarEstadoVendedores(); cargarEstadoStock(); cargarEstadoPedidos(); cargarEstadoComprobantes(); }, 2000);
     setInterval(() => { cargarLotes(); cargarLogs(); }, 6000);
 
