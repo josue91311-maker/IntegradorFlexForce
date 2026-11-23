@@ -423,14 +423,30 @@ BEGIN
     INNER JOIN #TmpMapeoDir md ON md.ID_Direccion_Origen = t.ID_Direccion_Origen
     INNER JOIN #TmpZonasMapeadas zm ON zm.CodigoZona COLLATE Modern_Spanish_CI_AS = t.CodigoZonaVenta COLLATE Modern_Spanish_CI_AS;
 
-    -- Reactivar dir_DireccionZona
+    -- Paso 1: Sanitización previa para evitar violaciones de UQ_DireccionZona_Venta.
+    -- Toda fila inactiva (Estado = 0) JAMÁS debe retener EsPrincipalVenta = 1 ni EsPrincipalReparto = 1.
     UPDATE dz
-    SET dz.Estado = 1, dz.FechaModificacion = GETDATE()
+    SET dz.EsPrincipalVenta = 0, dz.EsPrincipalReparto = 0, dz.FechaModificacion = GETDATE()
+    FROM dbo.dir_DireccionZona dz
+    WHERE dz.Estado = 0 AND (dz.EsPrincipalVenta = 1 OR dz.EsPrincipalReparto = 1);
+
+    -- Paso 2: Desactivar en dir_DireccionZona las zonas retiradas ANTES de reactivar/promover principales
+    UPDATE dz
+    SET dz.Estado = 0, dz.EsPrincipalVenta = 0, dz.EsPrincipalReparto = 0, dz.FechaModificacion = GETDATE()
+    FROM dbo.dir_DireccionZona dz
+    INNER JOIN #TmpMapeoDir md ON md.IDDireccionForce = dz.IDDireccion
+    INNER JOIN #TmpZonasMapeadas zm ON zm.IDZona = dz.IDZona
+    LEFT JOIN #TmpDZ_Vigentes v ON v.IDDireccion = dz.IDDireccion AND v.IDZona = dz.IDZona
+    WHERE dz.Estado = 1 AND v.IDDireccion IS NULL;
+
+    -- Paso 3: Reactivar dir_DireccionZona vigentes asegurando que entren con EsPrincipal = 0
+    UPDATE dz
+    SET dz.Estado = 1, dz.EsPrincipalVenta = 0, dz.FechaModificacion = GETDATE()
     FROM dbo.dir_DireccionZona dz
     INNER JOIN #TmpDZ_Vigentes v ON v.IDDireccion = dz.IDDireccion AND v.IDZona = dz.IDZona
     WHERE dz.Estado = 0;
 
-    -- Insertar nuevas relaciones
+    -- Paso 4: Insertar nuevas relaciones dir_DireccionZona con EsPrincipal = 0
     INSERT INTO dbo.dir_DireccionZona (
         IDDireccion, IDZona, EsPrincipalVenta, EsPrincipalReparto, 
         Estado, FechaCreacion, FechaModificacion
@@ -441,31 +457,47 @@ BEGIN
         ON dz.IDDireccion = v.IDDireccion AND dz.IDZona = v.IDZona
     WHERE dz.IDDireccion IS NULL;
 
-    -- Asegurar que al menos una zona activa tenga EsPrincipalVenta = 1
-    WITH CTE_SinPrincipal AS (
-        SELECT dz.ID, ROW_NUMBER() OVER (PARTITION BY dz.IDDireccion ORDER BY dz.ID ASC) AS Rn
+    -- Paso 5: Apagar cualquier duplicado existente de EsPrincipalVenta = 1 por dirección
+    WITH CTE_MultiPrincipal AS (
+        SELECT 
+            dz.ID,
+            ROW_NUMBER() OVER (
+                PARTITION BY dz.IDDireccion 
+                ORDER BY 
+                    CASE WHEN dz.Estado = 1 THEN 1 ELSE 2 END,
+                    dz.ID ASC
+            ) AS Rn
         FROM dbo.dir_DireccionZona dz
-        INNER JOIN (SELECT DISTINCT IDDireccionForce FROM #TmpMapeoDir) md ON md.IDDireccionForce = dz.IDDireccion
+        INNER JOIN (SELECT DISTINCT IDDireccionForce FROM #TmpMapeoDir) md 
+            ON md.IDDireccionForce = dz.IDDireccion
+        WHERE dz.EsPrincipalVenta = 1
+    )
+    UPDATE dz
+    SET dz.EsPrincipalVenta = 0, dz.FechaModificacion = GETDATE()
+    FROM dbo.dir_DireccionZona dz
+    INNER JOIN CTE_MultiPrincipal c ON c.ID = dz.ID
+    WHERE c.Rn > 1;
+
+    -- Paso 6: Asegurar que cada dirección activa tenga exactamente UNA zona con EsPrincipalVenta = 1
+    WITH CTE_ElegirPrincipal AS (
+        SELECT 
+            dz.ID,
+            dz.IDDireccion,
+            ROW_NUMBER() OVER (PARTITION BY dz.IDDireccion ORDER BY dz.ID ASC) AS Rn
+        FROM dbo.dir_DireccionZona dz
+        INNER JOIN (SELECT DISTINCT IDDireccionForce FROM #TmpMapeoDir) md 
+            ON md.IDDireccionForce = dz.IDDireccion
         WHERE dz.Estado = 1
     )
     UPDATE dz
     SET dz.EsPrincipalVenta = 1, dz.FechaModificacion = GETDATE()
     FROM dbo.dir_DireccionZona dz
-    INNER JOIN CTE_SinPrincipal c ON c.ID = dz.ID
+    INNER JOIN CTE_ElegirPrincipal c ON c.ID = dz.ID
     WHERE c.Rn = 1
       AND NOT EXISTS (
           SELECT 1 FROM dbo.dir_DireccionZona dz2 WITH (NOLOCK)
-          WHERE dz2.IDDireccion = dz.IDDireccion AND dz2.Estado = 1 AND dz2.EsPrincipalVenta = 1
+          WHERE dz2.IDDireccion = dz.IDDireccion AND dz2.EsPrincipalVenta = 1
       );
-
-    -- Desactivar en dir_DireccionZona las zonas retiradas usando anti-join entero
-    UPDATE dz
-    SET dz.Estado = 0, dz.EsPrincipalVenta = 0, dz.FechaModificacion = GETDATE()
-    FROM dbo.dir_DireccionZona dz
-    INNER JOIN #TmpMapeoDir md ON md.IDDireccionForce = dz.IDDireccion
-    INNER JOIN #TmpZonasMapeadas zm ON zm.IDZona = dz.IDZona
-    LEFT JOIN #TmpDZ_Vigentes v ON v.IDDireccion = dz.IDDireccion AND v.IDZona = dz.IDZona
-    WHERE dz.Estado = 1 AND v.IDDireccion IS NULL;
 
     DECLARE @DuracionSegundos int = DATEDIFF(SECOND, @HoraInicio, GETDATE());
     PRINT '>>> Sincronización masiva de Cartera y Rutas completada con éxito en ' + CAST(@DuracionSegundos AS varchar(20)) + ' segundos.';
