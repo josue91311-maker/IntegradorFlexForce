@@ -174,7 +174,7 @@ namespace IntegradorFlexForce.Services
                             FROM dbo.CpRelacionado cprSub WITH (NOLOCK)
                             INNER JOIN dbo.Cp cpPedSub WITH (NOLOCK) ON cpPedSub.PKID = cprSub.IDCpRelacionado
                             WHERE cprSub.IDCp = cp.PKID
-                            ORDER BY cprSub.PKID ASC
+                            ORDER BY cprSub.IDCpRelacionado ASC
                         ) cpPedRel
                         LEFT JOIN dbo.CpCobrarPagar ccp WITH (NOLOCK) ON ccp.PKID = cp.PKID
                         WHERE cp.FechaEmision >= @Desde 
@@ -299,7 +299,7 @@ namespace IntegradorFlexForce.Services
                             FROM dbo.CpRelacionado cprSub WITH (NOLOCK)
                             INNER JOIN dbo.Cp cpRefSub WITH (NOLOCK) ON cpRefSub.PKID = cprSub.IDCpRelacionado
                             WHERE cprSub.IDCp = cp.PKID
-                            ORDER BY cprSub.PKID ASC
+                            ORDER BY cprSub.IDCpRelacionado ASC
                         ) cpRefRel
                         WHERE cp.FechaEmision >= @Desde 
                           AND cp.FechaEmision < @Hasta
