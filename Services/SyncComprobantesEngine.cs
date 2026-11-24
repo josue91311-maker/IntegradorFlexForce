@@ -819,7 +819,6 @@ namespace IntegradorFlexForce.Services
                             else
                             {
                                 c.Semaforo = "ROJO";
-                                c.ListoParaSubir = false;
                                 c.ObservacionValidacion = $"✕ Bloqueado: El comprobante de venta modificado '{c.NumCpModificadoOrigen}' no existe en Force. Debe sincronizar primero el comprobante base.";
                             }
                         }
