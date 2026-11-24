@@ -114,121 +114,249 @@ namespace IntegradorFlexForce.Services
                     ? "LTRIM(RTRIM(ISNULL(CAST(cp.Observacion AS nvarchar(500)), '')))"
                     : "''";
 
-                string sqlCabeceras = $@"
-                    SELECT 
-                        cp.PKID                                          AS IDCpOrigen,
-                        LTRIM(RTRIM(ISNULL(cp.NumCp, '')))               AS NumCp,
-                        LTRIM(RTRIM(ISNULL(cp.NumCpContable, '')))       AS NumCpContable,
-                        ISNULL(cp.Fecha, GETDATE())                      AS Fecha,
-                        ISNULL(cp.FechaEmision, GETDATE())               AS FechaEmision,
-                        ISNULL(cp.Hora, GETDATE())                       AS Hora,
-                        cp.IDTipoCp                                      AS IDTipoCpOrigen,
-                        LTRIM(RTRIM(ISNULL(tcp.Serie, '')))              AS SerieOrigen,
-                        ISNULL(tcp.Numero, 0)                            AS CorrelativoOrigen,
-                        ISNULL(tcp.IDTipoComprobantePago, 4)             AS IDTipoComprobantePagoOrigen,
-                        LTRIM(RTRIM(ISNULL(tcp.Descripcion, '')))        AS TipoCpDescripcion,
-                        ISNULL(cp.IDPersona, 0)                          AS IDClienteOrigen,
-                        LTRIM(RTRIM(ISNULL(pCli.Codigo, '')))            AS CodigoCliente,
-                        LTRIM(RTRIM(ISNULL(pCli.Nombre, '')))            AS NombreCliente,
-                        LTRIM(RTRIM(ISNULL(cpv.DocIdentidad, '')))       AS DocIdentidadCliente,
-                        ISNULL(cp.IDResponsable, 0)                      AS IDVendedorOrigen,
-                        LTRIM(RTRIM(ISNULL(pVend.Codigo, '')))           AS CodigoVendedor,
-                        LTRIM(RTRIM(ISNULL(pVend.Nombre, '')))           AS NombreVendedor,
-                        ISNULL(ci.IDAlmacen, 0)                          AS IDAlmacenOrigen,
-                        LTRIM(RTRIM(ISNULL(alm.Nombre, '')))             AS AlmacenNombre,
-                        ISNULL(cp.IDSucursal, 0)                         AS IDSucursalOrigen,
-                        LTRIM(RTRIM(ISNULL(cpv.Direccion, '')))          AS DireccionFiscal,
-                        LTRIM(RTRIM(ISNULL(cpv.DireccionEntrega, '')))   AS DireccionEntrega,
-                        LTRIM(RTRIM(ISNULL(cpv.EstadoEntrega, 'PENDIENTE'))) AS EstadoEntrega,
-                        ISNULL(cpr.IDCpRelacionado, 0)                   AS IDPedidoOrigen,
-                        LTRIM(RTRIM(ISNULL(cpPed.NumCp, '')))            AS NumPedidoOrigen,
-                        CAST(ISNULL(cp.SubTotal, 0) AS decimal(18,6))    AS SubTotal,
-                        CAST(ISNULL(cp.Total, 0) AS decimal(18,6))       AS Total,
-                        CAST(ISNULL(cp.ValorAfecto, 0) AS decimal(18,6)) AS ValorAfecto,
-                        CAST(ISNULL(cp.ValorInafecto, 0) AS decimal(18,6)) AS ValorInafecto,
-                        CAST(ISNULL(cp.ValorExonerado, 0) AS decimal(18,6)) AS ValorExonerado,
-                        CAST(ISNULL(cp.ValorDescuento, 0) AS decimal(18,6)) AS ValorDescuento,
-                        CAST(ISNULL(cp.ValorVenta, 0) AS decimal(18,6))  AS ValorVenta,
-                        CAST(ISNULL(cp.TieneImpuesto, 1) AS bit)         AS TieneImpuesto,
-                        CAST(ISNULL(cp.PreciosIncImpto, 1) AS bit)       AS PreciosIncImpto,
-                        CAST(ISNULL(cp.Anulado, 0) AS bit)               AS AnuladoOrigen,
-                        CAST(CASE WHEN ISNULL(ccp.Credito, 0) = 1 OR ISNULL(cpv.OmitirPoliticasCredito, 0) = 1 THEN 1 ELSE 0 END AS bit) AS EsCredito,
-                        CAST(ISNULL(ccp.Saldo, 0) AS decimal(18,6))      AS SaldoPendiente,
-                        ccp.FechaVencimiento                             AS FechaVencimiento,
-                        ccp.FechaProgramacionPago                        AS FechaProgramacionPago,
-                        {exprMotivoOrigen}                               AS MotivoEliminacion
-                    FROM dbo.Cp cp WITH (NOLOCK)
-                    INNER JOIN dbo.CpVenta cpv WITH (NOLOCK) ON cpv.PKID = cp.PKID
-                    INNER JOIN dbo.TipoCp tcp WITH (NOLOCK) ON tcp.PKID = cp.IDTipoCp
-                    LEFT JOIN dbo.CpInventario ci WITH (NOLOCK) ON ci.IDCp = cp.PKID
-                    LEFT JOIN dbo.Persona pCli WITH (NOLOCK) ON pCli.PKID = cp.IDPersona
-                    LEFT JOIN dbo.Persona pVend WITH (NOLOCK) ON pVend.PKID = cp.IDResponsable
-                    LEFT JOIN dbo.Almacen alm WITH (NOLOCK) ON alm.PKID = ci.IDAlmacen
-                    LEFT JOIN dbo.CpRelacionado cpr WITH (NOLOCK) ON cpr.IDCp = cp.PKID
-                    LEFT JOIN dbo.Cp cpPed WITH (NOLOCK) ON cpPed.PKID = cpr.IDCpRelacionado
-                    LEFT JOIN dbo.CpCobrarPagar ccp WITH (NOLOCK) ON ccp.PKID = cp.PKID
-                    WHERE cp.FechaEmision >= @Desde 
-                      AND cp.FechaEmision < @Hasta
-                      AND tcp.TipoCp = 'Venta'
-                      {filtroVendedores}
-                      {filtroAnulados}
-                      {filtroTipoDoc}
-                    ORDER BY cp.FechaEmision DESC, cp.PKID DESC;";
+                bool consultarVentas = filtro.TipoDocumento != "NOTAS_CREDITO";
+                bool consultarNotasCredito = filtro.TipoDocumento == "TODOS" || filtro.TipoDocumento == "NOTAS_CREDITO";
 
-                using (var cmd = new SqlCommand(sqlCabeceras, connAntiguo) { CommandTimeout = 120 })
+                if (consultarVentas)
                 {
-                    cmd.Parameters.AddWithValue("@Desde", fechaDesde);
-                    cmd.Parameters.AddWithValue("@Hasta", fechaHastaExclusivo);
+                    string sqlCabeceras = $@"
+                        SELECT 
+                            cp.PKID                                          AS IDCpOrigen,
+                            LTRIM(RTRIM(ISNULL(cp.NumCp, '')))               AS NumCp,
+                            LTRIM(RTRIM(ISNULL(cp.NumCpContable, '')))       AS NumCpContable,
+                            ISNULL(cp.Fecha, GETDATE())                      AS Fecha,
+                            ISNULL(cp.FechaEmision, GETDATE())               AS FechaEmision,
+                            ISNULL(cp.Hora, GETDATE())                       AS Hora,
+                            cp.IDTipoCp                                      AS IDTipoCpOrigen,
+                            LTRIM(RTRIM(ISNULL(tcp.Serie, '')))              AS SerieOrigen,
+                            ISNULL(tcp.Numero, 0)                            AS CorrelativoOrigen,
+                            ISNULL(tcp.IDTipoComprobantePago, 4)             AS IDTipoComprobantePagoOrigen,
+                            LTRIM(RTRIM(ISNULL(tcp.Descripcion, '')))        AS TipoCpDescripcion,
+                            ISNULL(cp.IDPersona, 0)                          AS IDClienteOrigen,
+                            LTRIM(RTRIM(ISNULL(pCli.Codigo, '')))            AS CodigoCliente,
+                            LTRIM(RTRIM(ISNULL(pCli.Nombre, '')))            AS NombreCliente,
+                            LTRIM(RTRIM(ISNULL(cpv.DocIdentidad, '')))       AS DocIdentidadCliente,
+                            ISNULL(cp.IDResponsable, 0)                      AS IDVendedorOrigen,
+                            LTRIM(RTRIM(ISNULL(pVend.Codigo, '')))           AS CodigoVendedor,
+                            LTRIM(RTRIM(ISNULL(pVend.Nombre, '')))           AS NombreVendedor,
+                            ISNULL(ci.IDAlmacen, 0)                          AS IDAlmacenOrigen,
+                            LTRIM(RTRIM(ISNULL(alm.Nombre, '')))             AS AlmacenNombre,
+                            ISNULL(cp.IDSucursal, 0)                         AS IDSucursalOrigen,
+                            LTRIM(RTRIM(ISNULL(cpv.Direccion, '')))          AS DireccionFiscal,
+                            LTRIM(RTRIM(ISNULL(cpv.DireccionEntrega, '')))   AS DireccionEntrega,
+                            LTRIM(RTRIM(ISNULL(cpv.EstadoEntrega, 'PENDIENTE'))) AS EstadoEntrega,
+                            ISNULL(cpr.IDCpRelacionado, 0)                   AS IDPedidoOrigen,
+                            LTRIM(RTRIM(ISNULL(cpPed.NumCp, '')))            AS NumPedidoOrigen,
+                            CAST(ISNULL(cp.SubTotal, 0) AS decimal(18,6))    AS SubTotal,
+                            CAST(ISNULL(cp.Total, 0) AS decimal(18,6))       AS Total,
+                            CAST(ISNULL(cp.ValorAfecto, 0) AS decimal(18,6)) AS ValorAfecto,
+                            CAST(ISNULL(cp.ValorInafecto, 0) AS decimal(18,6)) AS ValorInafecto,
+                            CAST(ISNULL(cp.ValorExonerado, 0) AS decimal(18,6)) AS ValorExonerado,
+                            CAST(ISNULL(cp.ValorDescuento, 0) AS decimal(18,6)) AS ValorDescuento,
+                            CAST(ISNULL(cp.ValorVenta, 0) AS decimal(18,6))  AS ValorVenta,
+                            CAST(ISNULL(cp.TieneImpuesto, 1) AS bit)         AS TieneImpuesto,
+                            CAST(ISNULL(cp.PreciosIncImpto, 1) AS bit)       AS PreciosIncImpto,
+                            CAST(ISNULL(cp.Anulado, 0) AS bit)               AS AnuladoOrigen,
+                            CAST(CASE WHEN ISNULL(ccp.Credito, 0) = 1 OR ISNULL(cpv.OmitirPoliticasCredito, 0) = 1 THEN 1 ELSE 0 END AS bit) AS EsCredito,
+                            CAST(ISNULL(ccp.Saldo, 0) AS decimal(18,6))      AS SaldoPendiente,
+                            ccp.FechaVencimiento                             AS FechaVencimiento,
+                            ccp.FechaProgramacionPago                        AS FechaProgramacionPago,
+                            {exprMotivoOrigen}                               AS MotivoEliminacion
+                        FROM dbo.Cp cp WITH (NOLOCK)
+                        INNER JOIN dbo.CpVenta cpv WITH (NOLOCK) ON cpv.PKID = cp.PKID
+                        INNER JOIN dbo.TipoCp tcp WITH (NOLOCK) ON tcp.PKID = cp.IDTipoCp
+                        LEFT JOIN dbo.CpInventario ci WITH (NOLOCK) ON ci.IDCp = cp.PKID
+                        LEFT JOIN dbo.Persona pCli WITH (NOLOCK) ON pCli.PKID = cp.IDPersona
+                        LEFT JOIN dbo.Persona pVend WITH (NOLOCK) ON pVend.PKID = cp.IDResponsable
+                        LEFT JOIN dbo.Almacen alm WITH (NOLOCK) ON alm.PKID = ci.IDAlmacen
+                        LEFT JOIN dbo.CpRelacionado cpr WITH (NOLOCK) ON cpr.IDCp = cp.PKID
+                        LEFT JOIN dbo.Cp cpPed WITH (NOLOCK) ON cpPed.PKID = cpr.IDCpRelacionado
+                        LEFT JOIN dbo.CpCobrarPagar ccp WITH (NOLOCK) ON ccp.PKID = cp.PKID
+                        WHERE cp.FechaEmision >= @Desde 
+                          AND cp.FechaEmision < @Hasta
+                          AND tcp.TipoCp = 'Venta'
+                          {filtroVendedores}
+                          {filtroAnulados}
+                          {filtroTipoDoc}
+                        ORDER BY cp.FechaEmision DESC, cp.PKID DESC;";
 
-                    using var r = await cmd.ExecuteReaderAsync(ct);
-                    while (await r.ReadAsync(ct))
+                    using (var cmd = new SqlCommand(sqlCabeceras, connAntiguo) { CommandTimeout = 120 })
                     {
-                        var dto = new ComprobanteAlineadoDto
-                        {
-                            IDCpOrigen = r.GetInt32(0),
-                            NumCp = r.GetString(1),
-                            NumCpContable = r.GetString(2),
-                            Fecha = r.GetDateTime(3),
-                            FechaEmision = r.GetDateTime(4),
-                            Hora = r.GetDateTime(5),
-                            IDTipoCpOrigen = r.GetInt32(6),
-                            SerieOrigen = r.GetString(7),
-                            CorrelativoOrigen = r.GetInt32(8),
-                            IDTipoComprobantePagoOrigen = r.GetInt32(9),
-                            TipoCpDescripcion = r.GetString(10),
-                            IDClienteOrigen = r.GetInt32(11),
-                            CodigoCliente = r.GetString(12),
-                            NombreCliente = r.GetString(13),
-                            DocIdentidadCliente = r.GetString(14),
-                            IDVendedorOrigen = r.GetInt32(15),
-                            CodigoVendedor = r.GetString(16),
-                            NombreVendedor = r.GetString(17),
-                            IDAlmacenOrigen = r.GetInt32(18),
-                            AlmacenNombre = r.GetString(19),
-                            IDSucursalOrigen = r.GetInt32(20),
-                            DireccionFiscal = r.GetString(21),
-                            DireccionEntrega = r.GetString(22),
-                            EstadoEntrega = r.GetString(23),
-                            IDPedidoOrigen = r.GetInt32(24),
-                            NumPedidoOrigen = r.GetString(25),
-                            SubTotal = r.GetDecimal(26),
-                            Total = r.GetDecimal(27),
-                            ValorAfecto = r.GetDecimal(28),
-                            ValorInafecto = r.GetDecimal(29),
-                            ValorExonerado = r.GetDecimal(30),
-                            ValorDescuento = r.GetDecimal(31),
-                            ValorVenta = r.GetDecimal(32),
-                            TieneImpuesto = r.GetBoolean(33),
-                            PreciosIncImpto = r.GetBoolean(34),
-                            AnuladoOrigen = r.GetBoolean(35),
-                            EsCredito = r.GetBoolean(36),
-                            SaldoPendiente = r.GetDecimal(37),
-                            FechaVencimiento = r.IsDBNull(38) ? null : r.GetDateTime(38),
-                            FechaProgramacionPago = r.IsDBNull(39) ? null : r.GetDateTime(39),
-                            MotivoAnulacion = r.IsDBNull(40) ? "" : r.GetString(40)
-                        };
+                        cmd.Parameters.AddWithValue("@Desde", fechaDesde);
+                        cmd.Parameters.AddWithValue("@Hasta", fechaHastaExclusivo);
 
-                        comprobantes.Add(dto);
+                        using var r = await cmd.ExecuteReaderAsync(ct);
+                        while (await r.ReadAsync(ct))
+                        {
+                            var dto = new ComprobanteAlineadoDto
+                            {
+                                IDCpOrigen = r.GetInt32(0),
+                                NumCp = r.GetString(1),
+                                NumCpContable = r.GetString(2),
+                                Fecha = r.GetDateTime(3),
+                                FechaEmision = r.GetDateTime(4),
+                                Hora = r.GetDateTime(5),
+                                IDTipoCpOrigen = r.GetInt32(6),
+                                SerieOrigen = r.GetString(7),
+                                CorrelativoOrigen = r.GetInt32(8),
+                                IDTipoComprobantePagoOrigen = r.GetInt32(9),
+                                TipoCpDescripcion = r.GetString(10),
+                                ClaseDocumento = "VENTA",
+                                IDClienteOrigen = r.GetInt32(11),
+                                CodigoCliente = r.GetString(12),
+                                NombreCliente = r.GetString(13),
+                                DocIdentidadCliente = r.GetString(14),
+                                IDVendedorOrigen = r.GetInt32(15),
+                                CodigoVendedor = r.GetString(16),
+                                NombreVendedor = r.GetString(17),
+                                IDAlmacenOrigen = r.GetInt32(18),
+                                AlmacenNombre = r.GetString(19),
+                                IDSucursalOrigen = r.GetInt32(20),
+                                DireccionFiscal = r.GetString(21),
+                                DireccionEntrega = r.GetString(22),
+                                EstadoEntrega = r.GetString(23),
+                                IDPedidoOrigen = r.GetInt32(24),
+                                NumPedidoOrigen = r.GetString(25),
+                                SubTotal = r.GetDecimal(26),
+                                Total = r.GetDecimal(27),
+                                ValorAfecto = r.GetDecimal(28),
+                                ValorInafecto = r.GetDecimal(29),
+                                ValorExonerado = r.GetDecimal(30),
+                                ValorDescuento = r.GetDecimal(31),
+                                ValorVenta = r.GetDecimal(32),
+                                TieneImpuesto = r.GetBoolean(33),
+                                PreciosIncImpto = r.GetBoolean(34),
+                                AnuladoOrigen = r.GetBoolean(35),
+                                EsCredito = r.GetBoolean(36),
+                                SaldoPendiente = r.GetDecimal(37),
+                                FechaVencimiento = r.IsDBNull(38) ? null : r.GetDateTime(38),
+                                FechaProgramacionPago = r.IsDBNull(39) ? null : r.GetDateTime(39),
+                                MotivoAnulacion = r.IsDBNull(40) ? "" : r.GetString(40)
+                            };
+
+                            comprobantes.Add(dto);
+                        }
+                    }
+                }
+
+                // Extracción de Notas de Crédito desde el ERP Antiguo (100% Modo Consulta - READ ONLY)
+                if (consultarNotasCredito)
+                {
+                    string sqlNotasCredito = $@"
+                        SELECT 
+                            cp.PKID                                          AS IDCpOrigen,
+                            LTRIM(RTRIM(ISNULL(cp.NumCp, '')))               AS NumCp,
+                            LTRIM(RTRIM(ISNULL(cp.NumCpContable, '')))       AS NumCpContable,
+                            ISNULL(cp.Fecha, GETDATE())                      AS Fecha,
+                            ISNULL(cp.FechaEmision, GETDATE())               AS FechaEmision,
+                            ISNULL(cp.Hora, GETDATE())                       AS Hora,
+                            cp.IDTipoCp                                      AS IDTipoCpOrigen,
+                            LTRIM(RTRIM(ISNULL(tcp.Serie, '')))              AS SerieOrigen,
+                            ISNULL(tcp.Numero, 0)                            AS CorrelativoOrigen,
+                            7                                                AS IDTipoComprobantePagoOrigen,
+                            LTRIM(RTRIM(ISNULL(tcp.Descripcion, 'NOTA DE CREDITO'))) AS TipoCpDescripcion,
+                            ISNULL(cp.IDPersona, 0)                          AS IDClienteOrigen,
+                            LTRIM(RTRIM(ISNULL(pCli.Codigo, '')))            AS CodigoCliente,
+                            LTRIM(RTRIM(ISNULL(pCli.Nombre, '')))            AS NombreCliente,
+                            LTRIM(RTRIM(ISNULL(nc.DocIdentidad, '')))        AS DocIdentidadCliente,
+                            ISNULL(cp.IDResponsable, 0)                      AS IDVendedorOrigen,
+                            LTRIM(RTRIM(ISNULL(pVend.Codigo, '')))           AS CodigoVendedor,
+                            LTRIM(RTRIM(ISNULL(pVend.Nombre, '')))           AS NombreVendedor,
+                            ISNULL(ci.IDAlmacen, 0)                          AS IDAlmacenOrigen,
+                            LTRIM(RTRIM(ISNULL(alm.Nombre, '')))             AS AlmacenNombre,
+                            ISNULL(cp.IDSucursal, 0)                         AS IDSucursalOrigen,
+                            LTRIM(RTRIM(ISNULL(nc.Direccion, '')))           AS DireccionFiscal,
+                            LTRIM(RTRIM(ISNULL(nc.DireccionEntrega, '')))    AS DireccionEntrega,
+                            LTRIM(RTRIM(ISNULL(nc.EstadoEntregaDevolucion, 'TOTAL'))) AS EstadoEntrega,
+                            ISNULL(cpr.IDCpRelacionado, 0)                   AS IDCpModificadoOrigen,
+                            LTRIM(RTRIM(ISNULL(cpRef.NumCp, '')))            AS NumCpModificadoOrigen,
+                            ISNULL(cp.IDMotivoEmisionAnulacion, 2)           AS IDMotivoEmisionAnulacionOrigen,
+                            CAST(ISNULL(cp.SubTotal, 0) AS decimal(18,6))    AS SubTotal,
+                            CAST(ISNULL(cp.Total, 0) AS decimal(18,6))       AS Total,
+                            CAST(ISNULL(cp.ValorAfecto, 0) AS decimal(18,6)) AS ValorAfecto,
+                            CAST(ISNULL(cp.ValorInafecto, 0) AS decimal(18,6)) AS ValorInafecto,
+                            CAST(ISNULL(cp.ValorExonerado, 0) AS decimal(18,6)) AS ValorExonerado,
+                            CAST(ISNULL(cp.ValorDescuento, 0) AS decimal(18,6)) AS ValorDescuento,
+                            CAST(ISNULL(cp.ValorVenta, 0) AS decimal(18,6))  AS ValorVenta,
+                            CAST(ISNULL(cp.TieneImpuesto, 1) AS bit)         AS TieneImpuesto,
+                            CAST(ISNULL(cp.PreciosIncImpto, 1) AS bit)       AS PreciosIncImpto,
+                            CAST(ISNULL(cp.Anulado, 0) AS bit)               AS AnuladoOrigen,
+                            {exprMotivoOrigen}                               AS MotivoEliminacion
+                        FROM dbo.Cp cp WITH (NOLOCK)
+                        INNER JOIN dbo.notacredito nc WITH (NOLOCK) ON nc.PKID = cp.PKID
+                        LEFT JOIN dbo.TipoCp tcp WITH (NOLOCK) ON tcp.PKID = cp.IDTipoCp
+                        LEFT JOIN dbo.CpInventario ci WITH (NOLOCK) ON ci.IDCp = cp.PKID
+                        LEFT JOIN dbo.Persona pCli WITH (NOLOCK) ON pCli.PKID = cp.IDPersona
+                        LEFT JOIN dbo.Persona pVend WITH (NOLOCK) ON pVend.PKID = cp.IDResponsable
+                        LEFT JOIN dbo.Almacen alm WITH (NOLOCK) ON alm.PKID = ci.IDAlmacen
+                        LEFT JOIN dbo.CpRelacionado cpr WITH (NOLOCK) ON cpr.IDCp = cp.PKID
+                        LEFT JOIN dbo.Cp cpRef WITH (NOLOCK) ON cpRef.PKID = cpr.IDCpRelacionado
+                        WHERE cp.FechaEmision >= @Desde 
+                          AND cp.FechaEmision < @Hasta
+                          {filtroVendedores}
+                          {filtroAnulados}
+                        ORDER BY cp.FechaEmision DESC, cp.PKID DESC;";
+
+                    using (var cmdNc = new SqlCommand(sqlNotasCredito, connAntiguo) { CommandTimeout = 120 })
+                    {
+                        cmdNc.Parameters.AddWithValue("@Desde", fechaDesde);
+                        cmdNc.Parameters.AddWithValue("@Hasta", fechaHastaExclusivo);
+
+                        using var rNc = await cmdNc.ExecuteReaderAsync(ct);
+                        while (await rNc.ReadAsync(ct))
+                        {
+                            var dto = new ComprobanteAlineadoDto
+                            {
+                                IDCpOrigen = rNc.GetInt32(0),
+                                NumCp = rNc.GetString(1),
+                                NumCpContable = rNc.GetString(2),
+                                Fecha = rNc.GetDateTime(3),
+                                FechaEmision = rNc.GetDateTime(4),
+                                Hora = rNc.GetDateTime(5),
+                                IDTipoCpOrigen = rNc.GetInt32(6),
+                                SerieOrigen = rNc.GetString(7),
+                                CorrelativoOrigen = rNc.GetInt32(8),
+                                IDTipoComprobantePagoOrigen = 7,
+                                TipoCpDescripcion = rNc.GetString(10),
+                                ClaseDocumento = "NOTA_CREDITO",
+                                IDClienteOrigen = rNc.GetInt32(11),
+                                CodigoCliente = rNc.GetString(12),
+                                NombreCliente = rNc.GetString(13),
+                                DocIdentidadCliente = rNc.GetString(14),
+                                IDVendedorOrigen = rNc.GetInt32(15),
+                                CodigoVendedor = rNc.GetString(16),
+                                NombreVendedor = rNc.GetString(17),
+                                IDAlmacenOrigen = rNc.GetInt32(18),
+                                AlmacenNombre = rNc.GetString(19),
+                                IDSucursalOrigen = rNc.GetInt32(20),
+                                DireccionFiscal = rNc.GetString(21),
+                                DireccionEntrega = rNc.GetString(22),
+                                EstadoEntrega = rNc.GetString(23),
+                                EstadoEntregaDevolucion = rNc.GetString(23),
+                                IDPedidoOrigen = 0,
+                                NumPedidoOrigen = "",
+                                IDCpModificadoOrigen = rNc.GetInt32(24),
+                                NumCpModificadoOrigen = rNc.GetString(25),
+                                IDMotivoEmisionAnulacionOrigen = rNc.GetInt32(26),
+                                SubTotal = rNc.GetDecimal(27),
+                                Total = rNc.GetDecimal(28),
+                                ValorAfecto = rNc.GetDecimal(29),
+                                ValorInafecto = rNc.GetDecimal(30),
+                                ValorExonerado = rNc.GetDecimal(31),
+                                ValorDescuento = rNc.GetDecimal(32),
+                                ValorVenta = rNc.GetDecimal(33),
+                                TieneImpuesto = rNc.GetBoolean(34),
+                                PreciosIncImpto = rNc.GetBoolean(35),
+                                AnuladoOrigen = rNc.GetBoolean(36),
+                                EsCredito = false,
+                                SaldoPendiente = 0,
+                                FechaVencimiento = null,
+                                FechaProgramacionPago = null,
+                                MotivoAnulacion = rNc.IsDBNull(37) ? "" : rNc.GetString(37)
+                            };
+
+                            comprobantes.Add(dto);
+                        }
                     }
                 }
 
@@ -263,11 +391,13 @@ namespace IntegradorFlexForce.Services
                                 CAST(ISNULL(icp.ValorVenta, 0) AS decimal(18,6)) AS ValorVenta,
                                 CAST(ISNULL(icp.Bonificacion, 0) AS bit)         AS EsBonificacion,
                                 CAST(ISNULL(icp.Anulado, 0) AS bit)              AS Anulado,
-                                CAST(ISNULL(icp.ValorDescuento, 0) AS decimal(18,6)) AS ValorDescuento
+                                CAST(ISNULL(icp.ValorDescuento, 0) AS decimal(18,6)) AS ValorDescuento,
+                                ISNULL(icpr.IDItemCpRelacionado, 0)              AS IDItemCpRelacionadoOrigen
                             FROM dbo.ItemCp icp WITH (NOLOCK)
                             LEFT JOIN dbo.ItemProducto ip WITH (NOLOCK) ON ip.PKID = icp.PKID
                             LEFT JOIN dbo.ProductoServicio ps WITH (NOLOCK) ON ps.PKID = ip.IDProducto
                             LEFT JOIN dbo.Unidad u WITH (NOLOCK) ON u.PKID = ip.IDUnidad
+                            LEFT JOIN dbo.ItemCpRelacionado icpr WITH (NOLOCK) ON icpr.IDItemCp = icp.PKID
                             WHERE icp.IDCp IN ({string.Join(",", chunk)});";
 
                         using var cmdIt = new SqlCommand(sqlItems, connAntiguo) { CommandTimeout = 120 };
@@ -296,7 +426,8 @@ namespace IntegradorFlexForce.Services
                                     ValorVenta = rIt.GetDecimal(16),
                                     EsBonificacion = rIt.GetBoolean(17),
                                     Anulado = rIt.GetBoolean(18),
-                                    ValorDescuento = Math.Max(0, rIt.GetDecimal(19))
+                                    ValorDescuento = Math.Max(0, rIt.GetDecimal(19)),
+                                    IDItemCpRelacionadoOrigen = rIt.GetInt32(20)
                                 });
                             }
                         }
@@ -485,6 +616,45 @@ namespace IntegradorFlexForce.Services
                         }
                     }
                 }
+
+                // Notas de Crédito existentes en Force
+                var notasCreditoForceInfo = new Dictionary<string, (int IDForce, bool Anulado, decimal Total)>(StringComparer.OrdinalIgnoreCase);
+                try
+                {
+                    using (var cmd = new SqlCommand("SELECT ID, NumCp, CAST(ISNULL(Anulado, 0) AS bit) AS Anulado, CAST(ISNULL(Total, 0) AS decimal(18,6)) AS Total FROM dbo.NotaCredito WITH (NOLOCK) WHERE Eliminado = 0 AND NumCp IS NOT NULL;", connForce))
+                    using (var r = await cmd.ExecuteReaderAsync(ct))
+                    {
+                        while (await r.ReadAsync(ct))
+                        {
+                            string num = r.GetString(1).Trim();
+                            if (!string.IsNullOrEmpty(num) && !notasCreditoForceInfo.ContainsKey(num))
+                            {
+                                notasCreditoForceInfo[num] = (r.GetInt32(0), r.GetBoolean(2), r.GetDecimal(3));
+                            }
+                        }
+                    }
+                }
+                catch { /* Si la tabla no está creada aún en Force */ }
+
+                // Tipos de Nota de Crédito en Force
+                var tipoCpNotaCreditoBySerie = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                int defaultIdTipoCpNotaCredito = 1;
+                try
+                {
+                    using (var cmd = new SqlCommand("SELECT ID, Serie FROM dbo.TipoCpNotaCredito WITH (NOLOCK) WHERE Eliminado = 0;", connForce))
+                    using (var r = await cmd.ExecuteReaderAsync(ct))
+                    {
+                        while (await r.ReadAsync(ct))
+                        {
+                            int id = r.GetInt32(0);
+                            string ser = r.IsDBNull(1) ? "" : r.GetString(1).Trim();
+                            if (!string.IsNullOrEmpty(ser) && !tipoCpNotaCreditoBySerie.ContainsKey(ser))
+                                tipoCpNotaCreditoBySerie[ser] = id;
+                            defaultIdTipoCpNotaCredito = id;
+                        }
+                    }
+                }
+                catch { }
             }
 
             // Detección de Multi-comprobante VIGENTE por pedido origen (solo comprobantes NO anulados)
@@ -509,6 +679,142 @@ namespace IntegradorFlexForce.Services
             {
                 var errores = new List<string>();
                 var advertencias = new List<string>();
+
+                // --- MANEJO ESPECIALIZADO: NOTAS DE CRÉDITO ---
+                if (c.EsNotaCredito)
+                {
+                    // A. Existencia en Force (dbo.NotaCredito)
+                    if (notasCreditoForceInfo.TryGetValue(c.NumCp, out var ncInfo))
+                    {
+                        c.YaExisteEnForce = true;
+                        c.IDNotaCreditoForce = ncInfo.IDForce;
+                        c.IDCpForceExistente = ncInfo.IDForce;
+                        c.ForceAnulado = ncInfo.Anulado;
+                        c.ForceTotal = ncInfo.Total;
+                    }
+
+                    // B. Relación con Comprobante de Venta origen modificado en Force
+                    if (!string.IsNullOrEmpty(c.NumCpModificadoOrigen) && comprobantesForceInfo.TryGetValue(c.NumCpModificadoOrigen, out var cpModInfo))
+                    {
+                        c.IDCpForceModificado = cpModInfo.IDForce;
+                        c.ForceSaldoDeuda = cpModInfo.SaldoDeuda;
+                        c.IDDeudaForce = cpModInfo.IDDeuda;
+                        c.ForceEstadoDeuda = cpModInfo.EstadoDeuda;
+                    }
+                    else if (!string.IsNullOrEmpty(c.NumCpModificadoOrigen))
+                    {
+                        advertencias.Add($"Comprobante modificado '{c.NumCpModificadoOrigen}' no existe en Force");
+                    }
+
+                    // C. Cliente
+                    if (cliForceByExtra.TryGetValue(c.IDClienteOrigen, out int idCliForce))
+                        c.IDClienteForce = idCliForce;
+                    else
+                        errores.Add($"Cliente origen #{c.IDClienteOrigen} ({c.CodigoCliente}) sin IDExtra en cli_Cliente");
+
+                    // D. Vendedor
+                    if (vendForceByExtra.TryGetValue(c.IDVendedorOrigen, out int idVendForce))
+                        c.IDVendedorForce = idVendForce;
+                    else
+                        errores.Add($"Vendedor origen #{c.IDVendedorOrigen} ({c.CodigoVendedor}) sin IDExtra en vnd_Vendedor");
+
+                    // E. Almacén y Sucursal
+                    if (almForceByExtra.TryGetValue(c.IDAlmacenOrigen, out int idAlmForce))
+                        c.IDAlmacenForce = idAlmForce;
+                    else
+                        c.IDAlmacenForce = 169;
+
+                    if (sucForceByExtra.TryGetValue(c.IDSucursalOrigen, out int idSucForce))
+                        c.IDSucursalForce = idSucForce;
+                    else
+                        c.IDSucursalForce = 5;
+
+                    // F. TipoCpNotaCredito
+                    if (tipoCpNotaCreditoBySerie.TryGetValue(c.SerieOrigen, out int idTipoNc))
+                    {
+                        c.IDTipoCpVentaForce = idTipoNc;
+                        c.SerieForce = c.SerieOrigen;
+                    }
+                    else
+                    {
+                        c.IDTipoCpVentaForce = defaultIdTipoCpNotaCredito;
+                        c.SerieForce = c.SerieOrigen;
+                        advertencias.Add($"Serie '{c.SerieOrigen}' no existe en TipoCpNotaCredito (se auto-aprovisionará al subir)");
+                    }
+
+                    // G. Ítems
+                    foreach (var it in c.Items)
+                    {
+                        if (prodForceByExtra.TryGetValue(it.IDProductoOrigen, out int idProdForce))
+                            it.IDProductoForce = idProdForce;
+                        else
+                            errores.Add($"Producto '{it.CodigoProducto}' ({it.DescripcionProducto}) sin IDExtra en prd_Producto");
+
+                        if (unidForceByExtra.TryGetValue(it.IDUnidadOrigen, out int idUnidForce))
+                            it.IDUnidadForce = idUnidForce;
+                        else
+                            advertencias.Add($"Unidad #{it.IDUnidadOrigen} ({it.UnidadAbrev}) de '{it.CodigoProducto}' sin IDExtra en prd_ProductoUnidad");
+                    }
+
+                    // H. Semáforo y Operación para Nota de Crédito
+                    if (c.YaExisteEnForce)
+                    {
+                        if (c.AnuladoOrigen)
+                        {
+                            if (!c.ForceAnulado)
+                            {
+                                c.TipoOperacion = "ANULAR";
+                                c.Semaforo = "AMBAR";
+                                c.ObservacionValidacion = "⚠ Nota de crédito anulada en origen. Lista para anular en Force y restituir saldo de deuda.";
+                            }
+                            else
+                            {
+                                c.TipoOperacion = "SIN_CAMBIOS";
+                                c.Semaforo = "AZUL";
+                                c.ObservacionValidacion = $"ℹ Ya está anulada en Force (NC ID: {c.IDNotaCreditoForce}). Al día.";
+                            }
+                        }
+                        else
+                        {
+                            c.TipoOperacion = "SIN_CAMBIOS";
+                            c.Semaforo = "AZUL";
+                            c.ObservacionValidacion = $"ℹ Ya existe en Force (NC ID: {c.IDNotaCreditoForce}). Al día.";
+                        }
+                    }
+                    else
+                    {
+                        if (c.AnuladoOrigen)
+                        {
+                            c.TipoOperacion = "SIN_CAMBIOS";
+                            c.Semaforo = "AZUL";
+                            c.ObservacionValidacion = "ℹ Nota de crédito anulada en origen que no existe en Force. Se omite.";
+                        }
+                        else
+                        {
+                            c.TipoOperacion = "INSERT";
+                            if (errores.Count > 0)
+                            {
+                                c.Semaforo = "ROJO";
+                                c.ObservacionValidacion = "✕ " + string.Join(" | ", errores.Distinct());
+                            }
+                            else if (c.IDCpForceModificado.HasValue)
+                            {
+                                c.Semaforo = "VERDE";
+                                string deudaInfo = (c.ForceSaldoDeuda.HasValue && c.ForceSaldoDeuda.Value > 0)
+                                    ? $" | Rebajará deuda pendiente (Saldo actual S/ {c.ForceSaldoDeuda.Value:N2})"
+                                    : "";
+                                c.ObservacionValidacion = $"✓ Modifica a {c.NumCpModificadoOrigen} (Force ID #{c.IDCpForceModificado}){deudaInfo}. Lista para subir.";
+                            }
+                            else
+                            {
+                                c.Semaforo = "AMBAR";
+                                c.ObservacionValidacion = $"⚠ Comprobante modificado '{c.NumCpModificadoOrigen}' no existe en Force. Se insertará como NC independiente.";
+                            }
+                        }
+                    }
+
+                    continue; // Siguiente comprobante
+                }
 
                 // A. Ya existe en Force
                 if (comprobantesForceInfo.TryGetValue(c.NumCp, out var forceInfo))
@@ -750,6 +1056,7 @@ namespace IntegradorFlexForce.Services
             {
                 comprobantes = comprobantes
                     .Where(c =>
+                        c.EsNotaCredito || // Las notas de crédito modifican comprobantes directamente
                         (c.IDPedidoForce.HasValue && (
                             string.Equals(c.EstadoPedidoForce, "FACTURADO", StringComparison.OrdinalIgnoreCase) ||
                             string.Equals(c.EstadoPedidoForce, "PENDIENTE", StringComparison.OrdinalIgnoreCase) ||
@@ -769,11 +1076,12 @@ namespace IntegradorFlexForce.Services
             response.AnulacionesPendientes = comprobantes.Count(x => x.TipoOperacion == "ANULAR" && x.ListoParaSubir);
             response.ReemplazosDeAnulados = comprobantes.Count(x => x.EsReemplazoDeAnulado);
             response.YaExistenEnForce = comprobantes.Count(x => x.YaExisteEnForce);
-            response.SinPedidoEnlazado = comprobantes.Count(x => !x.YaExisteEnForce && !x.IDPedidoForce.HasValue);
+            response.SinPedidoEnlazado = comprobantes.Count(x => !x.YaExisteEnForce && !x.EsNotaCredito && !x.IDPedidoForce.HasValue);
             response.ObservadosConError = comprobantes.Count(x => !x.YaExisteEnForce && x.Semaforo == "ROJO");
             response.Anulados = comprobantes.Count(x => x.AnuladoOrigen);
-            response.FacturasTotal = comprobantes.Count(x => x.IDTipoComprobantePagoOrigen == 1);
-            response.BoletasTotal = comprobantes.Count(x => x.IDTipoComprobantePagoOrigen == 4);
+            response.FacturasTotal = comprobantes.Count(x => x.IDTipoComprobantePagoOrigen == 1 && !x.EsNotaCredito);
+            response.BoletasTotal = comprobantes.Count(x => x.IDTipoComprobantePagoOrigen == 4 && !x.EsNotaCredito);
+            response.NotasCreditoTotal = comprobantes.Count(x => x.EsNotaCredito);
             response.ConDeudaPorCobrar = comprobantes.Count(x => x.DebeGenerarDeuda);
             response.TotalDeudaPendiente = comprobantes.Where(x => x.DebeGenerarDeuda).Sum(x => x.SaldoPendiente);
             response.Comprobantes = comprobantes;
@@ -868,6 +1176,59 @@ namespace IntegradorFlexForce.Services
                             {
                                 int idCp = c.IDCpForceExistente!.Value;
                                 string mot = !string.IsNullOrWhiteSpace(c.MotivoAnulacion) ? c.MotivoAnulacion : "Anulado en ERP Antiguo";
+
+                                if (c.EsNotaCredito)
+                                {
+                                    const string sqlAnulNc = @"
+                                        UPDATE dbo.NotaCredito
+                                        SET Anulado = 1,
+                                            HoraAnulacion = GETDATE(),
+                                            Observacion = ISNULL(Observacion, '') + ' [ANULADO: ' + @Motivo + ']'
+                                        WHERE ID = @ID;
+
+                                        UPDATE dbo.ItemCpNotaCredito
+                                        SET Anulado = 1
+                                        WHERE IDNotaCredito = @ID;";
+
+                                    using (var cmdAnulNc = new SqlCommand(sqlAnulNc, connForce, tx))
+                                    {
+                                        cmdAnulNc.Parameters.AddWithValue("@ID", idCp);
+                                        cmdAnulNc.Parameters.AddWithValue("@Motivo", mot);
+                                        await cmdAnulNc.ExecuteNonQueryAsync(ct);
+                                    }
+
+                                    const string sqlRevertirPagoNc = @"
+                                        DECLARE @MontoRevertir decimal(18,6) = 0, @IDDeuda int;
+                                        SELECT TOP 1 @MontoRevertir = Monto, @IDDeuda = IDDeudaCliente
+                                        FROM dbo.cob_PagoDeuda
+                                        WHERE NumeroRecibo = @NumCp AND Tipo = 'NOTA_CREDITO' AND Eliminado = 0;
+
+                                        IF @IDDeuda IS NOT NULL AND @MontoRevertir > 0
+                                        BEGIN
+                                            UPDATE dbo.cob_PagoDeuda
+                                            SET Eliminado = 1, FechaEliminacion = GETDATE(), Observacion = ISNULL(Observacion, '') + ' [REVERTIDO POR ANULACION NC]'
+                                            WHERE NumeroRecibo = @NumCp AND Tipo = 'NOTA_CREDITO';
+
+                                            UPDATE dbo.cob_DeudaCliente
+                                            SET Saldo = Saldo + @MontoRevertir,
+                                                Estado = 'PARCIAL'
+                                            WHERE ID = @IDDeuda;
+                                        END";
+
+                                    using (var cmdRev = new SqlCommand(sqlRevertirPagoNc, connForce, tx))
+                                    {
+                                        cmdRev.Parameters.AddWithValue("@NumCp", c.NumCp);
+                                        await cmdRev.ExecuteNonQueryAsync(ct);
+                                    }
+
+                                    await tx.CommitAsync(ct);
+                                    c.TipoOperacion = "SIN_CAMBIOS";
+                                    c.Semaforo = "AZUL";
+                                    c.ObservacionValidacion = "✓ Nota de crédito anulada en Force y saldo de deuda restituido.";
+                                    AgregarEvento(c.IDCpOrigen, c.NumCp, "SUCCESS", $"Nota de crédito {c.NumCp} anulada en Force.");
+                                    _status.ProcesadosCount++;
+                                    continue;
+                                }
 
                                 const string sqlAnulCp = @"
                                     UPDATE dbo.Cp
@@ -1032,6 +1393,224 @@ namespace IntegradorFlexForce.Services
                             // ESCENARIO 3: INSERCIÓN DE NUEVO COMPROBANTE CON CORRELATIVO Y ENLACE
                             else
                             {
+                                // --- INSERCIÓN ESPECIALIZADA: NOTA DE CRÉDITO ---
+                                if (c.EsNotaCredito)
+                                {
+                                    // 1. Auto-provisionar TipoCpNotaCredito si no existe la serie
+                                    int idTipoNcFinal = c.IDTipoCpVentaForce ?? defaultIdTipoCpNotaCredito;
+                                    const string sqlEnsureTipoNc = @"
+                                        DECLARE @IDExistente int;
+                                        SELECT @IDExistente = ID FROM dbo.TipoCpNotaCredito WITH (UPDLOCK, ROWLOCK) WHERE Serie = @Serie AND Eliminado = 0;
+
+                                        IF @IDExistente IS NOT NULL
+                                        BEGIN
+                                            SELECT @IDExistente;
+                                        END
+                                        ELSE
+                                        BEGIN
+                                            INSERT INTO dbo.TipoCpNotaCredito (
+                                                Codigo, Descripcion, Abreviacion, Serie, Numero, LongitudNumero,
+                                                NumeracionAutomatica, Activo, Eliminado, FechaCreacion
+                                            ) VALUES (
+                                                @Codigo, @Descripcion, 'NC', @Serie, @Numero, 8,
+                                                0, 1, 0, GETDATE()
+                                            );
+                                            SELECT CAST(SCOPE_IDENTITY() AS int);
+                                        END";
+
+                                    using (var cmdTipoNc = new SqlCommand(sqlEnsureTipoNc, connForce, tx))
+                                    {
+                                        cmdTipoNc.Parameters.AddWithValue("@Serie", c.SerieOrigen);
+                                        cmdTipoNc.Parameters.AddWithValue("@Codigo", $"NC-{c.SerieOrigen}");
+                                        cmdTipoNc.Parameters.AddWithValue("@Descripcion", $"Nota de Crédito {c.SerieOrigen}");
+                                        cmdTipoNc.Parameters.AddWithValue("@Numero", c.CorrelativoOrigen);
+
+                                        idTipoNcFinal = (int)(await cmdTipoNc.ExecuteScalarAsync(ct))!;
+                                    }
+
+                                    // 2. Insertar Cabecera en dbo.NotaCredito
+                                    const string sqlInsertNc = @"
+                                        INSERT INTO dbo.NotaCredito (
+                                            IDTipoCp, NumCp, NumCpContable, IDCliente, IDVendedor, IDSucursal, IDMoneda, TipoCambio,
+                                            Fecha, FechaEmision, Hora, Total, SubTotal, ValorVenta, ValorAfecto, ValorInafecto, ValorExonerado, ValorDescuento,
+                                            TieneImpuesto, PreciosIncImpto, IDImpuesto, IDMotivoEmisionAnulacion, Observacion, Anulado, Eliminado
+                                        ) VALUES (
+                                            @IDTipoCp, @NumCp, @NumCpContable, @IDCliente, @IDVendedor, @IDSucursal, 1, 1.0,
+                                            @Fecha, @FechaEmision, @Hora, @Total, @SubTotal, @ValorVenta, @ValorAfecto, @ValorInafecto, @ValorExonerado, @ValorDescuento,
+                                            @TieneImpuesto, @PreciosIncImpto, 1, @IDMotivoEmisionAnulacion, @Observacion, 0, 0
+                                        );
+                                        SELECT CAST(SCOPE_IDENTITY() AS int);";
+
+                                    int nuevoIdNc;
+                                    using (var cmdNc = new SqlCommand(sqlInsertNc, connForce, tx))
+                                    {
+                                        cmdNc.Parameters.AddWithValue("@IDTipoCp", idTipoNcFinal);
+                                        cmdNc.Parameters.AddWithValue("@NumCp", c.NumCp);
+                                        cmdNc.Parameters.AddWithValue("@NumCpContable", string.IsNullOrEmpty(c.NumCpContable) ? (object)DBNull.Value : c.NumCpContable);
+                                        cmdNc.Parameters.AddWithValue("@IDCliente", c.IDClienteForce!.Value);
+                                        cmdNc.Parameters.AddWithValue("@IDVendedor", c.IDVendedorForce!.Value);
+                                        cmdNc.Parameters.AddWithValue("@IDSucursal", c.IDSucursalForce ?? 5);
+                                        cmdNc.Parameters.AddWithValue("@Fecha", c.Fecha);
+                                        cmdNc.Parameters.AddWithValue("@FechaEmision", c.FechaEmision);
+                                        cmdNc.Parameters.AddWithValue("@Hora", c.Hora);
+                                        cmdNc.Parameters.AddWithValue("@Total", c.Total);
+                                        cmdNc.Parameters.AddWithValue("@SubTotal", c.SubTotal);
+                                        cmdNc.Parameters.AddWithValue("@ValorVenta", c.ValorVenta);
+                                        cmdNc.Parameters.AddWithValue("@ValorAfecto", c.ValorAfecto);
+                                        cmdNc.Parameters.AddWithValue("@ValorInafecto", c.ValorInafecto);
+                                        cmdNc.Parameters.AddWithValue("@ValorExonerado", c.ValorExonerado);
+                                        cmdNc.Parameters.AddWithValue("@ValorDescuento", c.ValorDescuento);
+                                        cmdNc.Parameters.AddWithValue("@TieneImpuesto", c.TieneImpuesto);
+                                        cmdNc.Parameters.AddWithValue("@PreciosIncImpto", c.PreciosIncImpto);
+                                        cmdNc.Parameters.AddWithValue("@IDMotivoEmisionAnulacion", c.IDMotivoEmisionAnulacionOrigen);
+                                        cmdNc.Parameters.AddWithValue("@Observacion", $"Migrado ERP Antiguo (PKID: {c.IDCpOrigen})" + (!string.IsNullOrEmpty(c.NumCpModificadoOrigen) ? $" | Modifica: {c.NumCpModificadoOrigen}" : ""));
+
+                                        nuevoIdNc = (int)(await cmdNc.ExecuteScalarAsync(ct))!;
+                                    }
+
+                                    // 3. Insertar Extensión en dbo.CpNotaCredito
+                                    const string sqlInsertCpNc = @"
+                                        INSERT INTO dbo.CpNotaCredito (
+                                            ID, IDCpOrigen, IDAlmacen, TipoCpInventario, IDTipoOperacion, IDTipoDocIdentidad, IDSUNATCatalogo51,
+                                            EstadoEntrega, EstadoDevolucion, EstadoEntregaDevolucion, EstadoDescuento,
+                                            Direccion, DireccionEntrega, IDDireccionEntrega, DetraccionMN, PercepcionMN
+                                        ) VALUES (
+                                            @ID, @IDCpOrigen, @IDAlmacen, 'Entrada', 1, 1, '0101',
+                                            'PENDIENTE', 'PENDIENTE', @EstadoEntregaDevolucion, 'PENDIENTE',
+                                            @Direccion, @DireccionEntrega, NULL, 0, 0
+                                        );";
+
+                                    using (var cmdCpNc = new SqlCommand(sqlInsertCpNc, connForce, tx))
+                                    {
+                                        cmdCpNc.Parameters.AddWithValue("@ID", nuevoIdNc);
+                                        cmdCpNc.Parameters.AddWithValue("@IDCpOrigen", (object?)c.IDCpForceModificado ?? DBNull.Value);
+                                        cmdCpNc.Parameters.AddWithValue("@IDAlmacen", c.IDAlmacenForce ?? 169);
+                                        cmdCpNc.Parameters.AddWithValue("@EstadoEntregaDevolucion", string.IsNullOrEmpty(c.EstadoEntregaDevolucion) ? "TOTAL" : c.EstadoEntregaDevolucion);
+                                        cmdCpNc.Parameters.AddWithValue("@Direccion", string.IsNullOrEmpty(c.DireccionFiscal) ? (object)DBNull.Value : c.DireccionFiscal);
+                                        cmdCpNc.Parameters.AddWithValue("@DireccionEntrega", string.IsNullOrEmpty(c.DireccionEntrega) ? (object)DBNull.Value : c.DireccionEntrega);
+
+                                        await cmdCpNc.ExecuteNonQueryAsync(ct);
+                                    }
+
+                                    // 4. Insertar Ítems en dbo.ItemCpNotaCredito
+                                    const string sqlInsertItemNc = @"
+                                        INSERT INTO dbo.ItemCpNotaCredito (
+                                            IDNotaCredito, IDProducto, IDUnidad, Factor, IDAlmacen, Descripcion, Cantidad,
+                                            ValorUnitario, SubTotal, Total, ValorVenta, ValorAfecto, ValorInafecto, ValorExonerado, ValorDescuento,
+                                            PorcentajeImpto, Inafecto, IDSUNATCatalogo7, Bonificacion, Anulado
+                                        ) VALUES (
+                                            @IDNotaCredito, @IDProducto, @IDUnidad, @Factor, @IDAlmacen, @Descripcion, @Cantidad,
+                                            @ValorUnitario, @SubTotal, @Total, @ValorVenta, @ValorAfecto, @ValorInafecto, @ValorExonerado, @ValorDescuento,
+                                            @PorcentajeImpto, @Inafecto, @IDSUNATCatalogo7, @Bonificacion, 0
+                                        );";
+
+                                    foreach (var it in c.Items)
+                                    {
+                                        if (!it.IDProductoForce.HasValue) continue;
+
+                                        bool esInafecto = it.ValorInafecto > 0 && it.ValorAfecto == 0;
+                                        int sunatCat7 = esInafecto ? 30 : 10;
+
+                                        using var cmdItNc = new SqlCommand(sqlInsertItemNc, connForce, tx);
+                                        cmdItNc.Parameters.AddWithValue("@IDNotaCredito", nuevoIdNc);
+                                        cmdItNc.Parameters.AddWithValue("@IDProducto", it.IDProductoForce.Value);
+                                        cmdItNc.Parameters.AddWithValue("@IDUnidad", (object?)it.IDUnidadForce ?? DBNull.Value);
+                                        cmdItNc.Parameters.AddWithValue("@Factor", it.CantidadFactor);
+                                        cmdItNc.Parameters.AddWithValue("@IDAlmacen", c.IDAlmacenForce ?? 169);
+                                        cmdItNc.Parameters.AddWithValue("@Descripcion", it.DescripcionProducto ?? "");
+                                        cmdItNc.Parameters.AddWithValue("@Cantidad", it.Cantidad);
+                                        cmdItNc.Parameters.AddWithValue("@ValorUnitario", it.PrecioUnitario);
+                                        cmdItNc.Parameters.AddWithValue("@SubTotal", it.SubTotal);
+                                        cmdItNc.Parameters.AddWithValue("@Total", it.Total);
+                                        cmdItNc.Parameters.AddWithValue("@ValorVenta", it.ValorVenta);
+                                        cmdItNc.Parameters.AddWithValue("@ValorAfecto", it.ValorAfecto);
+                                        cmdItNc.Parameters.AddWithValue("@ValorInafecto", it.ValorInafecto);
+                                        cmdItNc.Parameters.AddWithValue("@ValorExonerado", it.ValorExonerado);
+                                        cmdItNc.Parameters.AddWithValue("@ValorDescuento", it.ValorDescuento);
+                                        cmdItNc.Parameters.AddWithValue("@PorcentajeImpto", it.PorcentajeImpuesto);
+                                        cmdItNc.Parameters.AddWithValue("@Inafecto", esInafecto);
+                                        cmdItNc.Parameters.AddWithValue("@IDSUNATCatalogo7", sunatCat7);
+                                        cmdItNc.Parameters.AddWithValue("@Bonificacion", it.EsBonificacion);
+
+                                        await cmdItNc.ExecuteNonQueryAsync(ct);
+                                    }
+
+                                    // 5. Aplicar Devolución y Rebaja de Deuda sobre el comprobante origen en Force
+                                    if (c.IDCpForceModificado.HasValue && c.IDCpForceModificado.Value > 0)
+                                    {
+                                        const string sqlUpdCpVenta = @"
+                                            UPDATE dbo.CpVenta
+                                            SET EstadoEntregaDevolucion = @EstadoDevolucion
+                                            WHERE ID = @IDCpOrigen;";
+
+                                        using (var cmdUpdV = new SqlCommand(sqlUpdCpVenta, connForce, tx))
+                                        {
+                                            cmdUpdV.Parameters.AddWithValue("@EstadoDevolucion", string.IsNullOrEmpty(c.EstadoEntregaDevolucion) ? "TOTAL" : c.EstadoEntregaDevolucion);
+                                            cmdUpdV.Parameters.AddWithValue("@IDCpOrigen", c.IDCpForceModificado.Value);
+                                            await cmdUpdV.ExecuteNonQueryAsync(ct);
+                                        }
+
+                                        const string sqlRebajarDeuda = @"
+                                            DECLARE @IDDeuda int, @SaldoActual decimal(18,6);
+                                            SELECT TOP 1 @IDDeuda = ID, @SaldoActual = Saldo
+                                            FROM dbo.cob_DeudaCliente WITH (UPDLOCK, ROWLOCK)
+                                            WHERE IDCpVenta = @IDCpOrigen AND Eliminado = 0;
+
+                                            IF @IDDeuda IS NOT NULL AND @SaldoActual > 0
+                                            BEGIN
+                                                DECLARE @MontoRebaja decimal(18,6) = CASE WHEN @TotalNC < @SaldoActual THEN @TotalNC ELSE @SaldoActual END;
+                                                DECLARE @NuevoSaldo decimal(18,6) = @SaldoActual - @MontoRebaja;
+                                                DECLARE @NuevoEstado nvarchar(50) = CASE WHEN @NuevoSaldo <= 0.005 THEN 'PAGADO' ELSE 'PARCIAL' END;
+
+                                                UPDATE dbo.cob_DeudaCliente
+                                                SET Saldo = @NuevoSaldo,
+                                                    Estado = @NuevoEstado
+                                                WHERE ID = @IDDeuda;
+
+                                                INSERT INTO dbo.cob_PagoDeuda (
+                                                    IDDeudaCliente, Fecha, Monto, NumeroRecibo, Tipo, Observacion, FechaCreacion, Eliminado
+                                                ) VALUES (
+                                                    @IDDeuda, @Fecha, @MontoRebaja, @NumCp, 'NOTA_CREDITO', 'Aplicación Nota de Crédito ' + @NumCp, GETDATE(), 0
+                                                );
+                                            END";
+
+                                        using (var cmdRebaja = new SqlCommand(sqlRebajarDeuda, connForce, tx))
+                                        {
+                                            cmdRebaja.Parameters.AddWithValue("@IDCpOrigen", c.IDCpForceModificado.Value);
+                                            cmdRebaja.Parameters.AddWithValue("@TotalNC", c.Total);
+                                            cmdRebaja.Parameters.AddWithValue("@Fecha", c.FechaEmision);
+                                            cmdRebaja.Parameters.AddWithValue("@NumCp", c.NumCp);
+                                            await cmdRebaja.ExecuteNonQueryAsync(ct);
+                                        }
+                                    }
+
+                                    // 6. Actualizar correlativo en TipoCpNotaCredito
+                                    const string sqlUpdCorrNc = @"
+                                        UPDATE dbo.TipoCpNotaCredito
+                                        SET Numero = @Correlativo
+                                        WHERE ID = @IDTipoCp AND ISNULL(Numero, 0) < @Correlativo;";
+
+                                    using (var cmdCorrNc = new SqlCommand(sqlUpdCorrNc, connForce, tx))
+                                    {
+                                        cmdCorrNc.Parameters.AddWithValue("@IDTipoCp", idTipoNcFinal);
+                                        cmdCorrNc.Parameters.AddWithValue("@Correlativo", c.CorrelativoOrigen);
+                                        await cmdCorrNc.ExecuteNonQueryAsync(ct);
+                                    }
+
+                                    await tx.CommitAsync(ct);
+
+                                    c.YaExisteEnForce = true;
+                                    c.IDNotaCreditoForce = nuevoIdNc;
+                                    c.IDCpForceExistente = nuevoIdNc;
+                                    c.TipoOperacion = "SIN_CAMBIOS";
+                                    c.Semaforo = "AZUL";
+                                    c.ObservacionValidacion = $"✓ Nota de crédito insertada con éxito en Force (NC ID: {nuevoIdNc}).";
+                                    AgregarEvento(c.IDCpOrigen, c.NumCp, "SUCCESS", $"Nota de crédito {c.NumCp} (NC ID: {nuevoIdNc}) registrada en Force vinculada a {c.NumCpModificadoOrigen}.");
+
+                                    _status.ProcesadosCount++;
+                                    continue;
+                                }
+
                                 // 1. Auto-provisionar TipoCpVentas si la serie no existe aún
                                 int idTipoCpFinal;
                                 if (c.IDTipoCpVentaForce.HasValue && c.IDTipoCpVentaForce.Value > 0)

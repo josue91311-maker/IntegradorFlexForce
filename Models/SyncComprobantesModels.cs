@@ -35,6 +35,7 @@ namespace IntegradorFlexForce.Models
         public decimal PorcentajeImpuesto { get; set; } = 18m;
         public bool EsBonificacion { get; set; }
         public bool Anulado { get; set; }
+        public int IDItemCpRelacionadoOrigen { get; set; }
     }
 
     public class ComprobanteAlineadoDto
@@ -48,8 +49,20 @@ namespace IntegradorFlexForce.Models
         public int IDTipoCpOrigen { get; set; }
         public string SerieOrigen { get; set; } = string.Empty;
         public int CorrelativoOrigen { get; set; }
-        public int IDTipoComprobantePagoOrigen { get; set; } // 1=Factura, 4=Boleta, 33=Ticket
+        public int IDTipoComprobantePagoOrigen { get; set; } // 1=Factura, 4=Boleta, 7=NotaCredito, 33=Ticket
         public string TipoCpDescripcion { get; set; } = string.Empty;
+
+        // Clasificación de documento: VENTA vs NOTA_CREDITO
+        public string ClaseDocumento { get; set; } = "VENTA";
+        public bool EsNotaCredito => string.Equals(ClaseDocumento, "NOTA_CREDITO", StringComparison.OrdinalIgnoreCase);
+
+        // Relación de Nota de Crédito con el comprobante de venta origen modificado
+        public int IDCpModificadoOrigen { get; set; }
+        public string NumCpModificadoOrigen { get; set; } = string.Empty;
+        public int? IDCpForceModificado { get; set; }
+        public int IDMotivoEmisionAnulacionOrigen { get; set; } = 2;
+        public string EstadoEntregaDevolucion { get; set; } = "TOTAL";
+        public int? IDNotaCreditoForce { get; set; }
 
         // TipoCpVenta Force
         public int? IDTipoCpVentaForce { get; set; }
@@ -152,6 +165,7 @@ namespace IntegradorFlexForce.Models
         public int Anulados { get; set; }
         public int FacturasTotal { get; set; }
         public int BoletasTotal { get; set; }
+        public int NotasCreditoTotal { get; set; }
         public int ConDeudaPorCobrar { get; set; }
         public decimal TotalDeudaPendiente { get; set; }
         public List<ComprobanteAlineadoDto> Comprobantes { get; set; } = new();
