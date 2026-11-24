@@ -30,6 +30,7 @@ namespace IntegradorFlexForce.Models
         public decimal Total { get; set; }
         public decimal ValorAfecto { get; set; }
         public decimal ValorInafecto { get; set; }
+        public decimal ValorExonerado { get; set; }
         public decimal ValorVenta { get; set; }
         public decimal ValorDescuento { get; set; }
         public decimal PorcentajeImpuesto { get; set; } = 18m;

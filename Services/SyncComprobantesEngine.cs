@@ -423,6 +423,7 @@ namespace IntegradorFlexForce.Services
                                     PorcentajeImpuesto = rIt.GetDecimal(12),
                                     ValorAfecto = rIt.GetDecimal(13),
                                     ValorInafecto = rIt.GetDecimal(14),
+                                    ValorExonerado = rIt.GetDecimal(15),
                                     ValorVenta = rIt.GetDecimal(16),
                                     EsBonificacion = rIt.GetBoolean(17),
                                     Anulado = rIt.GetBoolean(18),
@@ -494,6 +495,9 @@ namespace IntegradorFlexForce.Services
             var pedidosForcePorNumero = new Dictionary<string, (int IDForce, string NumeroForce, int? IDCpVenta, string EstadoForce, int? IDCatalogo, int? IDModalidadCredito)>(StringComparer.OrdinalIgnoreCase);
             var comprobantesForceInfo = new Dictionary<string, (int IDForce, bool Anulado, decimal Total, int? IDPedido, int? IDDeuda, decimal? SaldoDeuda, string EstadoDeuda)>(StringComparer.OrdinalIgnoreCase);
             var cpPorIdForce = new Dictionary<int, (string NumCp, bool Anulado, int? IDPedido)>();
+            var notasCreditoForceInfo = new Dictionary<string, (int IDForce, bool Anulado, decimal Total)>(StringComparer.OrdinalIgnoreCase);
+            var tipoCpNotaCreditoBySerie = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            int defaultIdTipoCpNotaCredito = 1;
 
             using (var connForce = new SqlConnection(_connectionStringForce))
             {
@@ -618,7 +622,6 @@ namespace IntegradorFlexForce.Services
                 }
 
                 // Notas de Crédito existentes en Force
-                var notasCreditoForceInfo = new Dictionary<string, (int IDForce, bool Anulado, decimal Total)>(StringComparer.OrdinalIgnoreCase);
                 try
                 {
                     using (var cmd = new SqlCommand("SELECT ID, NumCp, CAST(ISNULL(Anulado, 0) AS bit) AS Anulado, CAST(ISNULL(Total, 0) AS decimal(18,6)) AS Total FROM dbo.NotaCredito WITH (NOLOCK) WHERE Eliminado = 0 AND NumCp IS NOT NULL;", connForce))
@@ -637,8 +640,6 @@ namespace IntegradorFlexForce.Services
                 catch { /* Si la tabla no está creada aún en Force */ }
 
                 // Tipos de Nota de Crédito en Force
-                var tipoCpNotaCreditoBySerie = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                int defaultIdTipoCpNotaCredito = 1;
                 try
                 {
                     using (var cmd = new SqlCommand("SELECT ID, Serie FROM dbo.TipoCpNotaCredito WITH (NOLOCK) WHERE Eliminado = 0;", connForce))
@@ -707,25 +708,25 @@ namespace IntegradorFlexForce.Services
                     }
 
                     // C. Cliente
-                    if (cliForceByExtra.TryGetValue(c.IDClienteOrigen, out int idCliForce))
-                        c.IDClienteForce = idCliForce;
+                    if (cliForceByExtra.TryGetValue(c.IDClienteOrigen, out int idCliNc))
+                        c.IDClienteForce = idCliNc;
                     else
                         errores.Add($"Cliente origen #{c.IDClienteOrigen} ({c.CodigoCliente}) sin IDExtra en cli_Cliente");
 
                     // D. Vendedor
-                    if (vendForceByExtra.TryGetValue(c.IDVendedorOrigen, out int idVendForce))
-                        c.IDVendedorForce = idVendForce;
+                    if (vendForceByExtra.TryGetValue(c.IDVendedorOrigen, out int idVendNc))
+                        c.IDVendedorForce = idVendNc;
                     else
                         errores.Add($"Vendedor origen #{c.IDVendedorOrigen} ({c.CodigoVendedor}) sin IDExtra en vnd_Vendedor");
 
                     // E. Almacén y Sucursal
-                    if (almForceByExtra.TryGetValue(c.IDAlmacenOrigen, out int idAlmForce))
-                        c.IDAlmacenForce = idAlmForce;
+                    if (almForceByExtra.TryGetValue(c.IDAlmacenOrigen, out int idAlmNc))
+                        c.IDAlmacenForce = idAlmNc;
                     else
                         c.IDAlmacenForce = 169;
 
-                    if (sucForceByExtra.TryGetValue(c.IDSucursalOrigen, out int idSucForce))
-                        c.IDSucursalForce = idSucForce;
+                    if (sucForceByExtra.TryGetValue(c.IDSucursalOrigen, out int idSucNc))
+                        c.IDSucursalForce = idSucNc;
                     else
                         c.IDSucursalForce = 5;
 
@@ -745,13 +746,13 @@ namespace IntegradorFlexForce.Services
                     // G. Ítems
                     foreach (var it in c.Items)
                     {
-                        if (prodForceByExtra.TryGetValue(it.IDProductoOrigen, out int idProdForce))
-                            it.IDProductoForce = idProdForce;
+                        if (prodForceByExtra.TryGetValue(it.IDProductoOrigen, out int idProdNc))
+                            it.IDProductoForce = idProdNc;
                         else
                             errores.Add($"Producto '{it.CodigoProducto}' ({it.DescripcionProducto}) sin IDExtra en prd_Producto");
 
-                        if (unidForceByExtra.TryGetValue(it.IDUnidadOrigen, out int idUnidForce))
-                            it.IDUnidadForce = idUnidForce;
+                        if (unidForceByExtra.TryGetValue(it.IDUnidadOrigen, out int idUnidNc))
+                            it.IDUnidadForce = idUnidNc;
                         else
                             advertencias.Add($"Unidad #{it.IDUnidadOrigen} ({it.UnidadAbrev}) de '{it.CodigoProducto}' sin IDExtra en prd_ProductoUnidad");
                     }
@@ -1226,7 +1227,7 @@ namespace IntegradorFlexForce.Services
                                     c.Semaforo = "AZUL";
                                     c.ObservacionValidacion = "✓ Nota de crédito anulada en Force y saldo de deuda restituido.";
                                     AgregarEvento(c.IDCpOrigen, c.NumCp, "SUCCESS", $"Nota de crédito {c.NumCp} anulada en Force.");
-                                    _status.ProcesadosCount++;
+                                    _status.TotalAnulados++;
                                     continue;
                                 }
 
@@ -1397,7 +1398,7 @@ namespace IntegradorFlexForce.Services
                                 if (c.EsNotaCredito)
                                 {
                                     // 1. Auto-provisionar TipoCpNotaCredito si no existe la serie
-                                    int idTipoNcFinal = c.IDTipoCpVentaForce ?? defaultIdTipoCpNotaCredito;
+                                    int idTipoNcFinal = (c.IDTipoCpVentaForce.HasValue && c.IDTipoCpVentaForce.Value > 0) ? c.IDTipoCpVentaForce.Value : 1;
                                     const string sqlEnsureTipoNc = @"
                                         DECLARE @IDExistente int;
                                         SELECT @IDExistente = ID FROM dbo.TipoCpNotaCredito WITH (UPDLOCK, ROWLOCK) WHERE Serie = @Serie AND Eliminado = 0;
@@ -1607,7 +1608,7 @@ namespace IntegradorFlexForce.Services
                                     c.ObservacionValidacion = $"✓ Nota de crédito insertada con éxito en Force (NC ID: {nuevoIdNc}).";
                                     AgregarEvento(c.IDCpOrigen, c.NumCp, "SUCCESS", $"Nota de crédito {c.NumCp} (NC ID: {nuevoIdNc}) registrada en Force vinculada a {c.NumCpModificadoOrigen}.");
 
-                                    _status.ProcesadosCount++;
+                                    _status.TotalSubidos++;
                                     continue;
                                 }
 
