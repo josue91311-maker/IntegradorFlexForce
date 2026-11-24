@@ -145,8 +145,8 @@ namespace IntegradorFlexForce.Services
                             LTRIM(RTRIM(ISNULL(cpv.Direccion, '')))          AS DireccionFiscal,
                             LTRIM(RTRIM(ISNULL(cpv.DireccionEntrega, '')))   AS DireccionEntrega,
                             LTRIM(RTRIM(ISNULL(cpv.EstadoEntrega, 'PENDIENTE'))) AS EstadoEntrega,
-                            ISNULL(cpr.IDCpRelacionado, 0)                   AS IDPedidoOrigen,
-                            LTRIM(RTRIM(ISNULL(cpPed.NumCp, '')))            AS NumPedidoOrigen,
+                            ISNULL(cpPedRel.IDCpRelacionado, 0)              AS IDPedidoOrigen,
+                            LTRIM(RTRIM(ISNULL(cpPedRel.NumCp, '')))         AS NumPedidoOrigen,
                             CAST(ISNULL(cp.SubTotal, 0) AS decimal(18,6))    AS SubTotal,
                             CAST(ISNULL(cp.Total, 0) AS decimal(18,6))       AS Total,
                             CAST(ISNULL(cp.ValorAfecto, 0) AS decimal(18,6)) AS ValorAfecto,
@@ -169,8 +169,13 @@ namespace IntegradorFlexForce.Services
                         LEFT JOIN dbo.Persona pCli WITH (NOLOCK) ON pCli.PKID = cp.IDPersona
                         LEFT JOIN dbo.Persona pVend WITH (NOLOCK) ON pVend.PKID = cp.IDResponsable
                         LEFT JOIN dbo.Almacen alm WITH (NOLOCK) ON alm.PKID = ci.IDAlmacen
-                        LEFT JOIN dbo.CpRelacionado cpr WITH (NOLOCK) ON cpr.IDCp = cp.PKID
-                        LEFT JOIN dbo.Cp cpPed WITH (NOLOCK) ON cpPed.PKID = cpr.IDCpRelacionado
+                        OUTER APPLY (
+                            SELECT TOP 1 cprSub.IDCpRelacionado, cpPedSub.NumCp
+                            FROM dbo.CpRelacionado cprSub WITH (NOLOCK)
+                            INNER JOIN dbo.Cp cpPedSub WITH (NOLOCK) ON cpPedSub.PKID = cprSub.IDCpRelacionado
+                            WHERE cprSub.IDCp = cp.PKID
+                            ORDER BY cprSub.PKID ASC
+                        ) cpPedRel
                         LEFT JOIN dbo.CpCobrarPagar ccp WITH (NOLOCK) ON ccp.PKID = cp.PKID
                         WHERE cp.FechaEmision >= @Desde 
                           AND cp.FechaEmision < @Hasta
@@ -268,8 +273,8 @@ namespace IntegradorFlexForce.Services
                             LTRIM(RTRIM(ISNULL(nc.Direccion, '')))           AS DireccionFiscal,
                             LTRIM(RTRIM(ISNULL(nc.DireccionEntrega, '')))    AS DireccionEntrega,
                             LTRIM(RTRIM(ISNULL(nc.EstadoEntregaDevolucion, 'TOTAL'))) AS EstadoEntrega,
-                            ISNULL(cpr.IDCpRelacionado, 0)                   AS IDCpModificadoOrigen,
-                            LTRIM(RTRIM(ISNULL(cpRef.NumCp, '')))            AS NumCpModificadoOrigen,
+                            ISNULL(cpRefRel.IDCpRelacionado, 0)              AS IDCpModificadoOrigen,
+                            LTRIM(RTRIM(ISNULL(cpRefRel.NumCp, '')))         AS NumCpModificadoOrigen,
                             ISNULL(cp.IDMotivoEmisionAnulacion, 2)           AS IDMotivoEmisionAnulacionOrigen,
                             CAST(ISNULL(cp.SubTotal, 0) AS decimal(18,6))    AS SubTotal,
                             CAST(ISNULL(cp.Total, 0) AS decimal(18,6))       AS Total,
@@ -289,8 +294,13 @@ namespace IntegradorFlexForce.Services
                         LEFT JOIN dbo.Persona pCli WITH (NOLOCK) ON pCli.PKID = cp.IDPersona
                         LEFT JOIN dbo.Persona pVend WITH (NOLOCK) ON pVend.PKID = cp.IDResponsable
                         LEFT JOIN dbo.Almacen alm WITH (NOLOCK) ON alm.PKID = ci.IDAlmacen
-                        LEFT JOIN dbo.CpRelacionado cpr WITH (NOLOCK) ON cpr.IDCp = cp.PKID
-                        LEFT JOIN dbo.Cp cpRef WITH (NOLOCK) ON cpRef.PKID = cpr.IDCpRelacionado
+                        OUTER APPLY (
+                            SELECT TOP 1 cprSub.IDCpRelacionado, cpRefSub.NumCp
+                            FROM dbo.CpRelacionado cprSub WITH (NOLOCK)
+                            INNER JOIN dbo.Cp cpRefSub WITH (NOLOCK) ON cpRefSub.PKID = cprSub.IDCpRelacionado
+                            WHERE cprSub.IDCp = cp.PKID
+                            ORDER BY cprSub.PKID ASC
+                        ) cpRefRel
                         WHERE cp.FechaEmision >= @Desde 
                           AND cp.FechaEmision < @Hasta
                           {filtroVendedores}
@@ -365,7 +375,7 @@ namespace IntegradorFlexForce.Services
                 {
                     var idsCp = comprobantes.Select(x => x.IDCpOrigen).ToList();
                     const int batchSize = 1000;
-                    var dictComprobantes = comprobantes.ToDictionary(x => x.IDCpOrigen);
+                    var dictComprobantes = comprobantes.GroupBy(x => x.IDCpOrigen).ToDictionary(g => g.Key, g => g.First());
 
                     for (int i = 0; i < idsCp.Count; i += batchSize)
                     {

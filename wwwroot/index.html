@@ -2288,6 +2288,12 @@
                 <span>Módulo Comprobantes</span>
             </button>
 
+            <button id="navBtnNotasCredito" class="nav-item" onclick="navegarVista('notascredito')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="13" y2="11"/></svg>
+                <span>Módulo Notas de Crédito</span>
+                <span class="badge" style="margin-left:auto; background:#ffedd5; color:#c2410c; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px;">NC</span>
+            </button>
+
             <button id="navBtnAutomatizacion" class="nav-item" onclick="navegarVista('automatizacion')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                 <span>Monitor Automatización</span>
@@ -4587,6 +4593,168 @@
     </section>
 
     <!-- ==============================================================
+         VISTA NOTAS DE CRÉDITO: MÓDULO EXCLUSIVO DE NOTAS DE CRÉDITO (SUNAT 07)
+         ============================================================== -->
+    <section id="vistaNotasCredito" class="view-section">
+        <div class="module-banner" style="background:linear-gradient(135deg, #0f172a 0%, #7c2d12 100%); margin-bottom:20px; border-radius:16px; padding:22px 26px; color:#fff; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+            <div>
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+                    <span style="background:rgba(249,115,22,0.25); border:1px solid rgba(249,115,22,0.6); color:#fdba74; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:800; letter-spacing:0.5px;">📑 SUNAT 07 · NOTAS DE CRÉDITO</span>
+                    <span style="background:rgba(255,255,255,0.12); color:#e2e8f0; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:600;">Modifica Boletas y Facturas · Ajuste de Cartera / Cobranza</span>
+                </div>
+                <h2 style="font-size:22px; font-weight:800; margin:0; letter-spacing:-0.3px;">Módulo Integral de Notas de Crédito</h2>
+                <p style="margin:4px 0 0; font-size:13px; color:#cbd5e1;">Extrae y sincroniza Notas de Crédito desde el ERP antiguo (<code>digalimenta41</code>) hacia <code>BDForceGVD</code>: cabeceras (<code>NotaCredito</code>, <code>CpNotaCredito</code>), ítems (<code>ItemCpNotaCredito</code>) y liquidación de deuda sin alterar stock físico.</p>
+            </div>
+            <div style="text-align:right;">
+                <div class="relojLiveModule" style="font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:700; color:#fed7aa;">--:--:--</div>
+                <div style="font-size:11px; color:#fed7aa;">Hora Oficial Perú</div>
+            </div>
+        </div>
+
+        <!-- PANEL DE FILTROS Y BÚSQUEDA NOTAS DE CRÉDITO -->
+        <div class="white-card" style="margin-bottom:20px;">
+            <div class="card-header-clean" style="margin-bottom:14px;">
+                <div>
+                    <h2 style="font-size:16px;">1. Filtros de Notas de Crédito (digalimenta41)</h2>
+                    <div style="font-size:12px; color:var(--text-muted);">Selecciona vendedor(es) y rango de fechas de emisión de las Notas de Crédito</div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-outline btn-sm" onclick="cargarVendedoresNotasCredito(true)">🔄 Recargar Vendedores</button>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr; gap:18px; align-items:start;">
+                <!-- SELECTOR MULTI-VENDEDOR -->
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:var(--text-dark); margin-bottom:6px;">
+                        Vendedor(es) <span id="lblCountVendSelNc" style="color:var(--primary-blue); font-weight:800;">(Todos)</span>
+                    </label>
+                    <input type="text" id="txtBuscarVendNc" class="input-control" placeholder="Filtrar vendedor por código o nombre..." oninput="renderListaVendedoresNotasCredito()" style="width:100%; margin-bottom:6px; font-size:12.5px;">
+                    <div id="boxListaVendedoresNc" style="max-height:165px; overflow-y:auto; border:1px solid var(--border-light); border-radius:10px; padding:6px; background:#f8fafc;">
+                        <div style="padding:14px; text-align:center; color:var(--text-muted); font-size:12px;">Cargando vendedores...</div>
+                    </div>
+                    <div style="margin-top:6px; display:flex; gap:10px; font-size:11.5px;">
+                        <a href="javascript:void(0)" onclick="seleccionarTodosVendedoresNotasCredito(true)" style="color:var(--primary-blue); font-weight:700;">Seleccionar visibles</a>
+                        <a href="javascript:void(0)" onclick="seleccionarTodosVendedoresNotasCredito(false)" style="color:var(--text-muted); font-weight:600;">Limpiar selección</a>
+                    </div>
+                </div>
+
+                <!-- FECHAS -->
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:var(--text-dark); margin-bottom:6px;">Fecha Emisión Desde</label>
+                    <input type="date" id="txtNcFechaDesde" class="input-control" style="width:100%; margin-bottom:12px;">
+
+                    <label style="display:block; font-size:12px; font-weight:700; color:var(--text-dark); margin-bottom:6px;">Fecha Emisión Hasta</label>
+                    <input type="date" id="txtNcFechaHasta" class="input-control" style="width:100%;">
+                </div>
+
+                <!-- OPCIONES Y BOTÓN -->
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:var(--text-dark); margin-bottom:6px;">Opciones de Extracción</label>
+                    <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dark); margin-bottom:8px; cursor:pointer;">
+                        <input type="checkbox" id="chkNcIncluirAnulados" checked>
+                        <span style="font-weight:700; color:#b91c1c;">Detectar Notas de Crédito Anuladas</span>
+                    </label>
+
+                    <div style="font-size:11.5px; color:#64748b; margin-bottom:14px; line-height:1.4;">
+                        🛡 <strong>Stock protegido:</strong> La sincronización de NC ajusta contabilidad y saldos de deuda en <code>cob_DeudaCliente</code> sin afectar existencias de almacén.
+                    </div>
+
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <button class="btn btn-primary" onclick="consultarNotasCreditoAlineacion()" id="btnConsultarNc" style="width:100%; justify-content:center; background:#c2410c; border-color:#9a3412;">
+                            🔍 1. Consultar y Alinear Notas de Crédito
+                        </button>
+                        <button class="btn btn-success" onclick="subirNotasCreditoSeleccionadas()" id="btnSubirNc" style="width:100%; justify-content:center;" disabled>
+                            🚀 2. Sincronizar Notas de Crédito Seleccionadas
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TARJETAS KPI DE NOTAS DE CRÉDITO -->
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:20px;">
+            <div class="stat-card" style="padding:14px; border-left:4px solid #c2410c; background:#fff7ed;">
+                <div class="stat-label">Notas de Crédito Total</div>
+                <div class="stat-value" id="kpiNcTotal" style="color:#c2410c; font-size:22px;">0</div>
+                <div class="stat-sub" id="kpiNcTiempo">0.00 s</div>
+            </div>
+            <div class="stat-card" style="padding:14px; border-left:4px solid #10b981; background:#f0fdf4;">
+                <div class="stat-label">Listas para Sincronizar</div>
+                <div class="stat-value" id="kpiNcListas" style="color:#15803d; font-size:22px;">0</div>
+                <div class="stat-sub">🟢 Altas pendientes</div>
+            </div>
+            <div class="stat-card" style="padding:14px; border-left:4px solid #475569;">
+                <div class="stat-label">Al Día en Force</div>
+                <div class="stat-value" id="kpiNcYaExisten" style="color:#475569; font-size:22px;">0</div>
+                <div class="stat-sub">⚪ Ya registradas</div>
+            </div>
+            <div class="stat-card" style="padding:14px; border-left:4px solid #ef4444; background:#fef2f2;">
+                <div class="stat-label">Anuladas en Origen</div>
+                <div class="stat-value" id="kpiNcAnuladas" style="color:#b91c1c; font-size:22px;">0</div>
+                <div class="stat-sub">🔴 Anuladas</div>
+            </div>
+            <div class="stat-card" style="padding:14px; border-left:4px solid #f59e0b;">
+                <div class="stat-label">Observadas / Sin Doc Origen</div>
+                <div class="stat-value" id="kpiNcObservadas" style="color:#dc2626; font-size:22px;">0</div>
+                <div class="stat-sub">⚠️ Falta comprobante base</div>
+            </div>
+        </div>
+
+        <!-- TABLA DE RESULTADOS DE NOTAS DE CRÉDITO -->
+        <div class="white-card">
+            <div class="card-header-clean" style="margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <h2 style="font-size:16px;">2. Notas de Crédito Diagnosticadas</h2>
+                    <span id="lblContadorNcAlineados" style="font-size:12.5px; font-weight:700; color:#c2410c;">0 registros</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <input type="text" id="txtFiltroRapidoNc" class="input-control" placeholder="Buscar por número, cliente o venta afectada..." oninput="filtrarTablaNotasCreditoMemoria()" style="font-size:12px; padding:6px 12px; width:260px;">
+                    <select id="cmbFiltroSemaforoNc" class="input-control" onchange="filtrarTablaNotasCreditoMemoria()" style="font-size:12px; padding:6px 10px;">
+                        <option value="TODOS">Todas las Notas de Crédito</option>
+                        <option value="LISTOS">🟢 Listas para Sincronizar</option>
+                        <option value="OP_SIN_CAMBIOS">⚪ Al Día en Force</option>
+                        <option value="OP_ANULAR">🔴 Anuladas</option>
+                        <option value="ROJO">❌ Bloqueadas / Observadas</option>
+                    </select>
+                    <button class="btn btn-outline btn-sm" onclick="seleccionarTodasNotasCredito(true)">✓ Marcar Listas</button>
+                    <button class="btn btn-outline btn-sm" onclick="seleccionarTodasNotasCredito(false)">✗ Desmarcar</button>
+                </div>
+            </div>
+
+            <div class="table-responsive" style="max-height:550px; overflow-y:auto;">
+                <table class="table-clean" style="font-size:12px;">
+                    <thead style="position:sticky; top:0; background:#f8fafc; z-index:2;">
+                        <tr>
+                            <th style="width:36px; text-align:center;">
+                                <input type="checkbox" id="chkTodosNc" onchange="toggleSeleccionarTodasNotasCredito(this.checked)">
+                            </th>
+                            <th style="width:40px; text-align:center;">Sem.</th>
+                            <th>Operación</th>
+                            <th>Nº Nota Crédito</th>
+                            <th>Emisión</th>
+                            <th>Documento Modificado</th>
+                            <th>Cliente</th>
+                            <th>Vendedor</th>
+                            <th class="num">Total S/</th>
+                            <th>Diagnóstico de Alineación</th>
+                            <th style="text-align:center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblNotasCreditoBody">
+                        <tr>
+                            <td colspan="11" style="text-align:center; padding:35px; color:var(--text-muted);">
+                                Presiona <strong>"1. Consultar y Alinear Notas de Crédito"</strong> para iniciar el diagnóstico.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+
+    <!-- ==============================================================
          VISTA 4: HISTORIAL DE LOTES EJECUTADOS
          ============================================================== -->
     <section id="vistaHistorial" class="view-section">
@@ -5746,6 +5914,7 @@
             'stock': 'vistaStock',
             'pedidos': 'vistaPedidos',
             'comprobantes': 'vistaComprobantes',
+            'notascredito': 'vistaNotasCredito',
             'automatizacion': 'vistaAutomatizacion',
             'historial': 'vistaHistorial',
             'logs': 'vistaLogs',
@@ -5759,6 +5928,7 @@
             'stock': 'navBtnStock',
             'pedidos': 'navBtnPedidos',
             'comprobantes': 'navBtnComprobantes',
+            'notascredito': 'navBtnNotasCredito',
             'automatizacion': 'navBtnAutomatizacion',
             'historial': 'navBtnHistorial',
             'logs': 'navBtnReportes',
@@ -5783,6 +5953,8 @@
             inicializarVistaPedidos();
         } else if (vista === 'comprobantes') {
             inicializarVistaComprobantes();
+        } else if (vista === 'notascredito') {
+            inicializarVistaNotasCredito();
         } else if (vista === 'automatizacion') {
             inicializarMonitorAutomatizacion();
         }
@@ -10333,6 +10505,331 @@ async function ejecutarSincronizacion(modo) {
         if (str === null || str === undefined) return '';
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
+
+
+    // ==============================================================
+    // CONTROLADOR DEL MÓDULO EXCLUSIVO DE NOTAS DE CRÉDITO
+    // ==============================================================
+    let notasCreditoInicializado = false;
+    let vendedoresNcCache = [];
+    let vendedoresNcSeleccionados = new Set();
+    let notasCreditoAnalizadasCache = [];
+    let notasCreditoIdsSeleccionados = new Set();
+
+    function inicializarVistaNotasCredito() {
+        if (!notasCreditoInicializado) {
+            notasCreditoInicializado = true;
+            const hoy = new Date();
+            const yyyy = hoy.getFullYear();
+            const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+            const dd = String(hoy.getDate()).padStart(2, '0');
+            const fechaStr = `${yyyy}-${mm}-${dd}`;
+            document.getElementById('txtNcFechaDesde').value = fechaStr;
+            document.getElementById('txtNcFechaHasta').value = fechaStr;
+            cargarVendedoresNotasCredito(false);
+        }
+    }
+
+    async function cargarVendedoresNotasCredito(forzar = false) {
+        if (vendedoresNcCache.length > 0 && !forzar) return;
+        const box = document.getElementById('boxListaVendedoresNc');
+        box.innerHTML = `<div style="padding:14px; text-align:center; color:var(--text-muted); font-size:12px;">Cargando vendedores desde ERP...</div>`;
+        try {
+            const resp = await fetch('/api/sync/pedidos/vendedores');
+            if (!resp.ok) throw new Error('Error consultando vendedores');
+            vendedoresNcCache = await resp.json();
+            renderListaVendedoresNotasCredito();
+        } catch (err) {
+            box.innerHTML = `<div style="padding:12px; color:#dc2626; font-size:12px;">Error al cargar vendedores: ${err.message}</div>`;
+        }
+    }
+
+    function renderListaVendedoresNotasCredito() {
+        const q = (document.getElementById('txtBuscarVendNc').value || '').toLowerCase().trim();
+        const box = document.getElementById('boxListaVendedoresNc');
+        const filtrados = vendedoresNcCache.filter(v =>
+            !q || v.codigo.toLowerCase().includes(q) || v.nombre.toLowerCase().includes(q)
+        );
+
+        if (filtrados.length === 0) {
+            box.innerHTML = `<div style="padding:12px; text-align:center; color:var(--text-muted); font-size:12px;">Sin coincidencias</div>`;
+            return;
+        }
+
+        box.innerHTML = filtrados.map(v => {
+            const chk = vendedoresNcSeleccionados.has(v.idPersona) ? 'checked' : '';
+            return `
+                <label style="display:flex; align-items:center; gap:8px; padding:4px 6px; border-radius:6px; cursor:pointer; font-size:12px;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'">
+                    <input type="checkbox" value="${v.idPersona}" ${chk} onchange="toggleVendedorNotaCredito(${v.idPersona}, this.checked)">
+                    <span style="font-family:monospace; font-weight:700; color:#3b82f6;">[${v.codigo}]</span>
+                    <span style="color:#1e293b;">${v.nombre}</span>
+                </label>
+            `;
+        }).join('');
+        actualizarContadorVendedoresNotasCredito();
+    }
+
+    function toggleVendedorNotaCredito(id, checked) {
+        if (checked) vendedoresNcSeleccionados.add(id);
+        else vendedoresNcSeleccionados.delete(id);
+        actualizarContadorVendedoresNotasCredito();
+    }
+
+    function seleccionarTodosVendedoresNotasCredito(sel) {
+        const q = (document.getElementById('txtBuscarVendNc').value || '').toLowerCase().trim();
+        const filtrados = vendedoresNcCache.filter(v =>
+            !q || v.codigo.toLowerCase().includes(q) || v.nombre.toLowerCase().includes(q)
+        );
+        filtrados.forEach(v => {
+            if (sel) vendedoresNcSeleccionados.add(v.idPersona);
+            else vendedoresNcSeleccionados.delete(v.idPersona);
+        });
+        renderListaVendedoresNotasCredito();
+    }
+
+    function actualizarContadorVendedoresNotasCredito() {
+        const lbl = document.getElementById('lblCountVendSelNc');
+        if (!lbl) return;
+        lbl.textContent = vendedoresNcSeleccionados.size === 0
+            ? '(Todos los vendedores)'
+            : `(${vendedoresNcSeleccionados.size} seleccionado/s)`;
+    }
+
+    async function consultarNotasCreditoAlineacion() {
+        const btn = document.getElementById('btnConsultarNc');
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Diagnosticando NC...`;
+
+        const filtro = {
+            vendedoresOrigenIds: Array.from(vendedoresNcSeleccionados),
+            fechaDesde: document.getElementById('txtNcFechaDesde').value,
+            fechaHasta: document.getElementById('txtNcFechaHasta').value,
+            incluirAnulados: document.getElementById('chkNcIncluirAnulados').checked,
+            tipoDocumento: 'NOTAS_CREDITO',
+            soloPedidosFacturadosEnForce: false
+        };
+
+        try {
+            const resp = await fetch('/api/sync/comprobantes/consultar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(filtro)
+            });
+
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error(err.message || 'Error en consulta');
+            }
+
+            const data = await resp.json();
+            notasCreditoAnalizadasCache = data.comprobantes || [];
+
+            // Marcar por defecto las que están listas
+            notasCreditoIdsSeleccionados.clear();
+            notasCreditoAnalizadasCache.filter(c => c.listoParaSubir).forEach(c => notasCreditoIdsSeleccionados.add(c.idCpOrigen));
+
+            // Actualizar KPIs de NC
+            document.getElementById('kpiNcTotal').textContent = (data.totalEncontrados || 0).toLocaleString();
+            document.getElementById('kpiNcTiempo').textContent = `${data.tiempoSegundos || 0} s`;
+            document.getElementById('kpiNcListas').textContent = (data.listosParaSubir || 0).toLocaleString();
+            document.getElementById('kpiNcYaExisten').textContent = (data.yaExistenEnForce || 0).toLocaleString();
+            document.getElementById('kpiNcAnuladas').textContent = (data.anulacionesPendientes || 0).toLocaleString();
+            document.getElementById('kpiNcObservadas').textContent = (data.observadosConError || 0).toLocaleString();
+
+            renderTablaNotasCredito();
+            actualizarBotonSubirNotasCredito();
+            mostrarToast(`Diagnóstico NC completado: ${data.totalEncontrados} Nota(s) de Crédito encontradas (${data.listosParaSubir || 0} listas para sincronizar).`, 'info');
+        } catch (err) {
+            mostrarToast('Error en diagnóstico NC: ' + err.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `🔍 1. Consultar y Alinear Notas de Crédito`;
+        }
+    }
+
+    function filtrarTablaNotasCreditoMemoria() {
+        renderTablaNotasCredito();
+    }
+
+    function renderTablaNotasCredito() {
+        const q = (document.getElementById('txtFiltroRapidoNc').value || '').toLowerCase().trim();
+        const semaforoFiltro = document.getElementById('cmbFiltroSemaforoNc').value;
+        const tbody = document.getElementById('tblNotasCreditoBody');
+
+        const filtrados = notasCreditoAnalizadasCache.filter(c => {
+            if (semaforoFiltro === 'LISTOS' && !c.listoParaSubir) return false;
+            if (semaforoFiltro === 'OP_SIN_CAMBIOS' && c.tipoOperacion !== 'SIN_CAMBIOS') return false;
+            if (semaforoFiltro === 'OP_ANULAR' && c.tipoOperacion !== 'ANULAR') return false;
+            if (semaforoFiltro === 'ROJO' && c.semaforo !== 'ROJO') return false;
+
+            if (q) {
+                const matchNum = (c.numCp || '').toLowerCase().includes(q);
+                const matchCli = (c.codigoCliente || '').toLowerCase().includes(q) || (c.nombreCliente || '').toLowerCase().includes(q);
+                const matchVend = (c.codigoVendedor || '').toLowerCase().includes(q) || (c.nombreVendedor || '').toLowerCase().includes(q);
+                const matchMod = (c.numCpModificadoOrigen || '').toLowerCase().includes(q);
+                if (!matchNum && !matchCli && !matchVend && !matchMod) return false;
+            }
+            return true;
+        });
+
+        document.getElementById('lblContadorNcAlineados').textContent = `${filtrados.length} de ${notasCreditoAnalizadasCache.length} Notas de Crédito`;
+
+        if (filtrados.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:var(--text-muted);">Sin Notas de Crédito que coincidan con los filtros.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = filtrados.map(c => {
+            const chk = notasCreditoIdsSeleccionados.has(c.idCpOrigen) ? 'checked' : '';
+            const dis = !c.listoParaSubir ? 'disabled' : '';
+
+            let semHtml = '';
+            if (c.semaforo === 'VERDE') semHtml = `<span style="font-size:16px;" title="Lista para sincronizar">🟢</span>`;
+            else if (c.semaforo === 'AZUL') semHtml = `<span style="font-size:16px;" title="Al día en Force">🔵</span>`;
+            else if (c.semaforo === 'AMBAR') semHtml = `<span style="font-size:16px;" title="Advertencia">🟡</span>`;
+            else semHtml = `<span style="font-size:16px;" title="Bloqueada">🔴</span>`;
+
+            let badgeOp = '';
+            if (c.tipoOperacion === 'INSERT') {
+                badgeOp = `<span style="background:#ffedd5; color:#c2410c; padding:2px 7px; border-radius:4px; font-weight:800; font-size:10px; border:1px solid #fdba74;">NUEVA NC</span>`;
+            } else if (c.tipoOperacion === 'ANULAR') {
+                badgeOp = `<span style="background:#fee2e2; color:#b91c1c; padding:2px 7px; border-radius:4px; font-weight:800; font-size:10px; border:1px solid #fca5a5;">🔴 ANULAR</span>`;
+            } else {
+                badgeOp = `<span style="background:#f1f5f9; color:#64748b; padding:2px 7px; border-radius:4px; font-weight:700; font-size:10px; border:1px solid #cbd5e1;">⚪ AL DÍA</span>`;
+            }
+
+            const modNum = c.numCpModificadoOrigen || 'Sin Ref';
+            const forceTag = c.idCpForceModificado
+                ? `<span style="background:#dcfce7; color:#166534; padding:1px 5px; border-radius:3px; font-size:9.5px; font-weight:700;">Force #${c.idCpForceModificado}</span>`
+                : `<span style="background:#fee2e2; color:#991b1b; padding:1px 5px; border-radius:3px; font-size:9.5px; font-weight:700;">No en Force</span>`;
+
+            const modHtml = `
+                <div style="font-size:11px; font-weight:700; color:#0f172a;">${modNum}</div>
+                <div style="margin-top:2px;">${forceTag}</div>
+            `;
+
+            return `
+                <tr>
+                    <td style="text-align:center;">
+                        <input type="checkbox" value="${c.idCpOrigen}" ${chk} ${dis} onchange="toggleSeleccionNotaCredito(${c.idCpOrigen}, this.checked)">
+                    </td>
+                    <td style="text-align:center;">${semHtml}</td>
+                    <td>${badgeOp}</td>
+                    <td>
+                        <strong style="font-family:monospace; color:#c2410c; font-size:12.5px;">${c.numCp}</strong>
+                        ${c.anuladoOrigen ? '<span style="background:#dc2626; color:#fff; padding:1px 4px; border-radius:3px; font-size:9px; font-weight:800; margin-left:4px;">ANULADA</span>' : ''}
+                    </td>
+                    <td>${(c.fechaEmision || '').substring(0, 10)}</td>
+                    <td>${modHtml}</td>
+                    <td>
+                        <div style="font-weight:700; color:#0f172a;">${c.nombreCliente}</div>
+                        <div style="font-size:10.5px; color:#64748b; font-family:monospace;">${c.codigoCliente} · ${c.docIdentidadCliente}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight:600;">${c.nombreVendedor}</div>
+                        <div style="font-size:10.5px; color:#64748b; font-family:monospace;">${c.codigoVendedor}</div>
+                    </td>
+                    <td class="num" style="font-weight:800; color:#0f172a;">S/ ${Number(c.total || 0).toFixed(2)}</td>
+                    <td>
+                        <div style="font-size:11.5px; color:${c.semaforo === 'ROJO' ? '#dc2626' : '#334155'}; font-weight:${c.semaforo === 'ROJO' ? '700' : '500'};">
+                            ${c.diagnostico || 'Listo'}
+                        </div>
+                    </td>
+                    <td style="text-align:center;">
+                        <button class="btn btn-outline btn-sm" onclick="verDetalleCpItems(${c.idCpOrigen})" title="Ver ítems de la Nota de Crédito" style="padding:3px 8px; font-size:11px;">
+                            🔍 Ítems (${(c.items || []).length})
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function toggleSeleccionNotaCredito(id, checked) {
+        if (checked) notasCreditoIdsSeleccionados.add(id);
+        else notasCreditoIdsSeleccionados.delete(id);
+        actualizarBotonSubirNotasCredito();
+    }
+
+    function toggleSeleccionarTodasNotasCredito(checked) {
+        const q = (document.getElementById('txtFiltroRapidoNc').value || '').toLowerCase().trim();
+        const semaforoFiltro = document.getElementById('cmbFiltroSemaforoNc').value;
+        const filtrados = notasCreditoAnalizadasCache.filter(c => {
+            if (semaforoFiltro === 'LISTOS' && !c.listoParaSubir) return false;
+            if (semaforoFiltro === 'OP_SIN_CAMBIOS' && c.tipoOperacion !== 'SIN_CAMBIOS') return false;
+            if (semaforoFiltro === 'OP_ANULAR' && c.tipoOperacion !== 'ANULAR') return false;
+            if (semaforoFiltro === 'ROJO' && c.semaforo !== 'ROJO') return false;
+            if (q) {
+                const matchNum = (c.numCp || '').toLowerCase().includes(q);
+                const matchCli = (c.codigoCliente || '').toLowerCase().includes(q) || (c.nombreCliente || '').toLowerCase().includes(q);
+                const matchVend = (c.codigoVendedor || '').toLowerCase().includes(q) || (c.nombreVendedor || '').toLowerCase().includes(q);
+                const matchMod = (c.numCpModificadoOrigen || '').toLowerCase().includes(q);
+                if (!matchNum && !matchCli && !matchVend && !matchMod) return false;
+            }
+            return true;
+        });
+
+        filtrados.forEach(c => {
+            if (c.listoParaSubir) {
+                if (checked) notasCreditoIdsSeleccionados.add(c.idCpOrigen);
+                else notasCreditoIdsSeleccionados.delete(c.idCpOrigen);
+            }
+        });
+        renderTablaNotasCredito();
+        actualizarBotonSubirNotasCredito();
+    }
+
+    function seleccionarTodasNotasCredito(sel) {
+        document.getElementById('chkTodosNc').checked = sel;
+        toggleSeleccionarTodasNotasCredito(sel);
+    }
+
+    function actualizarBotonSubirNotasCredito() {
+        const btn = document.getElementById('btnSubirNc');
+        const count = notasCreditoIdsSeleccionados.size;
+        btn.disabled = count === 0;
+        btn.innerHTML = count > 0
+            ? `🚀 2. Sincronizar ${count} Nota(s) de Crédito`
+            : `🚀 2. Sincronizar Notas de Crédito Seleccionadas`;
+    }
+
+    async function subirNotasCreditoSeleccionadas() {
+        const ids = Array.from(notasCreditoIdsSeleccionados);
+        if (ids.length === 0) {
+            mostrarToast('Seleccione al menos una Nota de Crédito lista para sincronizar.', 'error');
+            return;
+        }
+
+        const detalleMsg = `¿Confirmas sincronizar ${ids.length} Nota(s) de Crédito en BDForceGVD?
+
+• Se insertarán en NotaCredito, CpNotaCredito e ItemCpNotaCredito.
+• Se actualizarán los saldos y cobranzas en cob_DeudaCliente.
+• 🔒 El inventario físico de almacén NO será modificado.`;
+
+        if (!confirm(detalleMsg)) return;
+
+        try {
+            const resp = await fetch('/api/sync/comprobantes/subir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ iDsCpOrigen: ids })
+            });
+
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error(err.message || 'No se pudo iniciar la sincronización');
+            }
+
+            mostrarToast(`Sincronización de ${ids.length} Nota(s) de Crédito iniciada en segundo plano.`, 'success');
+            // Redirigir a comprobantes o refrescar
+            setTimeout(() => {
+                consultarNotasCreditoAlineacion();
+            }, 1200);
+        } catch (err) {
+            mostrarToast('Error: ' + err.message, 'error');
+        }
+    }
+
 </script>
 </body>
 </html>
