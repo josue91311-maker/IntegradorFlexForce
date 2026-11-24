@@ -4414,10 +4414,9 @@
                 <div>
                     <label style="display:block; font-size:12px; font-weight:700; color:var(--text-dark); margin-bottom:6px;">Tipo de Documento</label>
                     <select id="cmbCpTipoDoc" class="input-control" style="width:100%; margin-bottom:12px; font-weight:600;">
-                        <option value="TODOS">Todos (Boletas + Facturas + Notas de Crédito)</option>
+                        <option value="TODOS">Todos (Boletas de Venta + Facturas)</option>
                         <option value="BOLETAS">Solo Boletas de Venta</option>
                         <option value="FACTURAS">Solo Facturas Electrónicas</option>
-                        <option value="NOTAS_CREDITO">Solo Notas de Crédito</option>
                     </select>
 
                     <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dark); margin-bottom:8px; cursor:pointer;">
@@ -4464,11 +4463,7 @@
                 <div class="stat-value" id="kpiCpDeudas" style="color:#1d4ed8; font-size:22px;">0</div>
                 <div class="stat-sub">🔵 Pagos / Cobranza</div>
             </div>
-            <div class="stat-card" style="padding:14px; border-left:4px solid #f97316; background:#fff7ed;">
-                <div class="stat-label">Notas de Crédito</div>
-                <div class="stat-value" id="kpiCpNotasCredito" style="color:#c2410c; font-size:22px;">0</div>
-                <div class="stat-sub">📑 Modifican Venta</div>
-            </div>
+
             <div class="stat-card" style="padding:14px; border-left:4px solid #ef4444; background:#fef2f2;">
                 <div class="stat-label">Anulaciones</div>
                 <div class="stat-value" id="kpiCpAnulados" style="color:#b91c1c; font-size:22px;">0</div>
@@ -4518,7 +4513,6 @@
                         <option value="TODOS">Todos los Comprobantes</option>
                         <option value="LISTOS">🟢🟡 Listos para Sincronizar</option>
                         <option value="OP_INSERT">🟢 Solo Nuevos a Insertar</option>
-                        <option value="OP_NC">📑 Solo Notas de Crédito</option>
                         <option value="OP_UPDATE">🔵 Solo Deudas a Actualizar</option>
                         <option value="OP_ANULAR">🔴 Solo Anulaciones</option>
                         <option value="OP_SIN_CAMBIOS">⚪ Solo Al Día (Sin Cambios)</option>
@@ -10736,7 +10730,7 @@ async function ejecutarSincronizacion(modo) {
                         </div>
                     </td>
                     <td style="text-align:center;">
-                        <button class="btn btn-outline btn-sm" onclick="verDetalleCpItems(${c.idCpOrigen})" title="Ver ítems de la Nota de Crédito" style="padding:3px 8px; font-size:11px;">
+                        <button class="btn btn-outline btn-sm" onclick="verItemsComprobanteModal(${c.idCpOrigen})" title="Ver ítems de la Nota de Crédito" style="padding:3px 8px; font-size:11px;">
                             🔍 Ítems (${(c.items || []).length})
                         </button>
                     </td>

@@ -115,7 +115,7 @@ namespace IntegradorFlexForce.Services
                     : "''";
 
                 bool consultarVentas = filtro.TipoDocumento != "NOTAS_CREDITO";
-                bool consultarNotasCredito = filtro.TipoDocumento == "TODOS" || filtro.TipoDocumento == "NOTAS_CREDITO";
+                bool consultarNotasCredito = filtro.TipoDocumento == "NOTAS_CREDITO";
 
                 if (consultarVentas)
                 {
@@ -818,8 +818,9 @@ namespace IntegradorFlexForce.Services
                             }
                             else
                             {
-                                c.Semaforo = "AMBAR";
-                                c.ObservacionValidacion = $"⚠ Comprobante modificado '{c.NumCpModificadoOrigen}' no existe en Force. Se insertará como NC independiente.";
+                                c.Semaforo = "ROJO";
+                                c.ListoParaSubir = false;
+                                c.ObservacionValidacion = $"✕ Bloqueado: El comprobante de venta modificado '{c.NumCpModificadoOrigen}' no existe en Force. Debe sincronizar primero el comprobante base.";
                             }
                         }
                     }
