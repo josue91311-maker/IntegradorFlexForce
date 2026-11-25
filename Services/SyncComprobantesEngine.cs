@@ -634,7 +634,7 @@ namespace IntegradorFlexForce.Services
                 // Notas de Crédito existentes en Force
                 try
                 {
-                    using (var cmd = new SqlCommand("SELECT ID, NumCp, CAST(ISNULL(Anulado, 0) AS bit) AS Anulado, CAST(ISNULL(Total, 0) AS decimal(18,6)) AS Total FROM dbo.NotaCredito WITH (NOLOCK) WHERE Eliminado = 0 AND NumCp IS NOT NULL;", connForce))
+                    using (var cmd = new SqlCommand("SELECT ID, NumCp, CAST(ISNULL(Anulado, 0) AS bit) AS Anulado, CAST(ISNULL(Total, 0) AS decimal(18,6)) AS Total FROM dbo.NotaCredito WITH (NOLOCK) WHERE NumCp IS NOT NULL;", connForce))
                     using (var r = await cmd.ExecuteReaderAsync(ct))
                     {
                         while (await r.ReadAsync(ct))
@@ -652,7 +652,7 @@ namespace IntegradorFlexForce.Services
                 // Tipos de Nota de Crédito en Force
                 try
                 {
-                    using (var cmd = new SqlCommand("SELECT ID, Serie FROM dbo.TipoCpNotaCredito WITH (NOLOCK) WHERE Eliminado = 0;", connForce))
+                    using (var cmd = new SqlCommand("SELECT ID, Serie FROM dbo.TipoCpNotaCredito WITH (NOLOCK) WHERE ISNULL(Activo, 1) = 1;", connForce))
                     using (var r = await cmd.ExecuteReaderAsync(ct))
                     {
                         while (await r.ReadAsync(ct))
@@ -1199,7 +1199,7 @@ namespace IntegradorFlexForce.Services
 
                                         UPDATE dbo.ItemCpNotaCredito
                                         SET Anulado = 1
-                                        WHERE IDNotaCredito = @ID;";
+                                        WHERE IDCp = @ID;";
 
                                     using (var cmdAnulNc = new SqlCommand(sqlAnulNc, connForce, tx))
                                     {
@@ -1411,7 +1411,7 @@ namespace IntegradorFlexForce.Services
                                     int idTipoNcFinal = (c.IDTipoCpVentaForce.HasValue && c.IDTipoCpVentaForce.Value > 0) ? c.IDTipoCpVentaForce.Value : 1;
                                     const string sqlEnsureTipoNc = @"
                                         DECLARE @IDExistente int;
-                                        SELECT @IDExistente = ID FROM dbo.TipoCpNotaCredito WITH (UPDLOCK, ROWLOCK) WHERE Serie = @Serie AND Eliminado = 0;
+                                        SELECT @IDExistente = ID FROM dbo.TipoCpNotaCredito WITH (UPDLOCK, ROWLOCK) WHERE Serie = @Serie AND ISNULL(Activo, 1) = 1;
 
                                         IF @IDExistente IS NOT NULL
                                         BEGIN
@@ -1421,10 +1421,10 @@ namespace IntegradorFlexForce.Services
                                         BEGIN
                                             INSERT INTO dbo.TipoCpNotaCredito (
                                                 Codigo, Descripcion, Abreviacion, Serie, Numero, LongitudNumero,
-                                                NumeracionAutomatica, Activo, Eliminado, FechaCreacion
+                                                NumeracionAutomatica, Activo, FechaCreacion
                                             ) VALUES (
                                                 @Codigo, @Descripcion, 'NC', @Serie, @Numero, 8,
-                                                0, 1, 0, GETDATE()
+                                                0, 1, GETDATE()
                                             );
                                             SELECT CAST(SCOPE_IDENTITY() AS int);
                                         END";
@@ -1444,11 +1444,11 @@ namespace IntegradorFlexForce.Services
                                         INSERT INTO dbo.NotaCredito (
                                             IDTipoCp, NumCp, NumCpContable, IDCliente, IDVendedor, IDSucursal, IDMoneda, TipoCambio,
                                             Fecha, FechaEmision, Hora, Total, SubTotal, ValorVenta, ValorAfecto, ValorInafecto, ValorExonerado, ValorDescuento,
-                                            TieneImpuesto, PreciosIncImpto, IDImpuesto, IDMotivoEmisionAnulacion, Observacion, Anulado, Eliminado
+                                            TieneImpuesto, PreciosIncImpto, IDImpuesto, IDMotivoEmisionAnulacion, Observacion, Anulado
                                         ) VALUES (
                                             @IDTipoCp, @NumCp, @NumCpContable, @IDCliente, @IDVendedor, @IDSucursal, 1, 1.0,
                                             @Fecha, @FechaEmision, @Hora, @Total, @SubTotal, @ValorVenta, @ValorAfecto, @ValorInafecto, @ValorExonerado, @ValorDescuento,
-                                            @TieneImpuesto, @PreciosIncImpto, 1, @IDMotivoEmisionAnulacion, @Observacion, 0, 0
+                                            @TieneImpuesto, @PreciosIncImpto, 1, @IDMotivoEmisionAnulacion, @Observacion, 0
                                         );
                                         SELECT CAST(SCOPE_IDENTITY() AS int);";
 
@@ -1506,11 +1506,11 @@ namespace IntegradorFlexForce.Services
                                     // 4. Insertar Ítems en dbo.ItemCpNotaCredito
                                     const string sqlInsertItemNc = @"
                                         INSERT INTO dbo.ItemCpNotaCredito (
-                                            IDNotaCredito, IDProducto, IDUnidad, Factor, IDAlmacen, Descripcion, Cantidad,
+                                            IDCp, IDProducto, IDUnidad, Factor, IDAlmacen, Descripcion, Cantidad,
                                             ValorUnitario, SubTotal, Total, ValorVenta, ValorAfecto, ValorInafecto, ValorExonerado, ValorDescuento,
                                             PorcentajeImpto, Inafecto, IDSUNATCatalogo7, Bonificacion, Anulado
                                         ) VALUES (
-                                            @IDNotaCredito, @IDProducto, @IDUnidad, @Factor, @IDAlmacen, @Descripcion, @Cantidad,
+                                            @IDCp, @IDProducto, @IDUnidad, @Factor, @IDAlmacen, @Descripcion, @Cantidad,
                                             @ValorUnitario, @SubTotal, @Total, @ValorVenta, @ValorAfecto, @ValorInafecto, @ValorExonerado, @ValorDescuento,
                                             @PorcentajeImpto, @Inafecto, @IDSUNATCatalogo7, @Bonificacion, 0
                                         );";
@@ -1523,7 +1523,7 @@ namespace IntegradorFlexForce.Services
                                         int sunatCat7 = esInafecto ? 30 : 10;
 
                                         using var cmdItNc = new SqlCommand(sqlInsertItemNc, connForce, tx);
-                                        cmdItNc.Parameters.AddWithValue("@IDNotaCredito", nuevoIdNc);
+                                        cmdItNc.Parameters.AddWithValue("@IDCp", nuevoIdNc);
                                         cmdItNc.Parameters.AddWithValue("@IDProducto", it.IDProductoForce.Value);
                                         cmdItNc.Parameters.AddWithValue("@IDUnidad", (object?)it.IDUnidadForce ?? DBNull.Value);
                                         cmdItNc.Parameters.AddWithValue("@Factor", it.CantidadFactor);
