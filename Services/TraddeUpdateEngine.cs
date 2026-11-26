@@ -23,20 +23,23 @@ namespace IntegradorFlexForce.Services
         private readonly string _sqlForceConnectionString;
         private readonly ILogger<TraddeUpdateEngine> _logger;
         private readonly string _configFilePath;
+        private readonly string _logsDirPath;
 
         private readonly object _configLock = new();
         private readonly object _mongoLock = new();
         private readonly object _queueSync = new();
+        private readonly object _logFileLock = new();
 
         private TraddeGlobalConfigDto _config;
         private IMongoClient? _mongoClient;
         private string _cachedMongoConnStr = string.Empty;
 
-        private sealed record QueueEntry(string StepKey, string Origen);
+        private sealed record QueueEntry(string StepKey, string Origen, string RunId);
 
         private readonly Channel<QueueEntry> _queueChannel = Channel.CreateUnbounded<QueueEntry>(
             new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
         private readonly List<string> _queuedKeys = new();
+        private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, string>> _failedStepsByRun = new();
 
         private readonly Dictionary<string, TraddeStepStatusDto> _stepsByKey = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<TraddeStepStatusDto> _orderedSteps = new();
@@ -46,6 +49,8 @@ namespace IntegradorFlexForce.Services
         private string? _currentRunningKey;
         private long _totalEjecucionesGlobal;
         private DateTime? _lastHeartbeat;
+        private volatile bool _isValidating;
+        private DateTime? _ultimaValidacionGlobal;
 
         public TraddeUpdateEngine(IConfiguration configuration, ILogger<TraddeUpdateEngine> logger)
         {
@@ -54,6 +59,7 @@ namespace IntegradorFlexForce.Services
                 ?? throw new InvalidOperationException("Falta ConnectionStrings:ForceGVD en appsettings.json");
 
             _configFilePath = Path.Combine(AppContext.BaseDirectory, "tradde_update_config.json");
+            _logsDirPath = Path.Combine(AppContext.BaseDirectory, "logs_tradde");
 
             string defaultMongoConn = configuration.GetConnectionString("MongoTradde")
                 ?? "mongodb://192.168.2.125:27020/?directConnection=true";
@@ -221,6 +227,46 @@ namespace IntegradorFlexForce.Services
                 _stepsByKey[d.StepKey] = d;
                 _orderedSteps.Add(d);
             }
+
+            AsignarDependenciasPasos();
+        }
+
+        private void AsignarDependenciasPasos()
+        {
+            var mapa = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                // Sección 1: Geografía y maestros de clientes
+                ["cli_provincias"] = new[] { "cli_departamentos" },
+                ["cli_distritos"] = new[] { "cli_provincias" },
+                ["cli_master_persona"] = new[] { "cli_tipodoc", "cli_direccion_cliente" },
+                ["cli_base_cliente"] = new[] { "cli_categorias", "cli_tipos", "cli_caracteristicas", "cli_master_persona" },
+                ["cli_direcciones"] = new[] { "cli_distritos", "cli_zonas", "cli_direccion_cliente", "cli_master_persona" },
+
+                // Sección 2: Consolidados de clientes
+                ["cli_conversion"] = new[] { "cli_base_cliente" },
+                ["cli_vista_general"] = new[] { "cli_base_cliente", "cli_conversion" },
+
+                // Sección 3: Productos / Mercadería
+                ["prd_proveedores"] = new[] { "prd_subproveedores" },
+                ["prd_mercaderia_a"] = new[] { "prd_marcas", "prd_lineas", "prd_subproveedores", "prd_proveedores", "prd_unidad_factor" },
+                ["prd_conversion"] = new[] { "prd_mercaderia_a" },
+                ["prd_vista_general"] = new[] { "prd_mercaderia_a", "prd_conversion" },
+
+                // Sección 4: Fuerza de Ventas / Vendedores
+                ["vnd_equipoventas"] = new[] { "vnd_sucursales", "vnd_fuerzaventas" },
+                ["vnd_vendedor_base"] = new[] { "vnd_equipoventas" },
+                ["vnd_conversion"] = new[] { "vnd_vendedor_base" },
+                ["vnd_vista_general"] = new[] { "vnd_vendedor_base", "vnd_conversion" }
+            };
+
+            foreach (var kv in mapa)
+            {
+                if (_stepsByKey.TryGetValue(kv.Key, out var step))
+                {
+                    step.DependeDe = kv.Value.Where(k => _stepsByKey.ContainsKey(k)).ToList();
+                    step.NombresDependencias = step.DependeDe.Select(k => _stepsByKey[k].NombrePaso).ToList();
+                }
+            }
         }
 
         private TraddeStepStatusDto CrearPaso(
@@ -268,6 +314,11 @@ namespace IntegradorFlexForce.Services
                     if (saved == null) return;
 
                     _config.AutoGlobalActivo = saved.AutoGlobalActivo;
+                    _config.GuardarLogsDisco = saved.GuardarLogsDisco;
+                    _config.RegistrarAuditoriaMongo = saved.RegistrarAuditoriaMongo;
+                    _config.OmitirDependientesSiFallaPadre = saved.OmitirDependientesSiFallaPadre;
+                    if (saved.DiasRetencionLogs >= 1)
+                        _config.DiasRetencionLogs = Math.Clamp(saved.DiasRetencionLogs, 1, 90);
                     if (!string.IsNullOrWhiteSpace(saved.MongoConnectionString))
                         _config.MongoConnectionString = saved.MongoConnectionString.Trim();
                     if (!string.IsNullOrWhiteSpace(saved.MongoDatabase))
@@ -335,7 +386,16 @@ namespace IntegradorFlexForce.Services
         {
             lock (_configLock)
             {
-                _config.AutoGlobalActivo = req.AutoGlobalActivo;
+                if (req.AutoGlobalActivo.HasValue)
+                    _config.AutoGlobalActivo = req.AutoGlobalActivo.Value;
+                if (req.GuardarLogsDisco.HasValue)
+                    _config.GuardarLogsDisco = req.GuardarLogsDisco.Value;
+                if (req.RegistrarAuditoriaMongo.HasValue)
+                    _config.RegistrarAuditoriaMongo = req.RegistrarAuditoriaMongo.Value;
+                if (req.OmitirDependientesSiFallaPadre.HasValue)
+                    _config.OmitirDependientesSiFallaPadre = req.OmitirDependientesSiFallaPadre.Value;
+                if (req.DiasRetencionLogs.HasValue && req.DiasRetencionLogs.Value >= 1)
+                    _config.DiasRetencionLogs = Math.Clamp(req.DiasRetencionLogs.Value, 1, 90);
                 if (!string.IsNullOrWhiteSpace(req.MongoConnectionString))
                     _config.MongoConnectionString = req.MongoConnectionString.Trim();
                 if (!string.IsNullOrWhiteSpace(req.MongoDatabase))
@@ -344,14 +404,14 @@ namespace IntegradorFlexForce.Services
                     _config.VentanaInicioDefault = req.VentanaInicioDefault.Trim();
                 if (!string.IsNullOrWhiteSpace(req.VentanaFinDefault))
                     _config.VentanaFinDefault = req.VentanaFinDefault.Trim();
-                if (req.BatchSizeMongo >= 500)
-                    _config.BatchSizeMongo = Math.Clamp(req.BatchSizeMongo, 500, 50000);
+                if (req.BatchSizeMongo.HasValue && req.BatchSizeMongo.Value >= 500)
+                    _config.BatchSizeMongo = Math.Clamp(req.BatchSizeMongo.Value, 500, 50000);
 
                 GuardarConfiguracionDisco();
             }
 
             RegistrarEvento("SISTEMA", "Configuración Global", "INFO", "MANUAL",
-                $"Configuración actualizada: Automático Global = {(_config.AutoGlobalActivo ? "ACTIVO" : "MANUAL")} · BD Mongo = {_config.MongoDatabase}");
+                $"Config actualizada: Auto={(_config.AutoGlobalActivo ? "ON" : "OFF")} · LogsDisco={(_config.GuardarLogsDisco ? "ON" : "OFF")} · ProtecciónDeps={(_config.OmitirDependientesSiFallaPadre ? "ON" : "OFF")} · BD={_config.MongoDatabase}");
         }
 
         public bool ActualizarProgramacionPaso(TraddeStepScheduleConfigDto req)
@@ -459,13 +519,46 @@ namespace IntegradorFlexForce.Services
         }
 
         // =========================================================================
-        // GESTIÓN DE COLA DE EJECUCIÓN (MANUAL Y AUTOMÁTICA)
+        // GESTIÓN DE COLA DE EJECUCIÓN (MANUAL Y AUTOMÁTICA + ORDEN TOPOLÓGICO)
         // =========================================================================
+        private List<string> ResolverOrdenTopologico(IEnumerable<string> keysIniciales, bool incluirDependencias)
+        {
+            var seleccionados = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void AgregarConAncestros(string key)
+            {
+                if (!_stepsByKey.TryGetValue(key, out var st)) return;
+                if (incluirDependencias)
+                {
+                    foreach (var dep in st.DependeDe)
+                        AgregarConAncestros(dep);
+                }
+                seleccionados.Add(st.StepKey);
+            }
+
+            foreach (var k in keysIniciales)
+                AgregarConAncestros(k);
+
+            // Ordenar estrictamente por Orden (el catálogo ya respeta el DAG topológico)
+            return _orderedSteps
+                .Where(s => seleccionados.Contains(s.StepKey))
+                .OrderBy(s => s.Orden)
+                .Select(s => s.StepKey)
+                .ToList();
+        }
+
         public (int Encolados, string Mensaje) EncolarEjecucion(TraddeExecuteRequestDto req, string origen = "MANUAL")
         {
             var keysToEnqueue = new List<string>();
 
-            if (req.EjecutarTodo)
+            if (req.SoloDesfasados)
+            {
+                keysToEnqueue.AddRange(_orderedSteps
+                    .Where(s => s.SemaforoValidacion == "DESFASADO" || s.SemaforoValidacion == "VACIO_MONGO")
+                    .Where(s => string.IsNullOrWhiteSpace(req.SeccionCodigo) || string.Equals(s.SeccionCodigo, req.SeccionCodigo, StringComparison.OrdinalIgnoreCase))
+                    .Select(s => s.StepKey));
+            }
+            else if (req.EjecutarTodo)
             {
                 keysToEnqueue.AddRange(_orderedSteps.Select(s => s.StepKey));
             }
@@ -488,10 +581,28 @@ namespace IntegradorFlexForce.Services
                 keysToEnqueue.Add(req.StepKey);
             }
 
+            if (keysToEnqueue.Count == 0)
+            {
+                return (0, req.SoloDesfasados
+                    ? "No hay pasos desfasados para subir (ejecute primero '1. Consultar / Validar Force vs Mongo')."
+                    : "No se seleccionaron pasos válidos.");
+            }
+
+            var ordenados = ResolverOrdenTopologico(keysToEnqueue, req.IncluirDependencias);
+            string runId = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
+            _failedStepsByRun[runId] = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            // Limpiar historial antiguo de runs en RAM
+            if (_failedStepsByRun.Count > 40)
+            {
+                foreach (var oldKey in _failedStepsByRun.Keys.OrderBy(k => k).Take(_failedStepsByRun.Count - 20))
+                    _failedStepsByRun.TryRemove(oldKey, out _);
+            }
+
             int added = 0;
             lock (_queueSync)
             {
-                foreach (var key in keysToEnqueue.Distinct(StringComparer.OrdinalIgnoreCase))
+                foreach (var key in ordenados)
                 {
                     var step = _stepsByKey[key];
                     if (step.Estado == "EJECUTANDO" || _queuedKeys.Contains(key, StringComparer.OrdinalIgnoreCase))
@@ -501,7 +612,7 @@ namespace IntegradorFlexForce.Services
                     step.Estado = "EN_COLA";
                     step.PosicionCola = _queuedKeys.Count;
                     step.FaseActual = $"En cola (#{step.PosicionCola}) esperando turno...";
-                    _queueChannel.Writer.TryWrite(new QueueEntry(key, origen));
+                    _queueChannel.Writer.TryWrite(new QueueEntry(key, origen, runId));
                     added++;
                 }
                 RecalcularPosicionesColaNoLock();
@@ -509,12 +620,13 @@ namespace IntegradorFlexForce.Services
 
             if (added > 0)
             {
+                string extra = req.IncluirDependencias ? " (incluyendo prerrequisitos en orden)" : "";
                 RegistrarEvento("COLA", "Orquestador TraddeUpdate", "INFO", origen,
-                    $"Se añadieron {added} paso(s) a la cola de sincronización hacia MongoDB.");
+                    $"Se añadieron {added} paso(s) ordenados por dependencia a la cola{extra}.");
             }
 
             return (added, added > 0
-                ? $"Se encolaron {added} paso(s) para subida a MongoDB."
+                ? $"Se encolaron {added} paso(s) en orden de dependencias hacia MongoDB."
                 : "Los pasos seleccionados ya se encuentran en ejecución o en cola.");
         }
 
@@ -684,7 +796,7 @@ namespace IntegradorFlexForce.Services
 
                 try
                 {
-                    await EjecutarPasoInternoAsync(key, entry.Origen, stoppingToken);
+                    await EjecutarPasoInternoAsync(key, entry.Origen, entry.RunId, stoppingToken);
                 }
                 finally
                 {
@@ -702,13 +814,17 @@ namespace IntegradorFlexForce.Services
         public TraddeUpdateDashboardDto ObtenerDashboardSnapshot()
         {
             var ahora = DateTime.Now;
-            bool globalAuto;
+            bool globalAuto, guardarLogs, regAudit, omitirDeps;
             string mongoConn, mongoDb, winIni, winFin;
-            int batchSize;
+            int batchSize, diasRet;
 
             lock (_configLock)
             {
                 globalAuto = _config.AutoGlobalActivo;
+                guardarLogs = _config.GuardarLogsDisco;
+                regAudit = _config.RegistrarAuditoriaMongo;
+                omitirDeps = _config.OmitirDependientesSiFallaPadre;
+                diasRet = _config.DiasRetencionLogs;
                 mongoConn = _config.MongoConnectionString;
                 mongoDb = _config.MongoDatabase;
                 winIni = _config.VentanaInicioDefault;
@@ -743,7 +859,9 @@ namespace IntegradorFlexForce.Services
                     int run = g.Count(x => x.Estado == "EJECUTANDO");
                     int col = g.Count(x => x.Estado == "EN_COLA");
                     int err = g.Count(x => x.Estado == "ERROR");
+                    int omit = g.Count(x => x.Estado == "OMITIDO");
                     int auto = g.Count(x => x.AutoActivo);
+                    int desf = g.Count(x => x.SemaforoValidacion == "DESFASADO" || x.SemaforoValidacion == "VACIO_MONGO");
                     int pct = total > 0 ? (int)Math.Round((comp * 100.0) / total) : 0;
 
                     return new TraddeSectionSummaryDto
@@ -756,7 +874,9 @@ namespace IntegradorFlexForce.Services
                         PasosEjecutando = run,
                         PasosEnCola = col,
                         PasosConError = err,
+                        PasosOmitidos = omit,
                         PasosAutoActivos = auto,
+                        PasosDesfasados = desf,
                         ProgresoSeccionPorcentaje = pct
                     };
                 }).ToList();
@@ -770,6 +890,10 @@ namespace IntegradorFlexForce.Services
             return new TraddeUpdateDashboardDto
             {
                 AutoGlobalActivo = globalAuto,
+                GuardarLogsDisco = guardarLogs,
+                RegistrarAuditoriaMongo = regAudit,
+                OmitirDependientesSiFallaPadre = omitirDeps,
+                DiasRetencionLogs = diasRet,
                 MongoConnectionString = mongoConn,
                 MongoConnectionStringMasked = mongoConn,
                 MongoDatabase = mongoDb,
@@ -777,13 +901,18 @@ namespace IntegradorFlexForce.Services
                 VentanaFinDefault = winFin,
                 BatchSizeMongo = batchSize,
                 IsAnyRunning = runningKey != null,
+                IsValidating = _isValidating,
+                UltimaValidacionGlobal = _ultimaValidacionGlobal,
                 CurrentRunningStepKey = runningKey,
                 CurrentRunningStepName = runningKey != null && _stepsByKey.TryGetValue(runningKey, out var rs) ? rs.NombrePaso : null,
                 QueueCount = queueCount,
                 TotalSteps = _orderedSteps.Count,
                 CompletedSteps = _orderedSteps.Count(s => s.Estado == "COMPLETADO"),
                 ErrorSteps = _orderedSteps.Count(s => s.Estado == "ERROR"),
+                OmittedSteps = _orderedSteps.Count(s => s.Estado == "OMITIDO"),
                 AutoEnabledSteps = _orderedSteps.Count(s => s.AutoActivo),
+                DesfasadosSteps = _orderedSteps.Count(s => s.SemaforoValidacion == "DESFASADO" || s.SemaforoValidacion == "VACIO_MONGO"),
+                AlineadosSteps = _orderedSteps.Count(s => s.SemaforoValidacion == "ALINEADO"),
                 TotalEjecucionesGlobal = Interlocked.Read(ref _totalEjecucionesGlobal),
                 LastWorkerHeartbeat = _lastHeartbeat,
                 Secciones = secciones,
@@ -813,9 +942,64 @@ namespace IntegradorFlexForce.Services
         // =========================================================================
         // EJECUCIÓN REAL DE CADA PASO: BDFORCEGVD -> MONGODB (STREAMING & ATOMIC)
         // =========================================================================
-        private async Task EjecutarPasoInternoAsync(string stepKey, string origen, CancellationToken ct)
+        private string? VerificarDependenciaFallidaEnRun(TraddeStepStatusDto step, string runId)
+        {
+            if (!_failedStepsByRun.TryGetValue(runId, out var failedMap) || failedMap.IsEmpty)
+                return null;
+
+            foreach (var depKey in step.DependeDe)
+            {
+                if (failedMap.TryGetValue(depKey, out var depNombre))
+                    return depNombre;
+            }
+            return null;
+        }
+
+        private async Task EjecutarPasoInternoAsync(string stepKey, string origen, string runId, CancellationToken ct)
         {
             if (!_stepsByKey.TryGetValue(stepKey, out var step)) return;
+
+            bool omitirSiFallaPadre;
+            bool regAuditMongo;
+            lock (_configLock)
+            {
+                omitirSiFallaPadre = _config.OmitirDependientesSiFallaPadre;
+                regAuditMongo = _config.RegistrarAuditoriaMongo;
+            }
+
+            // Protección de cadena de dependencias: si falló un maestro padre en esta misma corrida, omitir hijos
+            if (omitirSiFallaPadre)
+            {
+                string? padreFallido = VerificarDependenciaFallidaEnRun(step, runId);
+                if (!string.IsNullOrEmpty(padreFallido))
+                {
+                    step.Estado = "OMITIDO";
+                    step.PosicionCola = 0;
+                    step.ProgresoPorcentaje = 0;
+                    step.FaseActual = $"Omitido: falló dependencia [{padreFallido}]";
+                    step.UltimoMensaje = $"⏭ Omitido por fallo en dependencia [{padreFallido}]";
+                    step.UltimoError = $"Dependencia fallida: {padreFallido}";
+
+                    if (_failedStepsByRun.TryGetValue(runId, out var fm))
+                        fm[step.StepKey] = step.NombrePaso;
+
+                    RegistrarEvento(step.StepKey, step.NombrePaso, "WARN", origen,
+                        $"⏭ Omitido [{step.ColeccionMongoDestino}] porque falló su dependencia [{padreFallido}].");
+
+                    GuardarLogEjecucionDisco(new TraddeLogFileEntryDto
+                    {
+                        FechaHora = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                        RunId = runId,
+                        StepKey = step.StepKey,
+                        NombrePaso = step.NombrePaso,
+                        ColeccionMongo = step.ColeccionMongoDestino,
+                        Origen = origen,
+                        Resultado = "OMITIDO",
+                        Mensaje = step.UltimoMensaje
+                    });
+                    return;
+                }
+            }
 
             var sw = Stopwatch.StartNew();
             var inicioDt = DateTime.Now;
@@ -1617,9 +1801,40 @@ namespace IntegradorFlexForce.Services
                 step.FaseActual = $"Completado en {durSeg:F2}s";
                 step.UltimoMensaje = $"✓ {resultado.leidos:N0} leídos · +{resultado.insertados:N0} nuevos · {resultado.actualizados:N0} act. ({durSeg:F2}s)";
 
+                // Actualizar conteo de validación tras subida exitosa
+                try
+                {
+                    long mongoCountNow = await db.GetCollection<BsonDocument>(step.ColeccionMongoDestino)
+                        .EstimatedDocumentCountAsync(cancellationToken: ct);
+                    step.ConteoForceValidado = resultado.leidos;
+                    step.ConteoMongoValidado = mongoCountNow;
+                    step.DiferenciaValidada = resultado.leidos - mongoCountNow;
+                    step.SemaforoValidacion = resultado.leidos == mongoCountNow ? "ALINEADO" : "DESFASADO";
+                    step.FechaUltimaValidacion = finDt;
+                    step.ErrorValidacion = null;
+                }
+                catch { }
+
                 Interlocked.Increment(ref _totalEjecucionesGlobal);
 
-                await RegistrarAuditoriaMongoSafeAsync(db, step.NombreAppAuditoria, inicioDt, finDt, durSeg, "Éxito", null, ct);
+                if (regAuditMongo)
+                    await RegistrarAuditoriaMongoSafeAsync(db, step.NombreAppAuditoria, inicioDt, finDt, durSeg, "Éxito", null, ct);
+
+                GuardarLogEjecucionDisco(new TraddeLogFileEntryDto
+                {
+                    FechaHora = finDt.ToString("yyyy-MM-dd HH:mm:ss"),
+                    RunId = runId,
+                    StepKey = step.StepKey,
+                    NombrePaso = step.NombrePaso,
+                    ColeccionMongo = step.ColeccionMongoDestino,
+                    Origen = origen,
+                    Resultado = "EXITO",
+                    FilasLeidasForce = resultado.leidos,
+                    DocsInsertadosMongo = resultado.insertados,
+                    DocsActualizadosMongo = resultado.actualizados,
+                    DuracionSegundos = durSeg,
+                    Mensaje = step.UltimoMensaje
+                });
 
                 RegistrarEvento(step.StepKey, step.NombrePaso, "SUCCESS", origen,
                     $"✓ [{step.ColeccionMongoDestino}] {resultado.leidos:N0} filas Force → Mongo (+{resultado.insertados:N0} ins, {resultado.actualizados:N0} mod) en {durSeg:F2}s.");
@@ -1639,15 +1854,34 @@ namespace IntegradorFlexForce.Services
                 step.UltimoError = ex.Message;
                 step.UltimoMensaje = $"✕ Error: {ex.Message}";
 
+                if (_failedStepsByRun.TryGetValue(runId, out var fm))
+                    fm[step.StepKey] = step.NombrePaso;
+
                 _logger.LogError(ex, "Error en TraddeUpdate paso {StepKey}", stepKey);
                 RegistrarEvento(step.StepKey, step.NombrePaso, "ERROR", origen, $"✕ Falló [{step.ColeccionMongoDestino}]: {ex.Message}");
 
-                try
+                GuardarLogEjecucionDisco(new TraddeLogFileEntryDto
                 {
-                    var db = ObtenerMongoDb();
-                    await RegistrarAuditoriaMongoSafeAsync(db, step.NombreAppAuditoria, inicioDt, finDt, durSeg, "Error", ex.Message, ct);
+                    FechaHora = finDt.ToString("yyyy-MM-dd HH:mm:ss"),
+                    RunId = runId,
+                    StepKey = step.StepKey,
+                    NombrePaso = step.NombrePaso,
+                    ColeccionMongo = step.ColeccionMongoDestino,
+                    Origen = origen,
+                    Resultado = "ERROR",
+                    DuracionSegundos = durSeg,
+                    Mensaje = ex.Message
+                });
+
+                if (regAuditMongo)
+                {
+                    try
+                    {
+                        var db = ObtenerMongoDb();
+                        await RegistrarAuditoriaMongoSafeAsync(db, step.NombreAppAuditoria, inicioDt, finDt, durSeg, "Error", ex.Message, ct);
+                    }
+                    catch { }
                 }
-                catch { }
             }
         }
 
@@ -2108,6 +2342,270 @@ namespace IntegradorFlexForce.Services
                     ct);
             }
             catch { }
+        }
+
+        // =========================================================================
+        // PASO 1: CONSULTAR / VALIDAR DIFERENCIAS (BDFORCEGVD vs MONGODB)
+        // =========================================================================
+        public async Task<TraddeUpdateDashboardDto> ValidarDiferenciasAsync(TraddeValidateRequestDto? req, CancellationToken ct = default)
+        {
+            if (_isValidating)
+                return ObtenerDashboardSnapshot();
+
+            _isValidating = true;
+            var sw = Stopwatch.StartNew();
+
+            try
+            {
+                List<TraddeStepStatusDto> objetivos;
+                if (!string.IsNullOrWhiteSpace(req?.StepKey) && _stepsByKey.TryGetValue(req.StepKey, out var single))
+                {
+                    objetivos = new List<TraddeStepStatusDto> { single };
+                }
+                else if (!string.IsNullOrWhiteSpace(req?.SeccionCodigo))
+                {
+                    objetivos = _orderedSteps
+                        .Where(s => string.Equals(s.SeccionCodigo, req.SeccionCodigo, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                }
+                else
+                {
+                    objetivos = _orderedSteps.ToList();
+                }
+
+                RegistrarEvento("VALIDACION", "Validador Force vs Mongo", "INFO", "MANUAL",
+                    $"🔍 Validando {objetivos.Count} paso(s) entre BDForceGVD y MongoDB...");
+
+                var db = ObtenerMongoDb();
+                using var sem = new SemaphoreSlim(6);
+
+                var tasks = objetivos.Select(async step =>
+                {
+                    await sem.WaitAsync(ct);
+                    try
+                    {
+                        string sqlCount = ObtenerSqlConteoPaso(step.StepKey);
+                        long forceCount;
+                        using (var conn = new SqlConnection(_sqlForceConnectionString))
+                        {
+                            await conn.OpenAsync(ct);
+                            using var cmd = new SqlCommand(sqlCount, conn) { CommandTimeout = 90 };
+                            var val = await cmd.ExecuteScalarAsync(ct);
+                            forceCount = val == null || val == DBNull.Value ? 0 : Convert.ToInt64(val);
+                        }
+
+                        long mongoCount = await db.GetCollection<BsonDocument>(step.ColeccionMongoDestino)
+                            .EstimatedDocumentCountAsync(cancellationToken: ct);
+
+                        step.ConteoForceValidado = forceCount;
+                        step.ConteoMongoValidado = mongoCount;
+                        step.DiferenciaValidada = forceCount - mongoCount;
+                        step.FechaUltimaValidacion = DateTime.Now;
+                        step.ErrorValidacion = null;
+
+                        if (mongoCount == 0 && forceCount > 0)
+                            step.SemaforoValidacion = "VACIO_MONGO";
+                        else if (forceCount == mongoCount)
+                            step.SemaforoValidacion = "ALINEADO";
+                        else
+                            step.SemaforoValidacion = "DESFASADO";
+                    }
+                    catch (Exception ex)
+                    {
+                        step.SemaforoValidacion = "ERROR_VALIDACION";
+                        step.ErrorValidacion = ex.Message;
+                        step.FechaUltimaValidacion = DateTime.Now;
+                    }
+                    finally
+                    {
+                        sem.Release();
+                    }
+                }).ToList();
+
+                await Task.WhenAll(tasks);
+
+                sw.Stop();
+                _ultimaValidacionGlobal = DateTime.Now;
+                int desf = objetivos.Count(s => s.SemaforoValidacion == "DESFASADO" || s.SemaforoValidacion == "VACIO_MONGO");
+                int alin = objetivos.Count(s => s.SemaforoValidacion == "ALINEADO");
+
+                RegistrarEvento("VALIDACION", "Validador Force vs Mongo", desf > 0 ? "WARN" : "SUCCESS", "MANUAL",
+                    $"✓ Validación completada en {sw.Elapsed.TotalSeconds:F2}s: {alin} alineados, {desf} desfasados/vacíos.");
+            }
+            finally
+            {
+                _isValidating = false;
+            }
+
+            return ObtenerDashboardSnapshot();
+        }
+
+        private static string ObtenerSqlConteoPaso(string stepKey) => stepKey switch
+        {
+            "cli_departamentos" => "SELECT COUNT(1) FROM dbo.cat_Departamento WITH (NOLOCK);",
+            "cli_provincias" => "SELECT COUNT(1) FROM dbo.cat_Provincia WITH (NOLOCK);",
+            "cli_distritos" => "SELECT COUNT(1) FROM dbo.cat_Distrito WITH (NOLOCK);",
+            "cli_tipodoc" => "SELECT COUNT(1) FROM dbo.cat_TipoDocIdentidad WITH (NOLOCK);",
+            "cli_zonas" => "SELECT COUNT(1) FROM dbo.cat_Zona WITH (NOLOCK);",
+            "cli_categorias" => "SELECT COUNT(1) FROM dbo.cat_CategoriaCliente WITH (NOLOCK);",
+            "cli_tipos" => "SELECT COUNT(1) FROM dbo.cat_TipoCliente WITH (NOLOCK);",
+            "cli_caracteristicas" => "SELECT COUNT(1) FROM dbo.cat_Caracteristica c WITH (NOLOCK) INNER JOIN dbo.cat_TipoCaracteristica t WITH (NOLOCK) ON c.IDTipoCaracteristica = t.ID;",
+            "cli_direccion_cliente" => "SELECT COUNT(1) FROM dbo.dir_Direccion WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+            "cli_master_persona" => "SELECT COUNT(1) FROM dbo.cli_Cliente WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+            "cli_base_cliente" => "SELECT COUNT(1) FROM dbo.cli_Cliente WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+            "cli_direcciones" => "SELECT COUNT(1) FROM dbo.dir_Direccion dd WITH (NOLOCK) INNER JOIN dbo.dir_EntidadDireccion ed WITH (NOLOCK) ON ed.IDDireccion = dd.ID AND ed.TipoEntidad = 'CLIENTE' WHERE ISNULL(dd.Eliminado, 0) = 0;",
+            "cli_conversion" => "SELECT COUNT(1) FROM dbo.cli_Cliente WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+            "cli_vista_general" => "SELECT COUNT(1) FROM dbo.cli_Cliente WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+
+            "prd_marcas" => "SELECT COUNT(1) FROM dbo.prd_Marca WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+            "prd_lineas" => "SELECT COUNT(1) FROM dbo.prd_LineaProducto WITH (NOLOCK);",
+            "prd_subproveedores" => "SELECT COUNT(1) FROM dbo.prd_SubProveedor WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+            "prd_proveedores" => "SELECT COUNT(1) FROM dbo.prd_Proveedor WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+            "prd_unidad_factor" => "SELECT COUNT(1) FROM dbo.prd_ProductoUnidad o WITH (NOLOCK) INNER JOIN dbo.prd_UnidadMedida u WITH (NOLOCK) ON o.IDUnidadMedida = u.ID WHERE ISNULL(o.Eliminado, 0) = 0;",
+            "prd_mercaderia_a" => "SELECT COUNT(1) FROM dbo.prd_Producto WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+            "prd_conversion" => "SELECT COUNT(1) FROM dbo.prd_Producto WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+            "prd_vista_general" => "SELECT COUNT(1) FROM dbo.prd_Producto WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+
+            "vnd_sucursales" => "SELECT COUNT(1) FROM dbo.cat_Sucursal WITH (NOLOCK);",
+            "vnd_fuerzaventas" => "SELECT COUNT(1) FROM dbo.vnd_FuerzaVenta WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+            "vnd_equipoventas" => "SELECT COUNT(1) FROM dbo.vnd_GrupoVentas WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+            "vnd_vendedor_base" => "SELECT COUNT(1) FROM dbo.vnd_Vendedor WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+            "vnd_conversion" => "SELECT COUNT(1) FROM dbo.vnd_Vendedor WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+            "vnd_vista_general" => "SELECT COUNT(1) FROM dbo.vnd_Vendedor WITH (NOLOCK) WHERE ISNULL(Eliminado, 0) = 0;",
+
+            "ops_radar_stock" => @"SELECT COUNT(1)
+                FROM dbo.inv_ProductoAlmacen p WITH (NOLOCK)
+                INNER JOIN dbo.prd_Producto pp WITH (NOLOCK) ON p.IDProducto = pp.ID
+                INNER JOIN dbo.inv_Almacen a WITH (NOLOCK) ON a.ID = p.IDAlmacen
+                INNER JOIN dbo.cat_Sucursal s WITH (NOLOCK) ON s.ID = a.IDSucursal
+                WHERE a.Nombre IN ('ALMACEN CENTRAL NORTE','ALMACEN CENTRAL CENTRO','ALMACEN CENTRAL ESTE','ALMACEN CENTRAL SUR','ALMACEN CENTRAL PRINCIPAL','ALMACEN CENTRAL HUAURA')
+                  AND ISNULL(pp.Eliminado, 0) = 0;",
+
+            "ops_lista_precios" => @"SELECT COUNT(DISTINCT CONCAT(i.IDProducto, '_', p.IDUnidad, '_', LTRIM(RTRIM(ISNULL(ll.Nombre, '')))))
+                FROM dbo.prc_ItemPrecioProducto i WITH (NOLOCK)
+                INNER JOIN dbo.prc_PrecioProductoUnidad p WITH (NOLOCK) ON i.ID = p.IDItemPrecioProducto
+                INNER JOIN dbo.prc_ListaPrecio ll WITH (NOLOCK) ON ll.ID = i.IDListaPrecios
+                INNER JOIN dbo.prc_PrecioEscala pp WITH (NOLOCK) ON pp.IDUnidadItemListaPrecios = p.ID
+                WHERE ISNULL(ll.Estado, 1) = 1 AND ISNULL(ll.Eliminado, 0) = 0;",
+
+            _ => "SELECT 0;"
+        };
+
+        // =========================================================================
+        // PERSISTENCIA DE LOGS DIARIOS EN DISCO (ACTIVABLE ON/OFF)
+        // =========================================================================
+        private void GuardarLogEjecucionDisco(TraddeLogFileEntryDto entry)
+        {
+            bool guardar;
+            int diasRet;
+            lock (_configLock)
+            {
+                guardar = _config.GuardarLogsDisco;
+                diasRet = _config.DiasRetencionLogs;
+            }
+            if (!guardar) return;
+
+            lock (_logFileLock)
+            {
+                try
+                {
+                    Directory.CreateDirectory(_logsDirPath);
+                    string fileName = $"tradde_{DateTime.Now:yyyy-MM-dd}.jsonl";
+                    string fullPath = Path.Combine(_logsDirPath, fileName);
+                    string line = JsonSerializer.Serialize(entry);
+                    File.AppendAllText(fullPath, line + Environment.NewLine);
+
+                    // Retención automática: purgar archivos más antiguos que diasRet
+                    var limite = DateTime.Today.AddDays(-Math.Max(1, diasRet));
+                    foreach (var f in Directory.GetFiles(_logsDirPath, "tradde_*.jsonl"))
+                    {
+                        var fi = new FileInfo(f);
+                        if (fi.LastWriteTime.Date < limite)
+                        {
+                            try { fi.Delete(); } catch { }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "No se pudo escribir log en disco para TraddeUpdate.");
+                }
+            }
+        }
+
+        public TraddeLogsResponseDto ObtenerLogsPorFecha(string? fecha = null)
+        {
+            bool guardar;
+            lock (_configLock) { guardar = _config.GuardarLogsDisco; }
+
+            var resp = new TraddeLogsResponseDto
+            {
+                GuardarLogsDisco = guardar,
+                FechaSeleccionada = string.IsNullOrWhiteSpace(fecha) ? DateTime.Now.ToString("yyyy-MM-dd") : fecha.Trim()
+            };
+
+            lock (_logFileLock)
+            {
+                if (!Directory.Exists(_logsDirPath))
+                    return resp;
+
+                resp.FechasDisponibles = Directory.GetFiles(_logsDirPath, "tradde_*.jsonl")
+                    .Select(Path.GetFileNameWithoutExtension)
+                    .Where(n => n != null && n.StartsWith("tradde_"))
+                    .Select(n => n!.Substring("tradde_".Length))
+                    .OrderByDescending(x => x)
+                    .ToList();
+
+                if (!resp.FechasDisponibles.Contains(resp.FechaSeleccionada) && resp.FechasDisponibles.Count > 0 && string.IsNullOrWhiteSpace(fecha))
+                    resp.FechaSeleccionada = resp.FechasDisponibles[0];
+
+                string targetFile = Path.Combine(_logsDirPath, $"tradde_{resp.FechaSeleccionada}.jsonl");
+                if (File.Exists(targetFile))
+                {
+                    foreach (var line in File.ReadLines(targetFile))
+                    {
+                        if (string.IsNullOrWhiteSpace(line)) continue;
+                        try
+                        {
+                            var item = JsonSerializer.Deserialize<TraddeLogFileEntryDto>(line);
+                            if (item != null) resp.Entradas.Add(item);
+                        }
+                        catch { }
+                    }
+                    resp.Entradas.Reverse(); // Más recientes primero
+                }
+            }
+
+            return resp;
+        }
+
+        public string GenerarTextoLogDescargable(string? fecha = null)
+        {
+            var data = ObtenerLogsPorFecha(fecha);
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"=== LOG DE EJECUCIÓN TRADDEUPDATE (BDForceGVD -> MongoDB) | FECHA: {data.FechaSeleccionada} ===");
+            sb.AppendLine("FechaHora\tRunId\tOrigen\tResultado\tPaso\tColeccionMongo\tForceLeidos\tMongoIns\tMongoMod\tDuracion(s)\tMensaje");
+            foreach (var e in data.Entradas.AsEnumerable().Reverse())
+            {
+                sb.AppendLine($"{e.FechaHora}\t{e.RunId}\t{e.Origen}\t{e.Resultado}\t{e.NombrePaso}\t{e.ColeccionMongo}\t{e.FilasLeidasForce}\t{e.DocsInsertadosMongo}\t{e.DocsActualizadosMongo}\t{e.DuracionSegundos:F2}\t{e.Mensaje}");
+            }
+            return sb.ToString();
+        }
+
+        public int LimpiarLogsDisco()
+        {
+            int borrados = 0;
+            lock (_logFileLock)
+            {
+                if (!Directory.Exists(_logsDirPath)) return 0;
+                foreach (var f in Directory.GetFiles(_logsDirPath, "tradde_*.jsonl"))
+                {
+                    try { File.Delete(f); borrados++; } catch { }
+                }
+            }
+            if (borrados > 0)
+                RegistrarEvento("LOGS", "Gestor de Logs", "WARN", "MANUAL", $"Se eliminaron {borrados} archivo(s) de log de TraddeUpdate.");
+            return borrados;
         }
 
         private static int GetInt(SqlDataReader r, int i) => r.IsDBNull(i) ? 0 : Convert.ToInt32(r.GetValue(i));

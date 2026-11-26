@@ -453,5 +453,34 @@ namespace IntegradorFlexForce.Controllers
 
             return Ok(new { message = "Programación del paso actualizada.", dashboard = _traddeUpdateEngine.ObtenerDashboardSnapshot() });
         }
+
+        [HttpPost("tradde/validar")]
+        public async Task<IActionResult> ValidarTradde([FromBody] TraddeValidateRequestDto? req, CancellationToken ct)
+        {
+            var dashboard = await _traddeUpdateEngine.ValidarDiferenciasAsync(req, ct);
+            return Ok(dashboard);
+        }
+
+        [HttpGet("tradde/logs")]
+        public IActionResult ObtenerLogsTradde([FromQuery] string? fecha = null)
+        {
+            return Ok(_traddeUpdateEngine.ObtenerLogsPorFecha(fecha));
+        }
+
+        [HttpGet("tradde/logs/descargar")]
+        public IActionResult DescargarLogTradde([FromQuery] string? fecha = null)
+        {
+            string fechaLabel = string.IsNullOrWhiteSpace(fecha) ? System.DateTime.Now.ToString("yyyy-MM-dd") : fecha.Trim();
+            string contenido = _traddeUpdateEngine.GenerarTextoLogDescargable(fecha);
+            var bytes = System.Text.Encoding.UTF8.GetBytes(contenido);
+            return File(bytes, "text/plain; charset=utf-8", $"TraddeUpdate_Log_{fechaLabel}.txt");
+        }
+
+        [HttpDelete("tradde/logs")]
+        public IActionResult LimpiarLogsTradde()
+        {
+            int borrados = _traddeUpdateEngine.LimpiarLogsDisco();
+            return Ok(new { borrados, message = borrados > 0 ? $"Se eliminaron {borrados} archivo(s) de log." : "No había archivos de log guardados." });
+        }
     }
 }

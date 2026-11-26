@@ -2312,6 +2312,16 @@
 .tu-st-EJECUTANDO { background: #dbeafe; color: #1d4ed8; }
 .tu-st-COMPLETADO { background: #dcfce7; color: #15803d; }
 .tu-st-ERROR { background: #fee2e2; color: #b91c1c; }
+.tu-st-OMITIDO { background: #ffedd5; color: #c2410c; }
+
+.tu-val-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 800; }
+.tu-val-SIN_VALIDAR { background: #f1f5f9; color: #64748b; }
+.tu-val-ALINEADO { background: #dcfce7; color: #15803d; }
+.tu-val-DESFASADO { background: #fef3c7; color: #b45309; }
+.tu-val-VACIO_MONGO { background: #fee2e2; color: #b91c1c; }
+.tu-val-ERROR_VALIDACION { background: #fee2e2; color: #991b1b; }
+
+.tu-dep-badge { display: inline-block; margin-top: 3px; padding: 1px 7px; border-radius: 6px; background: #f1f5f9; color: #475569; font-size: 10.5px; border: 1px solid #e2e8f0; }
 
 .tu-strat-tag {
     display: inline-block; padding: 2px 7px; border-radius: 6px; font-size: 10.5px; font-weight: 700;
@@ -5683,22 +5693,39 @@
             </div>
 
             <div class="tu-actions-bar">
-                <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.22); padding:6px 12px; border-radius:10px;">
-                    <span style="font-size:12px; font-weight:700;">Auto Maestro</span>
+                <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.22); padding:6px 11px; border-radius:10px;" title="Activar/Pausar programación automática">
+                    <span style="font-size:11.5px; font-weight:700;">Auto Maestro</span>
                     <label class="tu-switch">
                         <input type="checkbox" id="chkTraddeAutoGlobal" onchange="toggleTraddeAutoGlobal(this.checked)">
                         <span class="tu-slider"></span>
                     </label>
                 </div>
 
-                <button class="tu-btn tu-btn-glass" id="btnTraddeTestConn" onclick="probarConexionesTradde()">
-                    🔌 Probar Conexiones
+                <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.22); padding:6px 11px; border-radius:10px;" title="Guardar logs diarios de ejecución en disco">
+                    <span style="font-size:11.5px; font-weight:700;">Guardar Logs</span>
+                    <label class="tu-switch">
+                        <input type="checkbox" id="chkTraddeGuardarLogs" onchange="toggleTraddeGuardarLogs(this.checked)">
+                        <span class="tu-slider"></span>
+                    </label>
+                </div>
+
+                <button class="tu-btn tu-btn-glass" id="btnTraddeValidarTodo" onclick="validarTraddeDiferencias()">
+                    🔍 1. Validar Force vs Mongo
                 </button>
-                <button class="tu-btn tu-btn-glass" onclick="abrirModalConfigGlobalTradde()">
-                    ⚙ MongoDB / Global
+                <button class="tu-btn tu-btn-glass" id="btnTraddeSubirDesfasados" onclick="ejecutarTraddeDesfasados()" style="display:none; background:rgba(245,158,11,0.28); border-color:rgba(251,191,36,0.55);">
+                    ⚡ 2. Subir Desfasados (<span id="tuBtnDesfCount">0</span>)
                 </button>
                 <button class="tu-btn tu-btn-emerald" id="btnTraddeRunAll" onclick="ejecutarTraddeTodo()">
-                    🚀 Subir Todo (30 pasos)
+                    🚀 Subir Todo (30)
+                </button>
+                <button class="tu-btn tu-btn-glass" id="btnTraddeTestConn" onclick="probarConexionesTradde()">
+                    🔌 Conexiones
+                </button>
+                <button class="tu-btn tu-btn-glass" onclick="abrirModalLogsTradde()">
+                    📜 Logs
+                </button>
+                <button class="tu-btn tu-btn-glass" onclick="abrirModalConfigGlobalTradde()">
+                    ⚙ Global
                 </button>
                 <button class="tu-btn tu-btn-danger-glass" id="btnTraddeCancelQueue" onclick="cancelarColaTradde()" style="display:none;">
                     ✕ Cancelar Cola
@@ -5768,9 +5795,12 @@
                     style="flex:1; min-width:220px; max-width:360px; padding:7px 12px; border-radius:9px; border:1px solid #cbd5e1; font-size:12.5px;">
                 <select id="tuFilterEstado" onchange="renderizarTraddeDashboard()" style="padding:7px 10px; border-radius:9px; border:1px solid #cbd5e1; font-size:12.5px; font-weight:600;">
                     <option value="">Todos los estados</option>
+                    <option value="DESFASADO">Desfasados / Vacíos en Mongo</option>
+                    <option value="ALINEADO">Alineados (Force = Mongo)</option>
                     <option value="EJECUTANDO">Ejecutando</option>
                     <option value="EN_COLA">En cola</option>
                     <option value="COMPLETADO">Completados</option>
+                    <option value="OMITIDO">Omitidos (Dependencia)</option>
                     <option value="ERROR">Con error</option>
                     <option value="AUTO">Solo Auto activos</option>
                 </select>
@@ -5905,9 +5935,72 @@
                             <input type="time" id="tuGlobalWinFin" style="width:100%; padding:8px 10px; border-radius:9px; border:1px solid #cbd5e1; font-weight:700;">
                         </div>
                     </div>
+
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:8px;">
+                        <label style="display:flex; align-items:center; justify-content:space-between; font-size:12px; font-weight:700; color:#0f172a; cursor:pointer;">
+                            <span>Guardar logs diarios en disco (logs_tradde/)</span>
+                            <input type="checkbox" id="tuGlobalGuardarLogs">
+                        </label>
+                        <label style="display:flex; align-items:center; justify-content:space-between; font-size:12px; font-weight:700; color:#0f172a; cursor:pointer;">
+                            <span>Registrar auditoría en MongoDB (Auditoria_Api)</span>
+                            <input type="checkbox" id="tuGlobalAuditMongo">
+                        </label>
+                        <label style="display:flex; align-items:center; justify-content:space-between; font-size:12px; font-weight:700; color:#0f172a; cursor:pointer;">
+                            <span>Omitir pasos hijos si falla un maestro padre</span>
+                            <input type="checkbox" id="tuGlobalOmitirDeps">
+                        </label>
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:2px;">
+                            <span style="font-size:12px; font-weight:700; color:#475569;">Retención de archivos log (días)</span>
+                            <input type="number" id="tuGlobalDiasRet" min="1" max="90" value="15" style="width:80px; padding:5px 8px; border-radius:8px; border:1px solid #cbd5e1; font-weight:700; text-align:center;">
+                        </div>
+                    </div>
+
                     <div style="display:flex; justify-content:flex-end; gap:8px; padding-top:8px; border-top:1px solid #e2e8f0;">
                         <button class="tu-btn tu-btn-outline" onclick="cerrarModalConfigGlobalTradde()">Cancelar</button>
                         <button class="tu-btn tu-btn-emerald" onclick="guardarConfigGlobalTradde()">Guardar Parámetros</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL 3: HISTORIAL Y DESCARGA DE LOGS PERSISTENTES -->
+        <div id="modalTraddeLogs" class="tu-modal-backdrop" onclick="cerrarModalLogsTradde()">
+            <div class="tu-modal-card" style="max-width:920px;" onclick="event.stopPropagation()">
+                <div style="padding:15px 20px; background:#0f172a; color:#fff; display:flex; align-items:center; justify-content:space-between;">
+                    <div>
+                        <div style="font-size:15px; font-weight:800;">📜 Logs de Ejecución · TraddeUpdate</div>
+                        <div id="tuLogsEstadoSub" style="font-size:11.5px; opacity:0.8; margin-top:2px;">Archivos diarios en logs_tradde/</div>
+                    </div>
+                    <button onclick="cerrarModalLogsTradde()" style="background:none; border:none; color:#fff; font-size:20px; cursor:pointer;">✕</button>
+                </div>
+                <div style="padding:14px 18px;">
+                    <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <label style="font-size:12px; font-weight:700; color:#475569;">Fecha:</label>
+                            <select id="tuLogsFechaSelect" onchange="cargarLogsTradde(this.value)" style="padding:6px 10px; border-radius:8px; border:1px solid #cbd5e1; font-weight:700; font-size:12.5px;"></select>
+                            <button class="tu-btn tu-btn-sm tu-btn-outline" onclick="cargarLogsTradde(document.getElementById('tuLogsFechaSelect').value)">↻ Refrescar</button>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button class="tu-btn tu-btn-sm tu-btn-emerald" onclick="descargarLogTradde()">📥 Descargar .TXT</button>
+                            <button class="tu-btn tu-btn-sm tu-btn-outline" style="color:#dc2626; border-color:#fca5a5;" onclick="limpiarLogsTradde()">🗑 Limpiar Logs</button>
+                        </div>
+                    </div>
+                    <div style="max-height:420px; overflow:auto; border:1px solid #e2e8f0; border-radius:10px;">
+                        <table class="tu-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha/Hora</th>
+                                    <th>Origen</th>
+                                    <th>Resultado</th>
+                                    <th>Paso / Colección</th>
+                                    <th>Métricas</th>
+                                    <th>Detalle</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tuLogsTableBody">
+                                <tr><td colspan="6" style="text-align:center; padding:24px; color:#64748b;">Cargando logs...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -11283,9 +11376,26 @@ async function ejecutarSincronizacion(modo) {
         const d = traddeDashboardCache;
         if (!d) return;
 
-        // Banner y Switch Global
+        // Banner y Switches Globales
         const chkGlobal = document.getElementById('chkTraddeAutoGlobal');
         if (chkGlobal) chkGlobal.checked = !!d.autoGlobalActivo;
+
+        const chkLogs = document.getElementById('chkTraddeGuardarLogs');
+        if (chkLogs) chkLogs.checked = !!d.guardarLogsDisco;
+
+        const btnDesf = document.getElementById('btnTraddeSubirDesfasados');
+        const desfCount = d.desfasadosSteps || 0;
+        if (btnDesf) {
+            btnDesf.style.display = desfCount > 0 ? 'inline-flex' : 'none';
+            const spanDesf = document.getElementById('tuBtnDesfCount');
+            if (spanDesf) spanDesf.textContent = desfCount;
+        }
+
+        const btnVal = document.getElementById('btnTraddeValidarTodo');
+        if (btnVal) {
+            btnVal.disabled = !!d.isValidating;
+            btnVal.textContent = d.isValidating ? '⏳ Validando...' : '🔍 1. Validar Force vs Mongo';
+        }
 
         const routeLbl = document.getElementById('tuRouteMongoLabel');
         if (routeLbl) routeLbl.textContent = `MongoDB: ${d.mongoDatabase || 'tradde-mixtos'}`;
@@ -11338,9 +11448,11 @@ async function ejecutarSincronizacion(modo) {
             const pasosSec = pasos.filter(p => {
                 if (p.seccionCodigo !== sec.seccionCodigo) return false;
                 if (fEstado === 'AUTO' && !p.autoActivo) return false;
-                if (fEstado && fEstado !== 'AUTO' && p.estado !== fEstado) return false;
+                if (fEstado === 'DESFASADO' && p.semaforoValidacion !== 'DESFASADO' && p.semaforoValidacion !== 'VACIO_MONGO') return false;
+                if (fEstado === 'ALINEADO' && p.semaforoValidacion !== 'ALINEADO') return false;
+                if (fEstado && fEstado !== 'AUTO' && fEstado !== 'DESFASADO' && fEstado !== 'ALINEADO' && p.estado !== fEstado) return false;
                 if (q) {
-                    const hay = `${p.nombrePaso} ${p.coleccionMongoDestino} ${p.origenForce} ${p.descripcion}`.toLowerCase();
+                    const hay = `${p.nombrePaso} ${p.coleccionMongoDestino} ${p.tablasForceOrigen} ${p.descripcion}`.toLowerCase();
                     if (!hay.includes(q)) return false;
                 }
                 return true;
@@ -11361,12 +11473,14 @@ async function ejecutarSincronizacion(modo) {
                             <div style="font-size:11.5px; color:#64748b; margin-top:2px;">
                                 ${sec.pasosCompletados}/${sec.totalPasos} completados ·
                                 ${sec.pasosAutoActivos} en Auto
+                                ${sec.pasosDesfasados > 0 ? ` · <span style="color:#b45309; font-weight:700;">${sec.pasosDesfasados} desfasado(s)</span>` : ''}
                                 ${sec.pasosConError > 0 ? ` · <span style="color:#dc2626; font-weight:700;">${sec.pasosConError} error(es)</span>` : ''}
+                                ${sec.pasosOmitidos > 0 ? ` · <span style="color:#c2410c; font-weight:700;">${sec.pasosOmitidos} omitido(s)</span>` : ''}
                             </div>
                         </div>
                     </div>
-                    <div style="display:flex; align-items:center; gap:12px;" onclick="event.stopPropagation()">
-                        <div style="width:120px;">
+                    <div style="display:flex; align-items:center; gap:8px;" onclick="event.stopPropagation()">
+                        <div style="width:110px;">
                             <div style="display:flex; justify-content:space-between; font-size:10.5px; font-weight:700; color:#475569; margin-bottom:3px;">
                                 <span>Avance</span><span>${sec.progresoSeccionPorcentaje}%</span>
                             </div>
@@ -11374,6 +11488,9 @@ async function ejecutarSincronizacion(modo) {
                                 <div style="height:100%; width:${sec.progresoSeccionPorcentaje}%; background:${sec.pasosConError > 0 ? '#ef4444' : '#10b981'}; transition:width 0.3s;"></div>
                             </div>
                         </div>
+                        <button class="tu-btn tu-btn-sm tu-btn-outline" ${d.isValidating ? 'disabled' : ''} onclick="validarTraddeDiferencias('${sec.seccionCodigo}')" title="Comparar conteos Force vs MongoDB de esta sección">
+                            🔍 Validar
+                        </button>
                         <button class="tu-btn tu-btn-sm tu-btn-emerald" ${secBusy ? 'disabled' : ''} onclick="ejecutarTraddeSeccion('${sec.seccionCodigo}')">
                             ${secBusy ? '⏳ En curso' : '▶ Subir Sección'}
                         </button>
@@ -11386,12 +11503,13 @@ async function ejecutarSincronizacion(modo) {
                     <table class="tu-table">
                         <thead>
                             <tr>
-                                <th style="width:42px;">#</th>
-                                <th>Paso / Destino MongoDB</th>
+                                <th style="width:36px;">#</th>
+                                <th>Paso / Destino MongoDB / Dependencias</th>
+                                <th>Validación (Force vs Mongo)</th>
                                 <th>Estado y Progreso</th>
-                                <th>Métricas (Force → Mongo)</th>
+                                <th>Última Subida</th>
                                 <th>Programación Automática</th>
-                                <th style="text-align:right; width:105px;">Acción</th>
+                                <th style="text-align:right; width:145px;">Acción</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -11429,7 +11547,7 @@ async function ejecutarSincronizacion(modo) {
     }
 
     function renderFilaPasoTradde(p, autoGlobal) {
-        const isSwap = (p.estrategia || '').toLowerCase().includes('swap');
+        const isSwap = (p.estrategiaCarga || '').toLowerCase().includes('swap');
         const stratClass = isSwap ? 'tu-strat-swap' : 'tu-strat-bulk';
         const busy = p.estado === 'EJECUTANDO' || p.estado === 'EN_COLA';
         const estadoLabel = p.estado === 'EN_COLA' ? `EN COLA #${p.posicionCola || ''}` : p.estado.replace('_', ' ');
@@ -11446,21 +11564,51 @@ async function ejecutarSincronizacion(modo) {
         }
 
         const errHtml = p.ultimoError
-            ? `<div style="font-size:11px; color:#dc2626; margin-top:3px; max-width:260px; white-space:normal;" title="${escapeHtmlTradde(p.ultimoError)}">⚠ ${escapeHtmlTradde(p.ultimoError.slice(0, 95))}${p.ultimoError.length > 95 ? '...' : ''}</div>`
+            ? `<div style="font-size:11px; color:#dc2626; margin-top:3px; max-width:240px; white-space:normal;" title="${escapeHtmlTradde(p.ultimoError)}">⚠ ${escapeHtmlTradde(p.ultimoError.slice(0, 85))}${p.ultimoError.length > 85 ? '...' : ''}</div>`
             : `<div style="font-size:11px; color:#64748b; margin-top:2px;">${escapeHtmlTradde(p.faseActual || '')}</div>`;
+
+        const hasDeps = Array.isArray(p.nombresDependencias) && p.nombresDependencias.length > 0;
+        const depsHtml = hasDeps
+            ? `<div class="tu-dep-badge" title="Prerrequisitos obligatorios en cadena">↳ Depende de: ${escapeHtmlTradde(p.nombresDependencias.join(', '))}</div>`
+            : '';
+
+        // Columna de validación Force vs MongoDB
+        const sem = p.semaforoValidacion || 'SIN_VALIDAR';
+        const semText = sem === 'ALINEADO' ? '✓ ALINEADO'
+            : sem === 'DESFASADO' ? '⚠ DESFASADO'
+            : sem === 'VACIO_MONGO' ? '✕ VACÍO EN MONGO'
+            : sem === 'ERROR_VALIDACION' ? '✕ ERROR'
+            : 'SIN VALIDAR';
+        let valDetalle = '<div style="font-size:10.5px; color:#94a3b8; margin-top:2px;">Presiona Validar</div>';
+        if (sem !== 'SIN_VALIDAR' && sem !== 'ERROR_VALIDACION') {
+            const diff = Number(p.diferenciaValidada || 0);
+            const diffStr = diff > 0 ? `+${diff.toLocaleString('es-PE')}` : diff.toLocaleString('es-PE');
+            valDetalle = `<div style="font-size:11px; color:#334155; margin-top:3px; font-variant-numeric:tabular-nums;">
+                F: <strong>${Number(p.conteoForceValidado || 0).toLocaleString('es-PE')}</strong> ·
+                M: <strong>${Number(p.conteoMongoValidado || 0).toLocaleString('es-PE')}</strong>
+                <span style="font-weight:800; color:${diff === 0 ? '#15803d' : '#b45309'};">(${diffStr})</span>
+            </div>`;
+        } else if (sem === 'ERROR_VALIDACION' && p.errorValidacion) {
+            valDetalle = `<div style="font-size:10.5px; color:#dc2626; margin-top:2px;" title="${escapeHtmlTradde(p.errorValidacion)}">${escapeHtmlTradde(p.errorValidacion.slice(0, 40))}...</div>`;
+        }
 
         return `
         <tr>
-            <td style="font-weight:800; color:#64748b; font-family:monospace;">${p.ordenGlobal}</td>
+            <td style="font-weight:800; color:#64748b; font-family:monospace;">${p.orden}</td>
             <td>
                 <div style="font-weight:800; color:#0f172a; font-size:13px;">${escapeHtmlTradde(p.nombrePaso)}</div>
                 <div style="font-size:11px; color:#64748b; margin-top:2px;">
-                    <span style="font-family:monospace; color:#334155;">${escapeHtmlTradde(p.origenForce)}</span>
+                    <span style="font-family:monospace; color:#334155;">${escapeHtmlTradde(p.tablasForceOrigen)}</span>
                     ➔ <strong style="font-family:monospace; color:#0f766e;">${escapeHtmlTradde(p.coleccionMongoDestino)}</strong>
-                    <span class="tu-strat-tag ${stratClass}" style="margin-left:5px;">${escapeHtmlTradde(p.estrategia)}</span>
+                    <span class="tu-strat-tag ${stratClass}" style="margin-left:5px;">${escapeHtmlTradde(p.estrategiaCarga)}</span>
                 </div>
+                ${depsHtml}
             </td>
-            <td style="min-width:170px;">
+            <td style="min-width:155px; white-space:nowrap;">
+                <span class="tu-val-pill tu-val-${sem}">${semText}</span>
+                ${valDetalle}
+            </td>
+            <td style="min-width:160px;">
                 <span class="tu-state-pill tu-st-${p.estado}">${escapeHtmlTradde(estadoLabel)}</span>
                 ${(p.estado === 'EJECUTANDO' || p.estado === 'COMPLETADO') ? `
                 <div class="tu-prog-wrap">
@@ -11473,10 +11621,10 @@ async function ejecutarSincronizacion(modo) {
                 <div style="color:#64748b; font-size:11px; margin-top:2px;">
                     Última: <strong>${formatearFechaHoraTradde(p.ultimaEjecucion)}</strong>
                     ${p.ultimaDuracionSegundos > 0 ? ` · ${p.ultimaDuracionSegundos.toFixed(2)}s` : ''}
-                    ${p.ultimoOrigenDisparo ? ` · [${escapeHtmlTradde(p.ultimoOrigenDisparo)}]` : ''}
+                    ${p.ultimoOrigenDisparo && p.ultimoOrigenDisparo !== '-' ? ` · [${escapeHtmlTradde(p.ultimoOrigenDisparo)}]` : ''}
                 </div>
             </td>
-            <td style="min-width:210px;">
+            <td style="min-width:195px;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <label class="tu-switch" title="Activar/Desactivar Auto para este paso">
                         <input type="checkbox" ${p.autoActivo ? 'checked' : ''} onchange="toggleTraddePasoAuto('${p.stepKey}', this.checked)">
@@ -11489,10 +11637,11 @@ async function ejecutarSincronizacion(modo) {
                     <button class="tu-btn tu-btn-sm tu-btn-outline" style="margin-left:auto;" onclick="abrirModalProgramarPaso('${p.stepKey}')" title="Configurar tiempo de recarga">⏱</button>
                 </div>
             </td>
-            <td style="text-align:right;">
-                <button class="tu-btn tu-btn-sm ${busy ? 'tu-btn-outline' : 'tu-btn-emerald'}" ${busy ? 'disabled' : ''} onclick="ejecutarTraddePaso('${p.stepKey}')">
+            <td style="text-align:right; white-space:nowrap;">
+                <button class="tu-btn tu-btn-sm ${busy ? 'tu-btn-outline' : 'tu-btn-emerald'}" ${busy ? 'disabled' : ''} onclick="ejecutarTraddePaso('${p.stepKey}', false)" title="Subir solo este paso">
                     ${busy ? '⏳' : '▶ Subir'}
                 </button>
+                ${hasDeps ? `<button class="tu-btn tu-btn-sm tu-btn-outline" ${busy ? 'disabled' : ''} onclick="ejecutarTraddePaso('${p.stepKey}', true)" title="Subir primero sus dependencias en orden y luego este paso" style="margin-left:3px;">🔗</button>` : ''}
             </td>
         </tr>`;
     }
@@ -11511,7 +11660,7 @@ async function ejecutarSincronizacion(modo) {
     }
 
     async function ejecutarTraddeTodo() {
-        if (!confirm('¿Deseas encolar los 30 pasos de BDForceGVD → MongoDB (tradde-mixtos) en orden secuencial?')) return;
+        if (!confirm('¿Deseas encolar los 30 pasos de BDForceGVD → MongoDB (tradde-mixtos) respetando el orden de dependencias?')) return;
         await enviarEjecucionTradde({ ejecutarTodo: true });
     }
 
@@ -11519,8 +11668,50 @@ async function ejecutarSincronizacion(modo) {
         await enviarEjecucionTradde({ seccionCodigo });
     }
 
-    async function ejecutarTraddePaso(stepKey) {
-        await enviarEjecucionTradde({ stepKey });
+    async function ejecutarTraddePaso(stepKey, incluirDependencias = false) {
+        await enviarEjecucionTradde({ stepKey, incluirDependencias: !!incluirDependencias });
+    }
+
+    async function ejecutarTraddeDesfasados(seccionCodigo = null) {
+        await enviarEjecucionTradde({ soloDesfasados: true, seccionCodigo, incluirDependencias: false });
+    }
+
+    async function validarTraddeDiferencias(seccionCodigo = null) {
+        const btn = document.getElementById('btnTraddeValidarTodo');
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ Validando...'; }
+        try {
+            const resp = await fetch('/api/sync/tradde/validar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(seccionCodigo ? { seccionCodigo } : {})
+            });
+            if (!resp.ok) throw new Error('Error HTTP ' + resp.status);
+            traddeDashboardCache = await resp.json();
+            renderizarTraddeDashboard();
+            const desf = traddeDashboardCache.desfasadosSteps || 0;
+            mostrarToast(desf > 0
+                ? `Validación lista: ${desf} paso(s) desfasado(s) entre Force y MongoDB.`
+                : 'Validación lista: todos los pasos validados están alineados.', desf > 0 ? 'info' : 'success');
+        } catch (err) {
+            mostrarToast('Error validando Force vs MongoDB: ' + err.message, 'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = '🔍 1. Validar Force vs Mongo'; }
+        }
+    }
+
+    async function toggleTraddeGuardarLogs(activo) {
+        try {
+            const resp = await fetch('/api/sync/tradde/config-global', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ guardarLogsDisco: activo })
+            });
+            if (!resp.ok) throw new Error('Error guardando preferencia de logs');
+            mostrarToast(activo ? 'Guardado de logs diarios ACTIVADO.' : 'Guardado de logs diarios DESACTIVADO.', activo ? 'success' : 'info');
+            cargarTraddeDashboard(true);
+        } catch (err) {
+            mostrarToast(err.message, 'error');
+        }
     }
 
     async function enviarEjecucionTradde(payload) {
@@ -11679,9 +11870,13 @@ async function ejecutarSincronizacion(modo) {
         if (!d) return;
         document.getElementById('tuGlobalMongoUri').value = d.mongoConnectionString || 'mongodb://192.168.2.125:27020/?directConnection=true';
         document.getElementById('tuGlobalMongoDb').value = d.mongoDatabase || 'tradde-mixtos';
-        document.getElementById('tuGlobalBatchSize').value = d.batchSizeMongo || 5000;
+        document.getElementById('tuGlobalBatchSize').value = d.batchSizeMongo || 10000;
         document.getElementById('tuGlobalWinIni').value = d.ventanaInicioDefault || '05:00';
         document.getElementById('tuGlobalWinFin').value = d.ventanaFinDefault || '21:00';
+        document.getElementById('tuGlobalGuardarLogs').checked = !!d.guardarLogsDisco;
+        document.getElementById('tuGlobalAuditMongo').checked = !!d.registrarAuditoriaMongo;
+        document.getElementById('tuGlobalOmitirDeps').checked = !!d.omitirDependientesSiFallaPadre;
+        document.getElementById('tuGlobalDiasRet').value = d.diasRetencionLogs || 15;
         document.getElementById('modalTraddeGlobal').style.display = 'flex';
     }
 
@@ -11692,9 +11887,13 @@ async function ejecutarSincronizacion(modo) {
     async function guardarConfigGlobalTradde() {
         const payload = {
             autoGlobalActivo: !!document.getElementById('chkTraddeAutoGlobal')?.checked,
+            guardarLogsDisco: !!document.getElementById('tuGlobalGuardarLogs')?.checked,
+            registrarAuditoriaMongo: !!document.getElementById('tuGlobalAuditMongo')?.checked,
+            omitirDependientesSiFallaPadre: !!document.getElementById('tuGlobalOmitirDeps')?.checked,
+            diasRetencionLogs: parseInt(document.getElementById('tuGlobalDiasRet').value, 10) || 15,
             mongoConnectionString: document.getElementById('tuGlobalMongoUri').value.trim(),
             mongoDatabase: document.getElementById('tuGlobalMongoDb').value.trim(),
-            batchSizeMongo: parseInt(document.getElementById('tuGlobalBatchSize').value, 10) || 5000,
+            batchSizeMongo: parseInt(document.getElementById('tuGlobalBatchSize').value, 10) || 10000,
             ventanaInicioDefault: document.getElementById('tuGlobalWinIni').value || '05:00',
             ventanaFinDefault: document.getElementById('tuGlobalWinFin').value || '21:00'
         };
@@ -11716,6 +11915,83 @@ async function ejecutarSincronizacion(modo) {
             }
         } catch (err) {
             mostrarToast(err.message, 'error');
+        }
+    }
+
+    async function abrirModalLogsTradde() {
+        document.getElementById('modalTraddeLogs').style.display = 'flex';
+        await cargarLogsTradde('');
+    }
+
+    function cerrarModalLogsTradde() {
+        document.getElementById('modalTraddeLogs').style.display = 'none';
+    }
+
+    async function cargarLogsTradde(fecha) {
+        const tbody = document.getElementById('tuLogsTableBody');
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px; color:#64748b;">Cargando logs...</td></tr>';
+        try {
+            const url = fecha ? `/api/sync/tradde/logs?fecha=${encodeURIComponent(fecha)}` : '/api/sync/tradde/logs';
+            const resp = await fetch(url);
+            const data = await resp.json();
+
+            document.getElementById('tuLogsEstadoSub').textContent = data.guardarLogsDisco
+                ? 'Guardado de logs en disco: ACTIVO (logs_tradde/)'
+                : 'Guardado de logs en disco: DESACTIVADO (solo historial previo)';
+
+            const sel = document.getElementById('tuLogsFechaSelect');
+            const fechas = data.fechasDisponibles || [];
+            if (fechas.length === 0) {
+                sel.innerHTML = `<option value="${escapeHtmlTradde(data.fechaSeleccionada)}">${escapeHtmlTradde(data.fechaSeleccionada)} (sin archivos)</option>`;
+            } else {
+                sel.innerHTML = fechas.map(f => `<option value="${escapeHtmlTradde(f)}" ${f === data.fechaSeleccionada ? 'selected' : ''}>${escapeHtmlTradde(f)}</option>`).join('');
+            }
+
+            const entradas = data.entradas || [];
+            if (entradas.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px; color:#64748b;">No hay ejecuciones registradas para esta fecha.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = entradas.map(e => {
+                const badgeClass = e.resultado === 'EXITO' ? 'tu-st-COMPLETADO'
+                    : e.resultado === 'OMITIDO' ? 'tu-st-OMITIDO' : 'tu-st-ERROR';
+                return `<tr>
+                    <td style="font-family:monospace; font-size:11.5px; white-space:nowrap;">${escapeHtmlTradde(e.fechaHora)}</td>
+                    <td style="font-weight:700; font-size:11px;">${escapeHtmlTradde(e.origen)}</td>
+                    <td><span class="tu-state-pill ${badgeClass}">${escapeHtmlTradde(e.resultado)}</span></td>
+                    <td>
+                        <div style="font-weight:700; font-size:12px;">${escapeHtmlTradde(e.nombrePaso)}</div>
+                        <div style="font-family:monospace; font-size:11px; color:#0f766e;">${escapeHtmlTradde(e.coleccionMongo)}</div>
+                    </td>
+                    <td style="font-size:11.5px; white-space:nowrap;">
+                        F: <strong>${Number(e.filasLeidasForce || 0).toLocaleString('es-PE')}</strong> ·
+                        +${Number(e.docsInsertadosMongo || 0).toLocaleString('es-PE')} / ${Number(e.docsActualizadosMongo || 0).toLocaleString('es-PE')} ·
+                        ${Number(e.duracionSegundos || 0).toFixed(2)}s
+                    </td>
+                    <td style="font-size:11.5px; max-width:260px;">${escapeHtmlTradde(e.mensaje)}</td>
+                </tr>`;
+            }).join('');
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:#dc2626;">Error cargando logs: ${escapeHtmlTradde(err.message)}</td></tr>`;
+        }
+    }
+
+    function descargarLogTradde() {
+        const fecha = document.getElementById('tuLogsFechaSelect')?.value || '';
+        const url = fecha ? `/api/sync/tradde/logs/descargar?fecha=${encodeURIComponent(fecha)}` : '/api/sync/tradde/logs/descargar';
+        window.open(url, '_blank');
+    }
+
+    async function limpiarLogsTradde() {
+        if (!confirm('¿Deseas eliminar todos los archivos de log guardados en logs_tradde/?')) return;
+        try {
+            const resp = await fetch('/api/sync/tradde/logs', { method: 'DELETE' });
+            const data = await resp.json().catch(() => ({}));
+            mostrarToast(data.message || 'Logs eliminados', 'info');
+            await cargarLogsTradde('');
+        } catch (err) {
+            mostrarToast('Error limpiando logs: ' + err.message, 'error');
         }
     }
 

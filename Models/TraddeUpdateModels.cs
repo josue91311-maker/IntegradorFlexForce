@@ -20,6 +20,10 @@ namespace IntegradorFlexForce.Models
     public class TraddeGlobalConfigDto
     {
         public bool AutoGlobalActivo { get; set; } = false;
+        public bool GuardarLogsDisco { get; set; } = true;
+        public bool RegistrarAuditoriaMongo { get; set; } = true;
+        public bool OmitirDependientesSiFallaPadre { get; set; } = true;
+        public int DiasRetencionLogs { get; set; } = 15;
         public string MongoConnectionString { get; set; } = "mongodb://192.168.2.125:27020/?directConnection=true";
         public string MongoDatabase { get; set; } = "tradde-mixtos";
         public string VentanaInicioDefault { get; set; } = "05:00";
@@ -42,13 +46,28 @@ namespace IntegradorFlexForce.Models
         public string EstrategiaCarga { get; set; } = string.Empty;
         public string NombreAppAuditoria { get; set; } = string.Empty;
 
-        // Estado en tiempo real: "EN_ESPERA", "EN_COLA", "EJECUTANDO", "COMPLETADO", "ERROR"
+        // Grafo de dependencias (StepKeys padres y sus nombres legibles)
+        public List<string> DependeDe { get; set; } = new();
+        public List<string> NombresDependencias { get; set; } = new();
+
+        // Estado en tiempo real: "EN_ESPERA", "EN_COLA", "EJECUTANDO", "COMPLETADO", "ERROR", "OMITIDO"
         public string Estado { get; set; } = "EN_ESPERA";
         public bool IsRunning => Estado == "EJECUTANDO";
         public bool IsQueued => Estado == "EN_COLA";
         public int PosicionCola { get; set; }
         public int ProgresoPorcentaje { get; set; }
         public string FaseActual { get; set; } = "Listo para sincronizar";
+
+        // Validación previa Force Nuevo (BDForceGVD) vs MongoDB (tradde-mixtos)
+        public long? ConteoForceValidado { get; set; }
+        public long? ConteoMongoValidado { get; set; }
+        public long? DiferenciaValidada { get; set; }
+        /// <summary>
+        /// "SIN_VALIDAR", "ALINEADO", "DESFASADO", "VACIO_MONGO", "ERROR_VALIDACION"
+        /// </summary>
+        public string SemaforoValidacion { get; set; } = "SIN_VALIDAR";
+        public DateTime? FechaUltimaValidacion { get; set; }
+        public string? ErrorValidacion { get; set; }
 
         // Métricas de última ejecución
         public long FilasLeidasForce { get; set; }
@@ -84,7 +103,9 @@ namespace IntegradorFlexForce.Models
         public int PasosEjecutando { get; set; }
         public int PasosEnCola { get; set; }
         public int PasosConError { get; set; }
+        public int PasosOmitidos { get; set; }
         public int PasosAutoActivos { get; set; }
+        public int PasosDesfasados { get; set; }
         public int ProgresoSeccionPorcentaje { get; set; }
     }
 
@@ -101,6 +122,10 @@ namespace IntegradorFlexForce.Models
     public class TraddeUpdateDashboardDto
     {
         public bool AutoGlobalActivo { get; set; }
+        public bool GuardarLogsDisco { get; set; } = true;
+        public bool RegistrarAuditoriaMongo { get; set; } = true;
+        public bool OmitirDependientesSiFallaPadre { get; set; } = true;
+        public int DiasRetencionLogs { get; set; } = 15;
         public string MongoConnectionStringMasked { get; set; } = string.Empty;
         public string MongoConnectionString { get; set; } = string.Empty;
         public string MongoDatabase { get; set; } = "tradde-mixtos";
@@ -109,13 +134,18 @@ namespace IntegradorFlexForce.Models
         public int BatchSizeMongo { get; set; } = 10000;
 
         public bool IsAnyRunning { get; set; }
+        public bool IsValidating { get; set; }
+        public DateTime? UltimaValidacionGlobal { get; set; }
         public string? CurrentRunningStepKey { get; set; }
         public string? CurrentRunningStepName { get; set; }
         public int QueueCount { get; set; }
         public int TotalSteps { get; set; }
         public int CompletedSteps { get; set; }
         public int ErrorSteps { get; set; }
+        public int OmittedSteps { get; set; }
         public int AutoEnabledSteps { get; set; }
+        public int DesfasadosSteps { get; set; }
+        public int AlineadosSteps { get; set; }
         public long TotalEjecucionesGlobal { get; set; }
         public DateTime? LastWorkerHeartbeat { get; set; }
 
@@ -130,16 +160,28 @@ namespace IntegradorFlexForce.Models
         public string? SeccionCodigo { get; set; }
         public List<string>? StepKeys { get; set; }
         public bool EjecutarTodo { get; set; }
+        public bool IncluirDependencias { get; set; }
+        public bool SoloDesfasados { get; set; }
+    }
+
+    public class TraddeValidateRequestDto
+    {
+        public string? SeccionCodigo { get; set; }
+        public string? StepKey { get; set; }
     }
 
     public class TraddeUpdateGlobalRequestDto
     {
-        public bool AutoGlobalActivo { get; set; }
+        public bool? AutoGlobalActivo { get; set; }
+        public bool? GuardarLogsDisco { get; set; }
+        public bool? RegistrarAuditoriaMongo { get; set; }
+        public bool? OmitirDependientesSiFallaPadre { get; set; }
+        public int? DiasRetencionLogs { get; set; }
         public string? MongoConnectionString { get; set; }
         public string? MongoDatabase { get; set; }
         public string? VentanaInicioDefault { get; set; }
         public string? VentanaFinDefault { get; set; }
-        public int BatchSizeMongo { get; set; } = 10000;
+        public int? BatchSizeMongo { get; set; }
     }
 
     public class TraddeConnectionTestResultDto
@@ -151,5 +193,29 @@ namespace IntegradorFlexForce.Models
         public string MongoMensaje { get; set; } = string.Empty;
         public double MongoLatenciaMs { get; set; }
         public int ColeccionesEncontradas { get; set; }
+    }
+
+    public class TraddeLogFileEntryDto
+    {
+        public string FechaHora { get; set; } = string.Empty;
+        public string RunId { get; set; } = string.Empty;
+        public string StepKey { get; set; } = string.Empty;
+        public string NombrePaso { get; set; } = string.Empty;
+        public string ColeccionMongo { get; set; } = string.Empty;
+        public string Origen { get; set; } = string.Empty;
+        public string Resultado { get; set; } = string.Empty; // EXITO, ERROR, OMITIDO
+        public long FilasLeidasForce { get; set; }
+        public long DocsInsertadosMongo { get; set; }
+        public long DocsActualizadosMongo { get; set; }
+        public double DuracionSegundos { get; set; }
+        public string Mensaje { get; set; } = string.Empty;
+    }
+
+    public class TraddeLogsResponseDto
+    {
+        public string FechaSeleccionada { get; set; } = string.Empty;
+        public bool GuardarLogsDisco { get; set; }
+        public List<string> FechasDisponibles { get; set; } = new();
+        public List<TraddeLogFileEntryDto> Entradas { get; set; } = new();
     }
 }
