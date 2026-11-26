@@ -79,6 +79,7 @@ namespace IntegradorFlexForce.Models
         public long FilasLeidasForce { get; set; }
         public long DocsInsertadosMongo { get; set; }
         public long DocsActualizadosMongo { get; set; }
+        public long DocsOmitidosIdenticos { get; set; }
         public DateTime? UltimaEjecucion { get; set; }
         public string? UltimaFechaDiaria { get; set; }
         public double UltimaDuracionSegundos { get; set; }
@@ -176,6 +177,10 @@ namespace IntegradorFlexForce.Models
         /// true = fuerza recarga FULL completa (Swap Atómico / Full Upsert). false = usa DELTA incremental por FechaCreacion/FechaModificacion.
         /// </summary>
         public bool ForzarFull { get; set; }
+        /// <summary>
+        /// true = Actualización Masiva Sin Borrar: valida por hash 64-bit contra MongoDB y aplica BulkWrite paralelo solo en nuevos y modificados.
+        /// </summary>
+        public bool ModoMasivoSinBorrar { get; set; }
     }
 
     public class TraddeValidateRequestDto

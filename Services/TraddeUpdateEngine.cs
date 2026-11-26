@@ -34,7 +34,7 @@ namespace IntegradorFlexForce.Services
         private IMongoClient? _mongoClient;
         private string _cachedMongoConnStr = string.Empty;
 
-        private sealed record QueueEntry(string StepKey, string Origen, string RunId, bool ForzarFull);
+        private sealed record QueueEntry(string StepKey, string Origen, string RunId, bool ForzarFull, bool ModoMasivoSinBorrar);
 
         private readonly Channel<QueueEntry> _queueChannel = Channel.CreateUnbounded<QueueEntry>(
             new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
@@ -48,6 +48,8 @@ namespace IntegradorFlexForce.Services
 
         private string? _currentRunningKey;
         private DateTime? _activeRunDeltaDesde;
+        private bool _activeRunMasivoSinBorrar;
+        private long _activeRunOmitidosIdenticos;
         private string _activeRunModoEjecutado = "FULL";
         private long _totalEjecucionesGlobal;
         private DateTime? _lastHeartbeat;
@@ -623,7 +625,7 @@ namespace IntegradorFlexForce.Services
                     step.Estado = "EN_COLA";
                     step.PosicionCola = _queuedKeys.Count;
                     step.FaseActual = $"En cola (#{step.PosicionCola}) esperando turno...";
-                    _queueChannel.Writer.TryWrite(new QueueEntry(key, origen, runId, req.ForzarFull));
+                    _queueChannel.Writer.TryWrite(new QueueEntry(key, origen, runId, req.ForzarFull, req.ModoMasivoSinBorrar));
                     added++;
                 }
                 RecalcularPosicionesColaNoLock();
@@ -807,7 +809,7 @@ namespace IntegradorFlexForce.Services
 
                 try
                 {
-                    await EjecutarPasoInternoAsync(key, entry.Origen, entry.RunId, entry.ForzarFull, stoppingToken);
+                    await EjecutarPasoInternoAsync(key, entry.Origen, entry.RunId, entry.ForzarFull, entry.ModoMasivoSinBorrar, stoppingToken);
                 }
                 finally
                 {
@@ -970,7 +972,7 @@ namespace IntegradorFlexForce.Services
             return null;
         }
 
-        private async Task EjecutarPasoInternoAsync(string stepKey, string origen, string runId, bool forzarFull, CancellationToken ct)
+        private async Task EjecutarPasoInternoAsync(string stepKey, string origen, string runId, bool forzarFull, bool modoMasivoSinBorrar, CancellationToken ct)
         {
             if (!_stepsByKey.TryGetValue(stepKey, out var step)) return;
 
@@ -1023,29 +1025,44 @@ namespace IntegradorFlexForce.Services
             var sw = Stopwatch.StartNew();
             var inicioDt = DateTime.Now;
 
-            // Resolver modo DELTA (por FechaCreacion/FechaModificacion) vs FULL
+            // Resolver modo MASIVO (sin borrar, con validación hash) vs DELTA vs FULL
             DateTime? deltaDesde = null;
-            if (!forzarFull && usarDeltaGlobal && step.UltimaSincronizacionWatermark.HasValue)
+            _activeRunMasivoSinBorrar = modoMasivoSinBorrar;
+            _activeRunOmitidosIdenticos = 0;
+
+            if (modoMasivoSinBorrar)
             {
-                deltaDesde = step.UltimaSincronizacionWatermark.Value.AddMinutes(-margenMin);
+                _activeRunDeltaDesde = null;
+                _activeRunModoEjecutado = "MASIVO";
             }
-            _activeRunDeltaDesde = deltaDesde;
-            _activeRunModoEjecutado = deltaDesde.HasValue ? "DELTA" : "FULL";
+            else
+            {
+                if (!forzarFull && usarDeltaGlobal && step.UltimaSincronizacionWatermark.HasValue)
+                {
+                    deltaDesde = step.UltimaSincronizacionWatermark.Value.AddMinutes(-margenMin);
+                }
+                _activeRunDeltaDesde = deltaDesde;
+                _activeRunModoEjecutado = deltaDesde.HasValue ? "DELTA" : "FULL";
+            }
 
             step.Estado = "EJECUTANDO";
             step.PosicionCola = 0;
             step.ProgresoPorcentaje = 5;
-            step.FaseActual = deltaDesde.HasValue
-                ? $"Modo DELTA desde {deltaDesde.Value:dd/MM HH:mm} (BDForceGVD)..."
-                : "Modo FULL: conectando a Force Nuevo (BDForceGVD)...";
+            step.FaseActual = modoMasivoSinBorrar
+                ? "Modo MASIVO (Sin Borrar): validando diferencias contra MongoDB..."
+                : (deltaDesde.HasValue
+                    ? $"Modo DELTA desde {deltaDesde.Value:dd/MM HH:mm} (BDForceGVD)..."
+                    : "Modo FULL: conectando a Force Nuevo (BDForceGVD)...");
             step.UltimoOrigenDisparo = origen;
             step.UltimoModoEjecutado = _activeRunModoEjecutado;
             step.UltimoError = null;
 
             RegistrarEvento(step.StepKey, step.NombrePaso, "INFO", origen,
-                deltaDesde.HasValue
-                    ? $"⚡ [DELTA >= {deltaDesde.Value:dd/MM HH:mm}] Subiendo cambios hacia [{step.ColeccionMongoDestino}]..."
-                    : $"▶ [FULL] Iniciando carga completa hacia MongoDB [{step.ColeccionMongoDestino}]...");
+                modoMasivoSinBorrar
+                    ? $"⚡ [MASIVO SIN BORRAR] Validando y sincronizando cambios hacia [{step.ColeccionMongoDestino}]..."
+                    : (deltaDesde.HasValue
+                        ? $"⚡ [DELTA >= {deltaDesde.Value:dd/MM HH:mm}] Subiendo cambios hacia [{step.ColeccionMongoDestino}]..."
+                        : $"▶ [FULL] Iniciando carga completa hacia MongoDB [{step.ColeccionMongoDestino}]..."));
 
             try
             {
@@ -1824,6 +1841,7 @@ namespace IntegradorFlexForce.Services
                 step.FilasLeidasForce = resultado.leidos;
                 step.DocsInsertadosMongo = resultado.insertados;
                 step.DocsActualizadosMongo = resultado.actualizados;
+                step.DocsOmitidosIdenticos = _activeRunOmitidosIdenticos;
                 step.UltimaEjecucion = finDt;
                 step.UltimaSincronizacionWatermark = inicioDt;
                 step.UltimoModoEjecutado = _activeRunModoEjecutado;
@@ -1834,9 +1852,11 @@ namespace IntegradorFlexForce.Services
                 step.ProgresoPorcentaje = 100;
                 step.Estado = "COMPLETADO";
                 step.FaseActual = $"[{_activeRunModoEjecutado}] Completado en {durSeg:F2}s";
-                step.UltimoMensaje = resultado.leidos == 0 && _activeRunModoEjecutado == "DELTA"
-                    ? $"⚡ [DELTA] Sin cambios nuevos ({durSeg:F2}s)"
-                    : $"✓ [{_activeRunModoEjecutado}] {resultado.leidos:N0} leídos · +{resultado.insertados:N0} nuevos · {resultado.actualizados:N0} act. ({durSeg:F2}s)";
+                step.UltimoMensaje = _activeRunModoEjecutado == "MASIVO"
+                    ? $"⚡ [MASIVO] {resultado.leidos:N0} eval · {_activeRunOmitidosIdenticos:N0} idénticos · +{resultado.insertados:N0} nuevos · {resultado.actualizados:N0} mod ({durSeg:F2}s)"
+                    : (resultado.leidos == 0 && _activeRunModoEjecutado == "DELTA"
+                        ? $"⚡ [DELTA] Sin cambios nuevos ({durSeg:F2}s)"
+                        : $"✓ [{_activeRunModoEjecutado}] {resultado.leidos:N0} leídos · +{resultado.insertados:N0} nuevos · {resultado.actualizados:N0} act. ({durSeg:F2}s)");
 
                 // Persistir nuevo watermark en disco para que la próxima corrida sea DELTA
                 GuardarConfiguracionDisco();
@@ -1935,6 +1955,7 @@ namespace IntegradorFlexForce.Services
             finally
             {
                 _activeRunDeltaDesde = null;
+                _activeRunMasivoSinBorrar = false;
             }
         }
 
@@ -2012,6 +2033,161 @@ namespace IntegradorFlexForce.Services
         }
 
         // =========================================================================
+        // MOTOR MASIVO SIN BORRAR (VALIDACIÓN RÁPIDA HASH 64-BIT + BULK PARALELO)
+        // =========================================================================
+        private static readonly HashSet<string> _camposIgnoradosHash = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "_id", "migration_timestamp", "update", "updated_at", "create", "created_at"
+        };
+
+        private static ulong CalcularHashDocumento64(BsonDocument doc)
+        {
+            const ulong fnvOffset = 14695981039346656037UL;
+            const ulong fnvPrime = 1099511628211UL;
+            ulong hash = fnvOffset;
+
+            var names = doc.Names
+                .Where(n => !_camposIgnoradosHash.Contains(n))
+                .OrderBy(n => n, StringComparer.Ordinal);
+
+            foreach (var name in names)
+            {
+                foreach (char ch in name)
+                {
+                    hash ^= ch;
+                    hash *= fnvPrime;
+                }
+                hash ^= '=';
+                hash *= fnvPrime;
+
+                var val = doc[name];
+                string valStr = val.IsBsonNull ? "<null>" : val.ToString() ?? string.Empty;
+                foreach (char ch in valStr)
+                {
+                    hash ^= ch;
+                    hash *= fnvPrime;
+                }
+                hash ^= '|';
+                hash *= fnvPrime;
+            }
+            return hash;
+        }
+
+        private async Task<(long Leidos, long Insertados, long Actualizados)> SyncMasivoDiffSinBorrarAsync(
+            TraddeStepStatusDto step,
+            IMongoDatabase db,
+            string collectionName,
+            string sqlQuery,
+            Func<SqlDataReader, BsonDocument> mapRow,
+            string keyField,
+            CancellationToken ct,
+            string? setOnInsertDateField = null)
+        {
+            var col = db.GetCollection<BsonDocument>(collectionName);
+
+            // 1. Garantizar índice en el campo clave ANTES de leer/escribir
+            step.FaseActual = $"[MASIVO] Verificando índice [{keyField}] en {collectionName}...";
+            step.ProgresoPorcentaje = 8;
+            await AsegurarIndiceCampoAsync(col, keyField, ct);
+
+            // 2. Cargar mapa ligero Key -> Hash64 desde MongoDB (sin borrar nada)
+            step.FaseActual = $"[MASIVO] Leyendo huellas actuales de {collectionName}...";
+            step.ProgresoPorcentaje = 15;
+            var hashesMongo = new Dictionary<string, ulong>(StringComparer.Ordinal);
+            var findOpts = new FindOptions<BsonDocument> { BatchSize = 20000 };
+            using (var cursor = await col.FindAsync(FilterDefinition<BsonDocument>.Empty, findOpts, ct))
+            {
+                while (await cursor.MoveNextAsync(ct))
+                {
+                    foreach (var d in cursor.Current)
+                    {
+                        if (d.TryGetValue(keyField, out var kVal) && !kVal.IsBsonNull)
+                        {
+                            string kStr = kVal.ToString() ?? string.Empty;
+                            hashesMongo[kStr] = CalcularHashDocumento64(d);
+                        }
+                    }
+                }
+            }
+
+            // 3. Streaming desde Force Nuevo comparando Hash64 y preparando lotes BulkWrite paralelos
+            step.FaseActual = $"[MASIVO] Comparando BDForceGVD vs {hashesMongo.Count:N0} docs en MongoDB...";
+            step.ProgresoPorcentaje = 32;
+
+            const int batchSize = 3000;
+            var pendingTasks = new List<Task<(long Ins, long Mod)>>();
+            using var sem = new SemaphoreSlim(4);
+            var ops = new List<WriteModel<BsonDocument>>(batchSize);
+            long leidos = 0, omitidos = 0;
+            var nowBson = new BsonDateTime(DateTime.UtcNow);
+
+            async Task<(long Ins, long Mod)> FlushBatchAsync(List<WriteModel<BsonDocument>> batchOps)
+            {
+                await sem.WaitAsync(ct);
+                try
+                {
+                    var res = await col.BulkWriteAsync(batchOps, new BulkWriteOptions { IsOrdered = false }, ct);
+                    return (res.Upserts.Count, res.ModifiedCount);
+                }
+                finally
+                {
+                    sem.Release();
+                }
+            }
+
+            using (var conn = new SqlConnection(_sqlForceConnectionString))
+            {
+                await conn.OpenAsync(ct);
+                using var cmd = new SqlCommand(sqlQuery, conn) { CommandTimeout = 300 };
+                using var reader = await cmd.ExecuteReaderAsync(ct);
+
+                while (await reader.ReadAsync(ct))
+                {
+                    leidos++;
+                    var doc = mapRow(reader);
+                    var keyVal = doc[keyField];
+                    string keyStr = keyVal.ToString() ?? string.Empty;
+                    ulong hashSql = CalcularHashDocumento64(doc);
+
+                    if (hashesMongo.TryGetValue(keyStr, out ulong hashExistente) && hashExistente == hashSql)
+                    {
+                        omitidos++;
+                        continue;
+                    }
+
+                    var filter = Builders<BsonDocument>.Filter.Eq(keyField, keyVal);
+                    var updateDoc = new BsonDocument("$set", doc);
+                    if (!string.IsNullOrEmpty(setOnInsertDateField))
+                        updateDoc["$setOnInsert"] = new BsonDocument(setOnInsertDateField, nowBson);
+
+                    ops.Add(new UpdateOneModel<BsonDocument>(filter, updateDoc) { IsUpsert = true });
+
+                    if (ops.Count >= batchSize)
+                    {
+                        var batchCopy = ops;
+                        ops = new List<WriteModel<BsonDocument>>(batchSize);
+                        pendingTasks.Add(FlushBatchAsync(batchCopy));
+                        step.FaseActual = $"[MASIVO] Eval: {leidos:N0} · Idénticos: {omitidos:N0} · Enviando cambios en paralelo...";
+                        step.ProgresoPorcentaje = Math.Min(90, 32 + (int)(leidos / 8000));
+                    }
+                }
+            }
+
+            if (ops.Count > 0)
+                pendingTasks.Add(FlushBatchAsync(ops));
+
+            step.FaseActual = $"[MASIVO] Finalizando {pendingTasks.Count} lote(s) paralelos en {collectionName}...";
+            step.ProgresoPorcentaje = 92;
+
+            var resultados = await Task.WhenAll(pendingTasks);
+            long insertados = resultados.Sum(x => x.Ins);
+            long actualizados = resultados.Sum(x => x.Mod);
+            _activeRunOmitidosIdenticos = omitidos;
+
+            return (leidos, insertados, actualizados);
+        }
+
+        // =========================================================================
         // PATRÓN 1: BULKWRITE UPSERT POR ID_Vega (ÍNDICE PREVIO + DELTA INCREMENTAL)
         // =========================================================================
         private async Task<(long Leidos, long Insertados, long Actualizados)> SyncBulkUpsertPorIdVegaAsync(
@@ -2023,6 +2199,9 @@ namespace IntegradorFlexForce.Services
             CancellationToken ct,
             string keyField = "ID_Vega")
         {
+            if (_activeRunMasivoSinBorrar)
+                return await SyncMasivoDiffSinBorrarAsync(step, db, collectionName, sqlQuery, mapRow, keyField, ct);
+
             var col = db.GetCollection<BsonDocument>(collectionName);
             const int batchSize = 2500;
 
@@ -2111,6 +2290,12 @@ namespace IntegradorFlexForce.Services
             string? migrationStatusType,
             CancellationToken ct)
         {
+            string keyField = step.StepKey == "cli_base_cliente" ? "PKID" : "ID_Vega";
+
+            // Modo MASIVO SIN BORRAR: valida hash 64-bit y actualiza solo cambios en paralelo sin borrar nada
+            if (_activeRunMasivoSinBorrar)
+                return await SyncMasivoDiffSinBorrarAsync(step, db, finalCollectionName, sqlQuery, mapRow, keyField, ct);
+
             // Si estamos en modo DELTA y la colección destino ya existe en MongoDB, hacer Bulk Upsert incremental ultra-rápido!
             if (_activeRunDeltaDesde.HasValue)
             {
@@ -2118,7 +2303,6 @@ namespace IntegradorFlexForce.Services
                     .EstimatedDocumentCountAsync(cancellationToken: ct);
                 if (existing > 0)
                 {
-                    string keyField = step.StepKey == "cli_base_cliente" ? "PKID" : "ID_Vega";
                     return await SyncBulkUpsertPorIdVegaAsync(step, db, finalCollectionName, sqlQuery, mapRow, ct, keyField);
                 }
                 _activeRunModoEjecutado = "FULL";
@@ -2266,6 +2450,25 @@ namespace IntegradorFlexForce.Services
                   AND ISNULL(pp.Eliminado, 0) = 0;";
 
             var col = db.GetCollection<BsonDocument>("nestle_radar_stock");
+
+            if (_activeRunMasivoSinBorrar)
+            {
+                var nowMasivoUtc = DateTime.UtcNow;
+                return await SyncMasivoDiffSinBorrarAsync(step, db, "nestle_radar_stock", sqlStock, r =>
+                {
+                    int idProd = GetInt(r, 0);
+                    int idSuc = GetInt(r, 1);
+                    return new BsonDocument
+                    {
+                        ["ID_Producto"] = idProd,
+                        ["IDSucursal"] = idSuc,
+                        ["StockUnidad"] = GetInt(r, 2),
+                        ["isActive"] = GetBool(r, 3),
+                        ["clave_compuesta"] = $"{idProd}_{idSuc}",
+                        ["update"] = nowMasivoUtc
+                    };
+                }, "clave_compuesta", ct, setOnInsertDateField: "create");
+            }
             try
             {
                 await col.Indexes.CreateOneAsync(
@@ -2384,6 +2587,31 @@ namespace IntegradorFlexForce.Services
                 INNER JOIN dbo.prc_PrecioEscala pp WITH (NOLOCK) ON pp.IDUnidadItemListaPrecios = p.ID
                 WHERE ISNULL(ll.Estado, 1) = 1
                   AND ISNULL(ll.Eliminado, 0) = 0;";
+
+            // MODO MASIVO SIN BORRAR para Lista de Precios (valida por hash 64-bit y actualiza solo cambios en paralelo)
+            if (_activeRunMasivoSinBorrar)
+            {
+                var nowMasivoBson = new BsonDateTime(DateTime.UtcNow);
+                return await SyncMasivoDiffSinBorrarAsync(step, db, mainName, sqlPrecios, r =>
+                {
+                    int idProd = GetInt(r, 0);
+                    int idUnid = GetInt(r, 1);
+                    decimal precioDec = r.IsDBNull(4) ? 0m : r.GetDecimal(4);
+                    string canal = GetStr(r, 5);
+                    string clave = $"{idProd}_{idUnid}_{canal}";
+                    return new BsonDocument
+                    {
+                        ["Id_Producto"] = idProd,
+                        ["Id_Unidad"] = idUnid,
+                        ["Desde"] = GetInt(r, 2),
+                        ["Hasta"] = GetInt(r, 3),
+                        ["Precio"] = new BsonDecimal128(new Decimal128(Math.Round(precioDec, 6))),
+                        ["Canal"] = canal,
+                        ["clave_compuesta"] = clave,
+                        ["updated_at"] = nowMasivoBson
+                    };
+                }, "clave_compuesta", ct, setOnInsertDateField: "created_at");
+            }
 
             // MODO DELTA ULTRA-RÁPIDO para Lista de Precios (solo escalas/precios nuevos o modificados)
             if (_activeRunDeltaDesde.HasValue)

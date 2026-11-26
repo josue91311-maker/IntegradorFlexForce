@@ -5723,6 +5723,9 @@
                 <button class="tu-btn tu-btn-glass" id="btnTraddeSubirDesfasados" onclick="ejecutarTraddeDesfasados()" style="display:none; background:rgba(245,158,11,0.28); border-color:rgba(251,191,36,0.55);">
                     ⚡ 2. Subir Desfasados (<span id="tuBtnDesfCount">0</span>)
                 </button>
+                <button class="tu-btn tu-btn-glass" id="btnTraddeMasivoTodo" onclick="ejecutarTraddeMasivoTodo()" style="background:rgba(139,92,246,0.28); border-color:rgba(196,181,253,0.55);" title="Actualización masiva profesional sin borrar nada: valida hash 64-bit y sube solo los cambios en paralelo">
+                    ⚡ Masivo (Sin Borrar)
+                </button>
                 <button class="tu-btn tu-btn-emerald" id="btnTraddeRunAll" onclick="ejecutarTraddeTodo()">
                     🚀 Subir Todo (30)
                 </button>
@@ -11502,7 +11505,10 @@ async function ejecutarSincronizacion(modo) {
                         <button class="tu-btn tu-btn-sm tu-btn-outline" ${d.isValidating ? 'disabled' : ''} onclick="validarTraddeDiferencias('${sec.seccionCodigo}')" title="Comparar conteos Force vs MongoDB de esta sección">
                             🔍 Validar
                         </button>
-                        <button class="tu-btn tu-btn-sm tu-btn-emerald" ${secBusy ? 'disabled' : ''} onclick="ejecutarTraddeSeccion('${sec.seccionCodigo}')">
+                        <button class="tu-btn tu-btn-sm tu-btn-outline" ${secBusy ? 'disabled' : ''} onclick="ejecutarTraddeSeccion('${sec.seccionCodigo}', true)" style="color:#6d28d9; border-color:#c4b5fd; background:#f5f3ff;" title="Actualización masiva sin borrar nada (valida hash 64-bit y actualiza solo cambios en paralelo)">
+                            ⚡ Masivo
+                        </button>
+                        <button class="tu-btn tu-btn-sm tu-btn-emerald" ${secBusy ? 'disabled' : ''} onclick="ejecutarTraddeSeccion('${sec.seccionCodigo}', false)">
                             ${secBusy ? '⏳ En curso' : '▶ Subir Sección'}
                         </button>
                         <button class="tu-btn tu-btn-sm tu-btn-outline" onclick="toggleSeccionTradde('${sec.seccionCodigo}')">
@@ -11628,11 +11634,11 @@ async function ejecutarSincronizacion(modo) {
                 ${errHtml}
             </td>
             <td style="font-size:11.5px; color:#334155; font-variant-numeric:tabular-nums; white-space:nowrap;">
-                <div>Force: <strong>${(p.filasLeidasForce || 0).toLocaleString('es-PE')}</strong> · Mongo: <strong style="color:#059669;">+${(p.docsInsertadosMongo || 0).toLocaleString('es-PE')}</strong> / ${(p.docsActualizadosMongo || 0).toLocaleString('es-PE')} mod</div>
+                <div>Force: <strong>${(p.filasLeidasForce || 0).toLocaleString('es-PE')}</strong> · Mongo: <strong style="color:#059669;">+${(p.docsInsertadosMongo || 0).toLocaleString('es-PE')}</strong> / ${(p.docsActualizadosMongo || 0).toLocaleString('es-PE')} mod${p.docsOmitidosIdenticos > 0 ? ` · <span style="color:#64748b;">${p.docsOmitidosIdenticos.toLocaleString('es-PE')} igual</span>` : ''}</div>
                 <div style="color:#64748b; font-size:11px; margin-top:2px;">
                     Última: <strong>${formatearFechaHoraTradde(p.ultimaEjecucion)}</strong>
                     ${p.ultimaDuracionSegundos > 0 ? ` · ${p.ultimaDuracionSegundos.toFixed(2)}s` : ''}
-                    ${p.ultimoModoEjecutado && p.ultimoModoEjecutado !== '-' ? ` · <span style="font-weight:800; color:${p.ultimoModoEjecutado === 'DELTA' ? '#0284c7' : '#7c3aed'};">[${escapeHtmlTradde(p.ultimoModoEjecutado)}]</span>` : ''}
+                    ${p.ultimoModoEjecutado && p.ultimoModoEjecutado !== '-' ? ` · <span style="font-weight:800; color:${p.ultimoModoEjecutado === 'DELTA' ? '#0284c7' : (p.ultimoModoEjecutado === 'MASIVO' ? '#6d28d9' : '#0f766e')};">[${escapeHtmlTradde(p.ultimoModoEjecutado)}]</span>` : ''}
                 </div>
                 ${p.ultimaSincronizacionWatermark ? `<div style="color:#0f766e; font-size:10.5px; margin-top:1px;">⚡ Watermark: ${formatearFechaHoraTradde(p.ultimaSincronizacionWatermark)}</div>` : ''}
             </td>
@@ -11650,11 +11656,12 @@ async function ejecutarSincronizacion(modo) {
                 </div>
             </td>
             <td style="text-align:right; white-space:nowrap;">
-                <button class="tu-btn tu-btn-sm ${busy ? 'tu-btn-outline' : 'tu-btn-emerald'}" ${busy ? 'disabled' : ''} onclick="ejecutarTraddePaso('${p.stepKey}', false, false)" title="Subir en modo Delta rápido (solo nuevos/modificados)">
+                <button class="tu-btn tu-btn-sm ${busy ? 'tu-btn-outline' : 'tu-btn-emerald'}" ${busy ? 'disabled' : ''} onclick="ejecutarTraddePaso('${p.stepKey}', false, false, false)" title="Subir en modo Delta rápido (solo nuevos/modificados)">
                     ${busy ? '⏳' : '▶ Subir'}
                 </button>
-                <button class="tu-btn tu-btn-sm tu-btn-outline" ${busy ? 'disabled' : ''} onclick="ejecutarTraddePaso('${p.stepKey}', false, true)" title="Forzar recarga FULL completa de este paso" style="margin-left:3px;">↻</button>
-                ${hasDeps ? `<button class="tu-btn tu-btn-sm tu-btn-outline" ${busy ? 'disabled' : ''} onclick="ejecutarTraddePaso('${p.stepKey}', true, false)" title="Subir primero sus dependencias en orden y luego este paso" style="margin-left:3px;">🔗</button>` : ''}
+                <button class="tu-btn tu-btn-sm tu-btn-outline" ${busy ? 'disabled' : ''} onclick="ejecutarTraddePaso('${p.stepKey}', false, false, true)" title="Actualización Masiva SIN BORRAR: valida hash 64-bit y actualiza solo cambios en paralelo" style="margin-left:3px; color:#6d28d9; border-color:#c4b5fd; background:#f5f3ff;">⚡</button>
+                <button class="tu-btn tu-btn-sm tu-btn-outline" ${busy ? 'disabled' : ''} onclick="ejecutarTraddePaso('${p.stepKey}', false, true, false)" title="Forzar recarga FULL completa de este paso" style="margin-left:3px;">↻</button>
+                ${hasDeps ? `<button class="tu-btn tu-btn-sm tu-btn-outline" ${busy ? 'disabled' : ''} onclick="ejecutarTraddePaso('${p.stepKey}', true, false, false)" title="Subir primero sus dependencias en orden y luego este paso" style="margin-left:3px;">🔗</button>` : ''}
             </td>
         </tr>`;
     }
@@ -11677,12 +11684,22 @@ async function ejecutarSincronizacion(modo) {
         await enviarEjecucionTradde({ ejecutarTodo: true });
     }
 
-    async function ejecutarTraddeSeccion(seccionCodigo) {
-        await enviarEjecucionTradde({ seccionCodigo });
+    async function ejecutarTraddeMasivoTodo() {
+        if (!confirm('¿Ejecutar Actualización Masiva SIN BORRAR en todos los 30 pasos?\n\n• No borra ningún documento de MongoDB.\n• Compara por hash 64-bit contra BDForceGVD y actualiza en paralelo SOLO los nuevos o modificados.')) return;
+        await enviarEjecucionTradde({ ejecutarTodo: true, modoMasivoSinBorrar: true });
     }
 
-    async function ejecutarTraddePaso(stepKey, incluirDependencias = false, forzarFull = false) {
-        await enviarEjecucionTradde({ stepKey, incluirDependencias: !!incluirDependencias, forzarFull: !!forzarFull });
+    async function ejecutarTraddeSeccion(seccionCodigo, modoMasivoSinBorrar = false) {
+        await enviarEjecucionTradde({ seccionCodigo, modoMasivoSinBorrar: !!modoMasivoSinBorrar });
+    }
+
+    async function ejecutarTraddePaso(stepKey, incluirDependencias = false, forzarFull = false, modoMasivoSinBorrar = false) {
+        await enviarEjecucionTradde({
+            stepKey,
+            incluirDependencias: !!incluirDependencias,
+            forzarFull: !!forzarFull,
+            modoMasivoSinBorrar: !!modoMasivoSinBorrar
+        });
     }
 
     async function toggleTraddeModoDelta(activo) {
