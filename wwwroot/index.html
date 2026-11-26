@@ -11558,15 +11558,15 @@ async function ejecutarSincronizacion(modo) {
             const resp = await fetch('/api/sync/tradde/test-conexion', { method: 'POST' });
             const r = await resp.json();
             banner.style.display = 'block';
-            const okAll = r.forceSqlOk && r.mongoOk;
+            const okAll = r.forceOk && r.mongoOk;
             banner.style.borderColor = okAll ? '#6ee7b7' : '#fca5a5';
             banner.style.background = okAll ? '#ecfdf5' : '#fef2f2';
             banner.innerHTML = `
                 <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;">
                     <div>
-                        <strong>SQL Force Nuevo (BDForceGVD):</strong> ${r.forceSqlOk ? '✅' : '❌'} ${escapeHtmlTradde(r.forceSqlMensaje)} (${r.forceLatencyMs}ms)
+                        <strong>SQL Force Nuevo (BDForceGVD):</strong> ${r.forceOk ? '✅' : '❌'} ${escapeHtmlTradde(r.forceMensaje)} (${Number(r.forceLatenciaMs || 0).toFixed(1)} ms)
                         &nbsp;&nbsp;|&nbsp;&nbsp;
-                        <strong>MongoDB:</strong> ${r.mongoOk ? '✅' : '❌'} ${escapeHtmlTradde(r.mongoMensaje)} (${r.mongoLatencyMs}ms)
+                        <strong>MongoDB:</strong> ${r.mongoOk ? '✅' : '❌'} ${escapeHtmlTradde(r.mongoMensaje)} (${Number(r.mongoLatenciaMs || 0).toFixed(1)} ms)
                     </div>
                     <button onclick="document.getElementById('tuConnBanner').style.display='none'" style="background:none; border:none; cursor:pointer; font-weight:800; color:#475569;">✕</button>
                 </div>`;
@@ -11691,6 +11691,7 @@ async function ejecutarSincronizacion(modo) {
 
     async function guardarConfigGlobalTradde() {
         const payload = {
+            autoGlobalActivo: !!document.getElementById('chkTraddeAutoGlobal')?.checked,
             mongoConnectionString: document.getElementById('tuGlobalMongoUri').value.trim(),
             mongoDatabase: document.getElementById('tuGlobalMongoDb').value.trim(),
             batchSizeMongo: parseInt(document.getElementById('tuGlobalBatchSize').value, 10) || 5000,
