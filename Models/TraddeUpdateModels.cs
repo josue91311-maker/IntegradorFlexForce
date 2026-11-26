@@ -15,11 +15,17 @@ namespace IntegradorFlexForce.Models
         public string HoraDiaria { get; set; } = "06:00";
         public string VentanaInicio { get; set; } = "05:00";
         public string VentanaFin { get; set; } = "21:00";
+        /// <summary>
+        /// Watermark persistido de la última sincronización exitosa (para consultas DELTA por FechaCreacion/FechaModificacion)
+        /// </summary>
+        public DateTime? UltimaSincronizacionWatermark { get; set; }
     }
 
     public class TraddeGlobalConfigDto
     {
         public bool AutoGlobalActivo { get; set; } = false;
+        public bool UsarModoDeltaPorDefecto { get; set; } = true;
+        public int MargenSeguridadDeltaMinutos { get; set; } = 5;
         public bool GuardarLogsDisco { get; set; } = true;
         public bool RegistrarAuditoriaMongo { get; set; } = true;
         public bool OmitirDependientesSiFallaPadre { get; set; } = true;
@@ -79,6 +85,8 @@ namespace IntegradorFlexForce.Models
         public int TotalEjecuciones { get; set; }
         public int TotalErrores { get; set; }
         public string UltimoOrigenDisparo { get; set; } = "-";
+        public string UltimoModoEjecutado { get; set; } = "-"; // DELTA o FULL
+        public DateTime? UltimaSincronizacionWatermark { get; set; }
         public string UltimoMensaje { get; set; } = "Sin ejecución previa";
         public string? UltimoError { get; set; }
 
@@ -122,6 +130,8 @@ namespace IntegradorFlexForce.Models
     public class TraddeUpdateDashboardDto
     {
         public bool AutoGlobalActivo { get; set; }
+        public bool UsarModoDeltaPorDefecto { get; set; } = true;
+        public int MargenSeguridadDeltaMinutos { get; set; } = 5;
         public bool GuardarLogsDisco { get; set; } = true;
         public bool RegistrarAuditoriaMongo { get; set; } = true;
         public bool OmitirDependientesSiFallaPadre { get; set; } = true;
@@ -162,6 +172,10 @@ namespace IntegradorFlexForce.Models
         public bool EjecutarTodo { get; set; }
         public bool IncluirDependencias { get; set; }
         public bool SoloDesfasados { get; set; }
+        /// <summary>
+        /// true = fuerza recarga FULL completa (Swap Atómico / Full Upsert). false = usa DELTA incremental por FechaCreacion/FechaModificacion.
+        /// </summary>
+        public bool ForzarFull { get; set; }
     }
 
     public class TraddeValidateRequestDto
@@ -173,6 +187,8 @@ namespace IntegradorFlexForce.Models
     public class TraddeUpdateGlobalRequestDto
     {
         public bool? AutoGlobalActivo { get; set; }
+        public bool? UsarModoDeltaPorDefecto { get; set; }
+        public int? MargenSeguridadDeltaMinutos { get; set; }
         public bool? GuardarLogsDisco { get; set; }
         public bool? RegistrarAuditoriaMongo { get; set; }
         public bool? OmitirDependientesSiFallaPadre { get; set; }

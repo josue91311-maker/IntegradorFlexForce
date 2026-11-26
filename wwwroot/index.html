@@ -5701,6 +5701,14 @@
                     </label>
                 </div>
 
+                <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.22); padding:6px 11px; border-radius:10px;" title="Subir solo nuevos y modificados (FechaCreacion / FechaModificacion)">
+                    <span style="font-size:11.5px; font-weight:700;">⚡ Delta</span>
+                    <label class="tu-switch">
+                        <input type="checkbox" id="chkTraddeModoDelta" onchange="toggleTraddeModoDelta(this.checked)">
+                        <span class="tu-slider"></span>
+                    </label>
+                </div>
+
                 <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.22); padding:6px 11px; border-radius:10px;" title="Guardar logs diarios de ejecución en disco">
                     <span style="font-size:11.5px; font-weight:700;">Guardar Logs</span>
                     <label class="tu-switch">
@@ -11383,6 +11391,9 @@ async function ejecutarSincronizacion(modo) {
         const chkLogs = document.getElementById('chkTraddeGuardarLogs');
         if (chkLogs) chkLogs.checked = !!d.guardarLogsDisco;
 
+        const chkDelta = document.getElementById('chkTraddeModoDelta');
+        if (chkDelta) chkDelta.checked = d.usarModoDeltaPorDefecto !== false;
+
         const btnDesf = document.getElementById('btnTraddeSubirDesfasados');
         const desfCount = d.desfasadosSteps || 0;
         if (btnDesf) {
@@ -11621,8 +11632,9 @@ async function ejecutarSincronizacion(modo) {
                 <div style="color:#64748b; font-size:11px; margin-top:2px;">
                     Última: <strong>${formatearFechaHoraTradde(p.ultimaEjecucion)}</strong>
                     ${p.ultimaDuracionSegundos > 0 ? ` · ${p.ultimaDuracionSegundos.toFixed(2)}s` : ''}
-                    ${p.ultimoOrigenDisparo && p.ultimoOrigenDisparo !== '-' ? ` · [${escapeHtmlTradde(p.ultimoOrigenDisparo)}]` : ''}
+                    ${p.ultimoModoEjecutado && p.ultimoModoEjecutado !== '-' ? ` · <span style="font-weight:800; color:${p.ultimoModoEjecutado === 'DELTA' ? '#0284c7' : '#7c3aed'};">[${escapeHtmlTradde(p.ultimoModoEjecutado)}]</span>` : ''}
                 </div>
+                ${p.ultimaSincronizacionWatermark ? `<div style="color:#0f766e; font-size:10.5px; margin-top:1px;">⚡ Watermark: ${formatearFechaHoraTradde(p.ultimaSincronizacionWatermark)}</div>` : ''}
             </td>
             <td style="min-width:195px;">
                 <div style="display:flex; align-items:center; gap:8px;">
@@ -11638,10 +11650,11 @@ async function ejecutarSincronizacion(modo) {
                 </div>
             </td>
             <td style="text-align:right; white-space:nowrap;">
-                <button class="tu-btn tu-btn-sm ${busy ? 'tu-btn-outline' : 'tu-btn-emerald'}" ${busy ? 'disabled' : ''} onclick="ejecutarTraddePaso('${p.stepKey}', false)" title="Subir solo este paso">
+                <button class="tu-btn tu-btn-sm ${busy ? 'tu-btn-outline' : 'tu-btn-emerald'}" ${busy ? 'disabled' : ''} onclick="ejecutarTraddePaso('${p.stepKey}', false, false)" title="Subir en modo Delta rápido (solo nuevos/modificados)">
                     ${busy ? '⏳' : '▶ Subir'}
                 </button>
-                ${hasDeps ? `<button class="tu-btn tu-btn-sm tu-btn-outline" ${busy ? 'disabled' : ''} onclick="ejecutarTraddePaso('${p.stepKey}', true)" title="Subir primero sus dependencias en orden y luego este paso" style="margin-left:3px;">🔗</button>` : ''}
+                <button class="tu-btn tu-btn-sm tu-btn-outline" ${busy ? 'disabled' : ''} onclick="ejecutarTraddePaso('${p.stepKey}', false, true)" title="Forzar recarga FULL completa de este paso" style="margin-left:3px;">↻</button>
+                ${hasDeps ? `<button class="tu-btn tu-btn-sm tu-btn-outline" ${busy ? 'disabled' : ''} onclick="ejecutarTraddePaso('${p.stepKey}', true, false)" title="Subir primero sus dependencias en orden y luego este paso" style="margin-left:3px;">🔗</button>` : ''}
             </td>
         </tr>`;
     }
@@ -11668,8 +11681,25 @@ async function ejecutarSincronizacion(modo) {
         await enviarEjecucionTradde({ seccionCodigo });
     }
 
-    async function ejecutarTraddePaso(stepKey, incluirDependencias = false) {
-        await enviarEjecucionTradde({ stepKey, incluirDependencias: !!incluirDependencias });
+    async function ejecutarTraddePaso(stepKey, incluirDependencias = false, forzarFull = false) {
+        await enviarEjecucionTradde({ stepKey, incluirDependencias: !!incluirDependencias, forzarFull: !!forzarFull });
+    }
+
+    async function toggleTraddeModoDelta(activo) {
+        try {
+            const resp = await fetch('/api/sync/tradde/config-global', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ usarModoDeltaPorDefecto: activo })
+            });
+            if (!resp.ok) throw new Error('Error guardando modo Delta');
+            mostrarToast(activo
+                ? 'Modo DELTA Incremental ACTIVADO (solo nuevos y modificados).'
+                : 'Modo FULL Completo activado por defecto.', 'success');
+            cargarTraddeDashboard(true);
+        } catch (err) {
+            mostrarToast(err.message, 'error');
+        }
     }
 
     async function ejecutarTraddeDesfasados(seccionCodigo = null) {

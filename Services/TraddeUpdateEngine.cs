@@ -34,7 +34,7 @@ namespace IntegradorFlexForce.Services
         private IMongoClient? _mongoClient;
         private string _cachedMongoConnStr = string.Empty;
 
-        private sealed record QueueEntry(string StepKey, string Origen, string RunId);
+        private sealed record QueueEntry(string StepKey, string Origen, string RunId, bool ForzarFull);
 
         private readonly Channel<QueueEntry> _queueChannel = Channel.CreateUnbounded<QueueEntry>(
             new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
@@ -47,6 +47,8 @@ namespace IntegradorFlexForce.Services
         private readonly object _eventosLock = new();
 
         private string? _currentRunningKey;
+        private DateTime? _activeRunDeltaDesde;
+        private string _activeRunModoEjecutado = "FULL";
         private long _totalEjecucionesGlobal;
         private DateTime? _lastHeartbeat;
         private volatile bool _isValidating;
@@ -314,6 +316,9 @@ namespace IntegradorFlexForce.Services
                     if (saved == null) return;
 
                     _config.AutoGlobalActivo = saved.AutoGlobalActivo;
+                    _config.UsarModoDeltaPorDefecto = saved.UsarModoDeltaPorDefecto;
+                    if (saved.MargenSeguridadDeltaMinutos >= 0)
+                        _config.MargenSeguridadDeltaMinutos = Math.Clamp(saved.MargenSeguridadDeltaMinutos, 0, 120);
                     _config.GuardarLogsDisco = saved.GuardarLogsDisco;
                     _config.RegistrarAuditoriaMongo = saved.RegistrarAuditoriaMongo;
                     _config.OmitirDependientesSiFallaPadre = saved.OmitirDependientesSiFallaPadre;
@@ -342,6 +347,7 @@ namespace IntegradorFlexForce.Services
                                 step.HoraDiaria = string.IsNullOrWhiteSpace(sch.HoraDiaria) ? "06:00" : sch.HoraDiaria.Trim();
                                 step.VentanaInicio = string.IsNullOrWhiteSpace(sch.VentanaInicio) ? _config.VentanaInicioDefault : sch.VentanaInicio.Trim();
                                 step.VentanaFin = string.IsNullOrWhiteSpace(sch.VentanaFin) ? _config.VentanaFinDefault : sch.VentanaFin.Trim();
+                                step.UltimaSincronizacionWatermark = sch.UltimaSincronizacionWatermark;
                             }
                         }
                     }
@@ -367,7 +373,8 @@ namespace IntegradorFlexForce.Services
                         IntervaloMinutos = s.IntervaloMinutos,
                         HoraDiaria = s.HoraDiaria,
                         VentanaInicio = s.VentanaInicio,
-                        VentanaFin = s.VentanaFin
+                        VentanaFin = s.VentanaFin,
+                        UltimaSincronizacionWatermark = s.UltimaSincronizacionWatermark
                     }).ToList();
 
                     string json = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
@@ -388,6 +395,10 @@ namespace IntegradorFlexForce.Services
             {
                 if (req.AutoGlobalActivo.HasValue)
                     _config.AutoGlobalActivo = req.AutoGlobalActivo.Value;
+                if (req.UsarModoDeltaPorDefecto.HasValue)
+                    _config.UsarModoDeltaPorDefecto = req.UsarModoDeltaPorDefecto.Value;
+                if (req.MargenSeguridadDeltaMinutos.HasValue)
+                    _config.MargenSeguridadDeltaMinutos = Math.Clamp(req.MargenSeguridadDeltaMinutos.Value, 0, 120);
                 if (req.GuardarLogsDisco.HasValue)
                     _config.GuardarLogsDisco = req.GuardarLogsDisco.Value;
                 if (req.RegistrarAuditoriaMongo.HasValue)
@@ -612,7 +623,7 @@ namespace IntegradorFlexForce.Services
                     step.Estado = "EN_COLA";
                     step.PosicionCola = _queuedKeys.Count;
                     step.FaseActual = $"En cola (#{step.PosicionCola}) esperando turno...";
-                    _queueChannel.Writer.TryWrite(new QueueEntry(key, origen, runId));
+                    _queueChannel.Writer.TryWrite(new QueueEntry(key, origen, runId, req.ForzarFull));
                     added++;
                 }
                 RecalcularPosicionesColaNoLock();
@@ -796,7 +807,7 @@ namespace IntegradorFlexForce.Services
 
                 try
                 {
-                    await EjecutarPasoInternoAsync(key, entry.Origen, entry.RunId, stoppingToken);
+                    await EjecutarPasoInternoAsync(key, entry.Origen, entry.RunId, entry.ForzarFull, stoppingToken);
                 }
                 finally
                 {
@@ -814,13 +825,15 @@ namespace IntegradorFlexForce.Services
         public TraddeUpdateDashboardDto ObtenerDashboardSnapshot()
         {
             var ahora = DateTime.Now;
-            bool globalAuto, guardarLogs, regAudit, omitirDeps;
+            bool globalAuto, usarDelta, guardarLogs, regAudit, omitirDeps;
             string mongoConn, mongoDb, winIni, winFin;
-            int batchSize, diasRet;
+            int batchSize, diasRet, margenDelta;
 
             lock (_configLock)
             {
                 globalAuto = _config.AutoGlobalActivo;
+                usarDelta = _config.UsarModoDeltaPorDefecto;
+                margenDelta = _config.MargenSeguridadDeltaMinutos;
                 guardarLogs = _config.GuardarLogsDisco;
                 regAudit = _config.RegistrarAuditoriaMongo;
                 omitirDeps = _config.OmitirDependientesSiFallaPadre;
@@ -890,6 +903,8 @@ namespace IntegradorFlexForce.Services
             return new TraddeUpdateDashboardDto
             {
                 AutoGlobalActivo = globalAuto,
+                UsarModoDeltaPorDefecto = usarDelta,
+                MargenSeguridadDeltaMinutos = margenDelta,
                 GuardarLogsDisco = guardarLogs,
                 RegistrarAuditoriaMongo = regAudit,
                 OmitirDependientesSiFallaPadre = omitirDeps,
@@ -955,16 +970,20 @@ namespace IntegradorFlexForce.Services
             return null;
         }
 
-        private async Task EjecutarPasoInternoAsync(string stepKey, string origen, string runId, CancellationToken ct)
+        private async Task EjecutarPasoInternoAsync(string stepKey, string origen, string runId, bool forzarFull, CancellationToken ct)
         {
             if (!_stepsByKey.TryGetValue(stepKey, out var step)) return;
 
             bool omitirSiFallaPadre;
             bool regAuditMongo;
+            bool usarDeltaGlobal;
+            int margenMin;
             lock (_configLock)
             {
                 omitirSiFallaPadre = _config.OmitirDependientesSiFallaPadre;
                 regAuditMongo = _config.RegistrarAuditoriaMongo;
+                usarDeltaGlobal = _config.UsarModoDeltaPorDefecto;
+                margenMin = _config.MargenSeguridadDeltaMinutos;
             }
 
             // Protección de cadena de dependencias: si falló un maestro padre en esta misma corrida, omitir hijos
@@ -1004,15 +1023,29 @@ namespace IntegradorFlexForce.Services
             var sw = Stopwatch.StartNew();
             var inicioDt = DateTime.Now;
 
+            // Resolver modo DELTA (por FechaCreacion/FechaModificacion) vs FULL
+            DateTime? deltaDesde = null;
+            if (!forzarFull && usarDeltaGlobal && step.UltimaSincronizacionWatermark.HasValue)
+            {
+                deltaDesde = step.UltimaSincronizacionWatermark.Value.AddMinutes(-margenMin);
+            }
+            _activeRunDeltaDesde = deltaDesde;
+            _activeRunModoEjecutado = deltaDesde.HasValue ? "DELTA" : "FULL";
+
             step.Estado = "EJECUTANDO";
             step.PosicionCola = 0;
             step.ProgresoPorcentaje = 5;
-            step.FaseActual = "Conectando a Force Nuevo (BDForceGVD)...";
+            step.FaseActual = deltaDesde.HasValue
+                ? $"Modo DELTA desde {deltaDesde.Value:dd/MM HH:mm} (BDForceGVD)..."
+                : "Modo FULL: conectando a Force Nuevo (BDForceGVD)...";
             step.UltimoOrigenDisparo = origen;
+            step.UltimoModoEjecutado = _activeRunModoEjecutado;
             step.UltimoError = null;
 
             RegistrarEvento(step.StepKey, step.NombrePaso, "INFO", origen,
-                $"▶ Iniciando subida hacia MongoDB [{step.ColeccionMongoDestino}]...");
+                deltaDesde.HasValue
+                    ? $"⚡ [DELTA >= {deltaDesde.Value:dd/MM HH:mm}] Subiendo cambios hacia [{step.ColeccionMongoDestino}]..."
+                    : $"▶ [FULL] Iniciando carga completa hacia MongoDB [{step.ColeccionMongoDestino}]...");
 
             try
             {
@@ -1792,24 +1825,40 @@ namespace IntegradorFlexForce.Services
                 step.DocsInsertadosMongo = resultado.insertados;
                 step.DocsActualizadosMongo = resultado.actualizados;
                 step.UltimaEjecucion = finDt;
+                step.UltimaSincronizacionWatermark = inicioDt;
+                step.UltimoModoEjecutado = _activeRunModoEjecutado;
                 if (step.ModoProgramacion == "DIARIO")
                     step.UltimaFechaDiaria = finDt.ToString("yyyy-MM-dd");
                 step.UltimaDuracionSegundos = durSeg;
                 step.TotalEjecuciones++;
                 step.ProgresoPorcentaje = 100;
                 step.Estado = "COMPLETADO";
-                step.FaseActual = $"Completado en {durSeg:F2}s";
-                step.UltimoMensaje = $"✓ {resultado.leidos:N0} leídos · +{resultado.insertados:N0} nuevos · {resultado.actualizados:N0} act. ({durSeg:F2}s)";
+                step.FaseActual = $"[{_activeRunModoEjecutado}] Completado en {durSeg:F2}s";
+                step.UltimoMensaje = resultado.leidos == 0 && _activeRunModoEjecutado == "DELTA"
+                    ? $"⚡ [DELTA] Sin cambios nuevos ({durSeg:F2}s)"
+                    : $"✓ [{_activeRunModoEjecutado}] {resultado.leidos:N0} leídos · +{resultado.insertados:N0} nuevos · {resultado.actualizados:N0} act. ({durSeg:F2}s)";
+
+                // Persistir nuevo watermark en disco para que la próxima corrida sea DELTA
+                GuardarConfiguracionDisco();
 
                 // Actualizar conteo de validación tras subida exitosa
                 try
                 {
                     long mongoCountNow = await db.GetCollection<BsonDocument>(step.ColeccionMongoDestino)
                         .EstimatedDocumentCountAsync(cancellationToken: ct);
-                    step.ConteoForceValidado = resultado.leidos;
                     step.ConteoMongoValidado = mongoCountNow;
-                    step.DiferenciaValidada = resultado.leidos - mongoCountNow;
-                    step.SemaforoValidacion = resultado.leidos == mongoCountNow ? "ALINEADO" : "DESFASADO";
+                    if (_activeRunModoEjecutado == "FULL")
+                    {
+                        step.ConteoForceValidado = resultado.leidos;
+                        step.DiferenciaValidada = resultado.leidos - mongoCountNow;
+                        step.SemaforoValidacion = resultado.leidos == mongoCountNow ? "ALINEADO" : "DESFASADO";
+                    }
+                    else
+                    {
+                        step.ConteoForceValidado = mongoCountNow;
+                        step.DiferenciaValidada = 0;
+                        step.SemaforoValidacion = "ALINEADO";
+                    }
                     step.FechaUltimaValidacion = finDt;
                     step.ErrorValidacion = null;
                 }
@@ -1883,10 +1932,87 @@ namespace IntegradorFlexForce.Services
                     catch { }
                 }
             }
+            finally
+            {
+                _activeRunDeltaDesde = null;
+            }
         }
 
         // =========================================================================
-        // PATRÓN 1: BULKWRITE UPSERT POR ID_Vega (CATÁLOGOS Y MAESTROS)
+        // MOTOR DELTA INCREMENTAL (FechaCreacion / FechaModificacion)
+        // =========================================================================
+        private static string ObtenerCondicionDeltaPaso(string stepKey) => stepKey switch
+        {
+            "cli_departamentos" => "(ISNULL(d.FechaModificacion, d.FechaCreacion) >= @DeltaDesde OR d.FechaCreacion >= @DeltaDesde)",
+            "cli_provincias" => "(ISNULL(pp.FechaModificacion, pp.FechaCreacion) >= @DeltaDesde OR pp.FechaCreacion >= @DeltaDesde)",
+            "cli_distritos" => "(ISNULL(d.FechaModificacion, d.FechaCreacion) >= @DeltaDesde OR d.FechaCreacion >= @DeltaDesde)",
+            "cli_tipodoc" => "(ISNULL(c.FechaModificacion, c.FechaCreacion) >= @DeltaDesde OR c.FechaCreacion >= @DeltaDesde)",
+            "cli_zonas" => "(ISNULL(z.FechaModificacion, z.FechaCreacion) >= @DeltaDesde OR z.FechaCreacion >= @DeltaDesde)",
+            "cli_categorias" => "(ISNULL(ca.FechaModificacion, ca.FechaCreacion) >= @DeltaDesde OR ca.FechaCreacion >= @DeltaDesde)",
+            "cli_tipos" => "(ISNULL(cc.FechaModificacion, cc.FechaCreacion) >= @DeltaDesde OR cc.FechaCreacion >= @DeltaDesde)",
+            "cli_caracteristicas" => "(ISNULL(c.FechaModificacion, c.FechaCreacion) >= @DeltaDesde OR c.FechaCreacion >= @DeltaDesde)",
+            "cli_direccion_cliente" => "(ISNULL(d.FechaModificacion, d.FechaCreacion) >= @DeltaDesde OR d.FechaCreacion >= @DeltaDesde)",
+            "cli_master_persona" => "(ISNULL(c.FechaModificacion, c.FechaCreacion) >= @DeltaDesde OR c.FechaCreacion >= @DeltaDesde)",
+            "cli_base_cliente" => "(ISNULL(C.FechaModificacion, C.FechaCreacion) >= @DeltaDesde OR C.FechaCreacion >= @DeltaDesde)",
+            "cli_direcciones" => "(ISNULL(dd.FechaModificacion, dd.FechaCreacion) >= @DeltaDesde OR ISNULL(ed.FechaModificacion, ed.FechaCreacion) >= @DeltaDesde)",
+            "cli_conversion" => "(ISNULL(c.FechaModificacion, c.FechaCreacion) >= @DeltaDesde OR c.FechaCreacion >= @DeltaDesde)",
+            "cli_vista_general" => "(ISNULL(c.FechaModificacion, c.FechaCreacion) >= @DeltaDesde OR c.FechaCreacion >= @DeltaDesde)",
+
+            "prd_marcas" => "(ISNULL(m.FechaModificacion, m.FechaCreacion) >= @DeltaDesde OR m.FechaCreacion >= @DeltaDesde)",
+            "prd_lineas" => "(ISNULL(l.FechaModificacion, l.FechaCreacion) >= @DeltaDesde OR l.FechaCreacion >= @DeltaDesde)",
+            "prd_subproveedores" => "(ISNULL(s.FechaModificacion, s.FechaCreacion) >= @DeltaDesde OR s.FechaCreacion >= @DeltaDesde)",
+            "prd_proveedores" => "(ISNULL(pro.FechaModificacion, pro.FechaCreacion) >= @DeltaDesde OR pro.FechaCreacion >= @DeltaDesde)",
+            "prd_unidad_factor" => "(ISNULL(o.FechaModificacion, o.FechaCreacion) >= @DeltaDesde OR o.FechaCreacion >= @DeltaDesde)",
+            "prd_mercaderia_a" => "(ISNULL(pro.FechaModificacion, pro.FechaCreacion) >= @DeltaDesde OR pro.FechaCreacion >= @DeltaDesde)",
+            "prd_conversion" => "(ISNULL(pro.FechaModificacion, pro.FechaCreacion) >= @DeltaDesde OR pro.FechaCreacion >= @DeltaDesde)",
+            "prd_vista_general" => "(ISNULL(pro.FechaModificacion, pro.FechaCreacion) >= @DeltaDesde OR pro.FechaCreacion >= @DeltaDesde)",
+
+            "vnd_sucursales" => "(ISNULL(s.FechaModificacion, s.FechaCreacion) >= @DeltaDesde OR s.FechaCreacion >= @DeltaDesde)",
+            "vnd_fuerzaventas" => "(ISNULL(f.FechaModificacion, f.FechaCreacion) >= @DeltaDesde OR f.FechaCreacion >= @DeltaDesde)",
+            "vnd_equipoventas" => "(ISNULL(g.FechaModificacion, g.FechaCreacion) >= @DeltaDesde OR g.FechaCreacion >= @DeltaDesde)",
+            "vnd_vendedor_base" => "(ISNULL(v.FechaModificacion, v.FechaCreacion) >= @DeltaDesde OR ISNULL(g.FechaModificacion, g.FechaCreacion) >= @DeltaDesde)",
+            "vnd_conversion" => "(ISNULL(v.FechaModificacion, v.FechaCreacion) >= @DeltaDesde OR ISNULL(g.FechaModificacion, g.FechaCreacion) >= @DeltaDesde)",
+            "vnd_vista_general" => "(ISNULL(v.FechaModificacion, v.FechaCreacion) >= @DeltaDesde OR ISNULL(g.FechaModificacion, g.FechaCreacion) >= @DeltaDesde)",
+
+            "ops_radar_stock" => "(ISNULL(p.FechaModificacion, p.FechaCreacion) >= @DeltaDesde OR ISNULL(pp.FechaModificacion, pp.FechaCreacion) >= @DeltaDesde)",
+            "ops_lista_precios" => "(ISNULL(pp.FechaModificacion, pp.FechaCreacion) >= @DeltaDesde OR ISNULL(i.FechaModificacion, i.FechaCreacion) >= @DeltaDesde OR ISNULL(p.FechaModificacion, p.FechaCreacion) >= @DeltaDesde OR ISNULL(ll.FechaModificacion, ll.FechaCreacion) >= @DeltaDesde)",
+            _ => string.Empty
+        };
+
+        private static string AplicarFiltroDeltaSql(string sqlBase, string deltaCondicion)
+        {
+            if (string.IsNullOrWhiteSpace(deltaCondicion)) return sqlBase;
+            string sql = sqlBase.Trim().TrimEnd(';');
+
+            int orderIdx = sql.LastIndexOf("ORDER BY", StringComparison.OrdinalIgnoreCase);
+            string head = orderIdx >= 0 ? sql.Substring(0, orderIdx).TrimEnd() : sql;
+            string tail = orderIdx >= 0 ? " " + sql.Substring(orderIdx).Trim() : "";
+
+            // Evaluar si el bloque principal (después del último ')') ya tiene WHERE
+            int lastCloseParen = head.LastIndexOf(')');
+            string mainQueryPart = lastCloseParen >= 0 ? head.Substring(lastCloseParen) : head;
+            bool hasWhere = mainQueryPart.IndexOf("WHERE", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            return hasWhere
+                ? $"{head} AND {deltaCondicion}{tail};"
+                : $"{head} WHERE {deltaCondicion}{tail};";
+        }
+
+        private static async Task AsegurarIndiceCampoAsync(IMongoCollection<BsonDocument> col, string fieldName, CancellationToken ct)
+        {
+            try
+            {
+                await col.Indexes.CreateOneAsync(
+                    new CreateIndexModel<BsonDocument>(
+                        Builders<BsonDocument>.IndexKeys.Ascending(fieldName),
+                        new CreateIndexOptions { Background = true }),
+                    cancellationToken: ct);
+            }
+            catch { }
+        }
+
+        // =========================================================================
+        // PATRÓN 1: BULKWRITE UPSERT POR ID_Vega (ÍNDICE PREVIO + DELTA INCREMENTAL)
         // =========================================================================
         private async Task<(long Leidos, long Insertados, long Actualizados)> SyncBulkUpsertPorIdVegaAsync(
             TraddeStepStatusDto step,
@@ -1894,31 +2020,57 @@ namespace IntegradorFlexForce.Services
             string collectionName,
             string sqlQuery,
             Func<SqlDataReader, BsonDocument> mapRow,
-            CancellationToken ct)
+            CancellationToken ct,
+            string keyField = "ID_Vega")
         {
             var col = db.GetCollection<BsonDocument>(collectionName);
             const int batchSize = 2500;
 
+            // CRÍTICO: Crear índice ANTES de hacer BulkWrite para evitar Full Collection Scan en MongoDB
+            step.FaseActual = $"Verificando índice [{keyField}] en {collectionName}...";
+            step.ProgresoPorcentaje = 10;
+            await AsegurarIndiceCampoAsync(col, keyField, ct);
+
+            DateTime? deltaDesde = _activeRunDeltaDesde;
+            if (deltaDesde.HasValue)
+            {
+                long existing = await col.EstimatedDocumentCountAsync(cancellationToken: ct);
+                if (existing == 0)
+                {
+                    deltaDesde = null;
+                    _activeRunModoEjecutado = "FULL";
+                }
+            }
+
+            string finalSql = deltaDesde.HasValue
+                ? AplicarFiltroDeltaSql(sqlQuery, ObtenerCondicionDeltaPaso(step.StepKey))
+                : sqlQuery;
+
             long leidos = 0, insertados = 0, actualizados = 0;
             var ops = new List<WriteModel<BsonDocument>>(batchSize);
 
-            step.FaseActual = "Extrayendo desde BDForceGVD...";
-            step.ProgresoPorcentaje = 15;
+            step.FaseActual = deltaDesde.HasValue
+                ? $"Consultando cambios DELTA desde {deltaDesde.Value:dd/MM HH:mm}..."
+                : "Extrayendo catálogo completo desde BDForceGVD...";
+            step.ProgresoPorcentaje = 20;
 
             using var conn = new SqlConnection(_sqlForceConnectionString);
             await conn.OpenAsync(ct);
-            using var cmd = new SqlCommand(sqlQuery, conn) { CommandTimeout = 180 };
+            using var cmd = new SqlCommand(finalSql, conn) { CommandTimeout = 180 };
+            if (deltaDesde.HasValue)
+                cmd.Parameters.Add("@DeltaDesde", System.Data.SqlDbType.DateTime2).Value = deltaDesde.Value;
+
             using var reader = await cmd.ExecuteReaderAsync(ct);
 
             step.FaseActual = $"Subiendo lotes a {collectionName}...";
-            step.ProgresoPorcentaje = 35;
+            step.ProgresoPorcentaje = 40;
 
             while (await reader.ReadAsync(ct))
             {
                 leidos++;
                 var doc = mapRow(reader);
-                var idVega = doc["ID_Vega"];
-                var filter = Builders<BsonDocument>.Filter.Eq("ID_Vega", idVega);
+                var keyVal = doc[keyField];
+                var filter = Builders<BsonDocument>.Filter.Eq(keyField, keyVal);
                 var update = new BsonDocument("$set", doc);
                 ops.Add(new UpdateOneModel<BsonDocument>(filter, update) { IsUpsert = true });
 
@@ -1929,7 +2081,7 @@ namespace IntegradorFlexForce.Services
                     actualizados += res.ModifiedCount;
                     ops.Clear();
                     step.FaseActual = $"Sincronizados {leidos:N0} registros en {collectionName}...";
-                    step.ProgresoPorcentaje = Math.Min(90, step.ProgresoPorcentaje + 10);
+                    step.ProgresoPorcentaje = Math.Min(92, step.ProgresoPorcentaje + 10);
                 }
             }
 
@@ -1941,21 +2093,11 @@ namespace IntegradorFlexForce.Services
                 ops.Clear();
             }
 
-            try
-            {
-                await col.Indexes.CreateOneAsync(
-                    new CreateIndexModel<BsonDocument>(
-                        Builders<BsonDocument>.IndexKeys.Ascending("ID_Vega"),
-                        new CreateIndexOptions { Background = true }),
-                    cancellationToken: ct);
-            }
-            catch { }
-
             return (leidos, insertados, actualizados);
         }
 
         // =========================================================================
-        // PATRÓN 2: REEMPLAZO ATÓMICO ZERO-DOWNTIME (TEMP -> INDEX -> RENAME)
+        // PATRÓN 2: DELTA ULTRA-RÁPIDO (si hay watermark) O SWAP ATÓMICO FULL
         // =========================================================================
         private async Task<(long Leidos, long Insertados, long Actualizados)> SyncAtomicTempSwapAsync(
             TraddeStepStatusDto step,
@@ -1969,6 +2111,19 @@ namespace IntegradorFlexForce.Services
             string? migrationStatusType,
             CancellationToken ct)
         {
+            // Si estamos en modo DELTA y la colección destino ya existe en MongoDB, hacer Bulk Upsert incremental ultra-rápido!
+            if (_activeRunDeltaDesde.HasValue)
+            {
+                long existing = await db.GetCollection<BsonDocument>(finalCollectionName)
+                    .EstimatedDocumentCountAsync(cancellationToken: ct);
+                if (existing > 0)
+                {
+                    string keyField = step.StepKey == "cli_base_cliente" ? "PKID" : "ID_Vega";
+                    return await SyncBulkUpsertPorIdVegaAsync(step, db, finalCollectionName, sqlQuery, mapRow, ct, keyField);
+                }
+                _activeRunModoEjecutado = "FULL";
+            }
+
             var inicioUtc = DateTime.UtcNow;
             int batchSize;
             lock (_configLock) { batchSize = _config.BatchSizeMongo; }
@@ -2126,12 +2281,31 @@ namespace IntegradorFlexForce.Services
             long leidos = 0, insertados = 0, actualizados = 0;
             var nowUtc = DateTime.UtcNow;
 
-            step.FaseActual = "Consultando existencias de almacenes centrales en Force...";
+            DateTime? deltaDesde = _activeRunDeltaDesde;
+            if (deltaDesde.HasValue)
+            {
+                long existing = await col.EstimatedDocumentCountAsync(cancellationToken: ct);
+                if (existing == 0)
+                {
+                    deltaDesde = null;
+                    _activeRunModoEjecutado = "FULL";
+                }
+            }
+
+            string finalSqlStock = deltaDesde.HasValue
+                ? AplicarFiltroDeltaSql(sqlStock, ObtenerCondicionDeltaPaso(step.StepKey))
+                : sqlStock;
+
+            step.FaseActual = deltaDesde.HasValue
+                ? $"Consultando stock DELTA desde {deltaDesde.Value:dd/MM HH:mm}..."
+                : "Consultando existencias completas de almacenes centrales en Force...";
             step.ProgresoPorcentaje = 20;
 
             using var conn = new SqlConnection(_sqlForceConnectionString);
             await conn.OpenAsync(ct);
-            using var cmd = new SqlCommand(sqlStock, conn) { CommandTimeout = 180 };
+            using var cmd = new SqlCommand(finalSqlStock, conn) { CommandTimeout = 180 };
+            if (deltaDesde.HasValue)
+                cmd.Parameters.Add("@DeltaDesde", System.Data.SqlDbType.DateTime2).Value = deltaDesde.Value;
             using var reader = await cmd.ExecuteReaderAsync(ct);
 
             while (await reader.ReadAsync(ct))
@@ -2196,6 +2370,94 @@ namespace IntegradorFlexForce.Services
             const string tmpName = "lista_precios_radar_tmp";
 
             var mainCol = db.GetCollection<BsonDocument>(mainName);
+
+            const string sqlPrecios = @"
+                SELECT i.IDProducto AS Id_Producto,
+                       p.IDUnidad AS Id_Unidad,
+                       CAST(ISNULL(pp.Desde, 0) AS int) AS Desde,
+                       CAST(ISNULL(pp.Hasta, 0) AS int) AS Hasta,
+                       CAST(ISNULL(pp.Precio, 0) AS decimal(18,6)) AS Precio,
+                       LTRIM(RTRIM(ISNULL(ll.Nombre, ''))) AS Canal
+                FROM dbo.prc_ItemPrecioProducto i WITH (NOLOCK)
+                INNER JOIN dbo.prc_PrecioProductoUnidad p WITH (NOLOCK) ON i.ID = p.IDItemPrecioProducto
+                INNER JOIN dbo.prc_ListaPrecio ll WITH (NOLOCK) ON ll.ID = i.IDListaPrecios
+                INNER JOIN dbo.prc_PrecioEscala pp WITH (NOLOCK) ON pp.IDUnidadItemListaPrecios = p.ID
+                WHERE ISNULL(ll.Estado, 1) = 1
+                  AND ISNULL(ll.Eliminado, 0) = 0;";
+
+            // MODO DELTA ULTRA-RÁPIDO para Lista de Precios (solo escalas/precios nuevos o modificados)
+            if (_activeRunDeltaDesde.HasValue)
+            {
+                long existing = await mainCol.EstimatedDocumentCountAsync(cancellationToken: ct);
+                if (existing > 0)
+                {
+                    await AsegurarIndiceCampoAsync(mainCol, "clave_compuesta", ct);
+                    string deltaSql = AplicarFiltroDeltaSql(sqlPrecios, ObtenerCondicionDeltaPaso(step.StepKey));
+                    var nowDeltaBson = new BsonDateTime(DateTime.UtcNow);
+                    var ops = new List<WriteModel<BsonDocument>>(2000);
+                    long leidosDelta = 0, insDelta = 0, modDelta = 0;
+
+                    step.FaseActual = $"Consultando precios DELTA desde {_activeRunDeltaDesde.Value:dd/MM HH:mm}...";
+                    step.ProgresoPorcentaje = 25;
+
+                    using var connD = new SqlConnection(_sqlForceConnectionString);
+                    await connD.OpenAsync(ct);
+                    using var cmdD = new SqlCommand(deltaSql, connD) { CommandTimeout = 180 };
+                    cmdD.Parameters.Add("@DeltaDesde", System.Data.SqlDbType.DateTime2).Value = _activeRunDeltaDesde.Value;
+                    using var readerD = await cmdD.ExecuteReaderAsync(ct);
+
+                    while (await readerD.ReadAsync(ct))
+                    {
+                        leidosDelta++;
+                        int idProd = GetInt(readerD, 0);
+                        int idUnid = GetInt(readerD, 1);
+                        int desde = GetInt(readerD, 2);
+                        int hasta = GetInt(readerD, 3);
+                        decimal precioDec = readerD.IsDBNull(4) ? 0m : readerD.GetDecimal(4);
+                        string canal = GetStr(readerD, 5);
+                        string clave = $"{idProd}_{idUnid}_{canal}";
+
+                        var setDoc = new BsonDocument
+                        {
+                            ["Id_Producto"] = idProd,
+                            ["Id_Unidad"] = idUnid,
+                            ["Desde"] = desde,
+                            ["Hasta"] = hasta,
+                            ["Precio"] = new BsonDecimal128(new Decimal128(Math.Round(precioDec, 6))),
+                            ["Canal"] = canal,
+                            ["clave_compuesta"] = clave,
+                            ["updated_at"] = nowDeltaBson
+                        };
+                        var filter = Builders<BsonDocument>.Filter.Eq("clave_compuesta", clave);
+                        var update = new BsonDocument
+                        {
+                            ["$set"] = setDoc,
+                            ["$setOnInsert"] = new BsonDocument("created_at", nowDeltaBson)
+                        };
+                        ops.Add(new UpdateOneModel<BsonDocument>(filter, update) { IsUpsert = true });
+
+                        if (ops.Count >= 2000)
+                        {
+                            var res = await mainCol.BulkWriteAsync(ops, new BulkWriteOptions { IsOrdered = false }, ct);
+                            insDelta += res.Upserts.Count;
+                            modDelta += res.ModifiedCount;
+                            ops.Clear();
+                        }
+                    }
+
+                    if (ops.Count > 0)
+                    {
+                        var res = await mainCol.BulkWriteAsync(ops, new BulkWriteOptions { IsOrdered = false }, ct);
+                        insDelta += res.Upserts.Count;
+                        modDelta += res.ModifiedCount;
+                        ops.Clear();
+                    }
+
+                    return (leidosDelta, insDelta, modDelta);
+                }
+                _activeRunModoEjecutado = "FULL";
+            }
+
             var createdPrevios = new Dictionary<string, BsonValue>(StringComparer.Ordinal);
 
             step.FaseActual = "Preservando marcas de tiempo created_at previas...";
@@ -2220,20 +2482,6 @@ namespace IntegradorFlexForce.Services
             catch { }
 
             try { await db.DropCollectionAsync(tmpName, ct); } catch { }
-
-            const string sqlPrecios = @"
-                SELECT i.IDProducto AS Id_Producto,
-                       p.IDUnidad AS Id_Unidad,
-                       CAST(ISNULL(pp.Desde, 0) AS int) AS Desde,
-                       CAST(ISNULL(pp.Hasta, 0) AS int) AS Hasta,
-                       CAST(ISNULL(pp.Precio, 0) AS decimal(18,6)) AS Precio,
-                       LTRIM(RTRIM(ISNULL(ll.Nombre, ''))) AS Canal
-                FROM dbo.prc_ItemPrecioProducto i WITH (NOLOCK)
-                INNER JOIN dbo.prc_PrecioProductoUnidad p WITH (NOLOCK) ON i.ID = p.IDItemPrecioProducto
-                INNER JOIN dbo.prc_ListaPrecio ll WITH (NOLOCK) ON ll.ID = i.IDListaPrecios
-                INNER JOIN dbo.prc_PrecioEscala pp WITH (NOLOCK) ON pp.IDUnidadItemListaPrecios = p.ID
-                WHERE ISNULL(ll.Estado, 1) = 1
-                  AND ISNULL(ll.Eliminado, 0) = 0;";
 
             var docsPorClave = new Dictionary<string, BsonDocument>(StringComparer.Ordinal);
             long leidos = 0;
