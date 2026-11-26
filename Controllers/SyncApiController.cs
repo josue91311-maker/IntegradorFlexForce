@@ -16,6 +16,7 @@ namespace IntegradorFlexForce.Controllers
         private readonly SyncStockEngine _syncStockEngine;
         private readonly SyncPedidosEngine _syncPedidosEngine;
         private readonly SyncComprobantesEngine _syncComprobantesEngine;
+        private readonly TraddeUpdateEngine _traddeUpdateEngine;
         private readonly SyncBackgroundWorker _backgroundWorker;
 
         public SyncApiController(
@@ -25,6 +26,7 @@ namespace IntegradorFlexForce.Controllers
             SyncStockEngine syncStockEngine,
             SyncPedidosEngine syncPedidosEngine,
             SyncComprobantesEngine syncComprobantesEngine,
+            TraddeUpdateEngine traddeUpdateEngine,
             SyncBackgroundWorker backgroundWorker)
         {
             _syncEngine = syncEngine;
@@ -33,6 +35,7 @@ namespace IntegradorFlexForce.Controllers
             _syncStockEngine = syncStockEngine;
             _syncPedidosEngine = syncPedidosEngine;
             _syncComprobantesEngine = syncComprobantesEngine;
+            _traddeUpdateEngine = traddeUpdateEngine;
             _backgroundWorker = backgroundWorker;
         }
 
@@ -392,6 +395,63 @@ namespace IntegradorFlexForce.Controllers
                 ct);
 
             return Ok(monitor);
+        }
+
+        // =========================================================================
+        // MÓDULO TRADDEUPDATE (BDFORCEGVD -> MONGODB tradde-mixtos)
+        // =========================================================================
+
+        [HttpGet("tradde/dashboard")]
+        public IActionResult GetTraddeDashboard()
+        {
+            return Ok(_traddeUpdateEngine.ObtenerDashboardSnapshot());
+        }
+
+        [HttpPost("tradde/test-conexion")]
+        public async Task<IActionResult> TestTraddeConexion(CancellationToken ct)
+        {
+            var res = await _traddeUpdateEngine.ProbarConexionesAsync(ct);
+            return Ok(res);
+        }
+
+        [HttpPost("tradde/ejecutar")]
+        public IActionResult EjecutarTradde([FromBody] TraddeExecuteRequestDto req)
+        {
+            if (req == null)
+                return BadRequest(new { message = "Solicitud de ejecución inválida." });
+
+            var (encolados, mensaje) = _traddeUpdateEngine.EncolarEjecucion(req, "MANUAL");
+            return Accepted(new { encolados, message = mensaje });
+        }
+
+        [HttpPost("tradde/cancelar-cola")]
+        public IActionResult CancelarColaTradde()
+        {
+            int cancelados = _traddeUpdateEngine.LimpiarColaPendiente();
+            return Ok(new { cancelados, message = cancelados > 0 ? $"Se cancelaron {cancelados} paso(s) en cola." : "No había pasos pendientes en cola." });
+        }
+
+        [HttpPost("tradde/config-global")]
+        public IActionResult ActualizarConfigGlobalTradde([FromBody] TraddeUpdateGlobalRequestDto req)
+        {
+            if (req == null)
+                return BadRequest(new { message = "Configuración inválida." });
+
+            _traddeUpdateEngine.ActualizarConfigGlobal(req);
+            return Ok(new { message = "Configuración global de TraddeUpdate guardada.", dashboard = _traddeUpdateEngine.ObtenerDashboardSnapshot() });
+        }
+
+        [HttpPost("tradde/programar-paso")]
+        public IActionResult ProgramarPasoTradde([FromBody] TraddeStepScheduleConfigDto req)
+        {
+            if (req == null || string.IsNullOrWhiteSpace(req.StepKey))
+                return BadRequest(new { message = "Debe especificar StepKey." });
+
+            bool ok = _traddeUpdateEngine.ActualizarProgramacionPaso(req);
+            if (!ok)
+                return NotFound(new { message = $"No se encontró el paso '{req.StepKey}'." });
+
+            return Ok(new { message = "Programación del paso actualizada.", dashboard = _traddeUpdateEngine.ObtenerDashboardSnapshot() });
         }
     }
 }

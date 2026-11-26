@@ -15,8 +15,11 @@ builder.Services.AddSingleton<SyncVendedoresEngine>();
 builder.Services.AddSingleton<SyncStockEngine>();
 builder.Services.AddSingleton<SyncPedidosEngine>();
 builder.Services.AddSingleton<SyncComprobantesEngine>();
+builder.Services.AddSingleton<TraddeUpdateEngine>();
 builder.Services.AddSingleton<SyncBackgroundWorker>();
+builder.Services.AddSingleton<TraddeUpdateBackgroundWorker>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<SyncBackgroundWorker>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<TraddeUpdateBackgroundWorker>());
 
 // Habilitar CORS si se requiere acceso desde otra IP
 builder.Services.AddCors(options =>
